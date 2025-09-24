@@ -105,7 +105,7 @@
                 <li><strong>Add scores</strong> for different students and categories</li>
                 <li><strong>Test on multiple devices</strong> to see real-time sync</li>
             </ol>
-            <p><strong>💡 Tip:</strong> Each QR code contains a unique student ID. The app will ask you to enter the student's name when you first scan their code.</p>
+            <p><strong>💡 ملاحظة:</strong> كل رمز QR يحتوي على اسم الطالب مباشرة. يمكنك تعديل الاسم في التطبيق إذا لزم الأمر.</p>
         </div>
 
         <button class="print-button" onclick="window.print()">🖨️ Print QR Codes</button>
@@ -116,28 +116,28 @@
     </div>
 
     <script>
-        // Sample student IDs for testing
+        // Sample student names for testing (QR codes now contain names directly)
         const students = [
-            { id: 'STU001', name: 'John Smith' },
-            { id: 'STU002', name: 'Emma Johnson' },
-            { id: 'STU003', name: 'Michael Brown' },
-            { id: 'STU004', name: 'Sarah Davis' },
-            { id: 'STU005', name: 'David Wilson' },
-            { id: 'STU006', name: 'Lisa Anderson' },
-            { id: 'STU007', name: 'James Taylor' },
-            { id: 'STU008', name: 'Jennifer Garcia' },
-            { id: 'STU009', name: 'Robert Martinez' },
-            { id: 'STU010', name: 'Maria Rodriguez' },
-            { id: 'STU011', name: 'Christopher Lee' },
-            { id: 'STU012', name: 'Ashley White' },
-            { id: 'STU013', name: 'Daniel Harris' },
-            { id: 'STU014', name: 'Jessica Clark' },
-            { id: 'STU015', name: 'Matthew Lewis' },
-            { id: 'STU016', name: 'Amanda Walker' },
-            { id: 'STU017', name: 'Anthony Hall' },
-            { id: 'STU018', name: 'Stephanie Young' },
-            { id: 'STU019', name: 'Joshua King' },
-            { id: 'STU020', name: 'Nicole Wright' }
+            'يوحنا مينا',
+            'مينا عادل',
+            'ماريو جرجس',
+            'مرتا فاروق',
+            'مارك زكريا',
+            'ملاك جورج',
+            'فيبي بشارة',
+            'مارك إميل',
+            'يوسف عادل',
+            'مينا مجدي',
+            'مارك سعد',
+            'مريم رفيق',
+            'ماريو عاطف',
+            'هانا جرجس',
+            'فادي بهاء',
+            'فيرينا نبيل',
+            'مارينا مرقس',
+            'مارعي صاموئيل',
+            'مارك هاني',
+            'ميرنا عزيز'
         ];
 
         // Generate QR codes when page loads
@@ -151,7 +151,7 @@
 
                 // Create title
                 const title = document.createElement('h3');
-                title.textContent = student.name;
+                title.textContent = student;
                 card.appendChild(title);
 
                 // Create QR code container
@@ -159,17 +159,17 @@
                 qrContainer.className = 'qr-code';
                 card.appendChild(qrContainer);
 
-                // Create student ID display
-                const idDisplay = document.createElement('div');
-                idDisplay.className = 'student-id';
-                idDisplay.textContent = `ID: ${student.id}`;
-                card.appendChild(idDisplay);
+                // Create student name display
+                const nameDisplay = document.createElement('div');
+                nameDisplay.className = 'student-id';
+                nameDisplay.textContent = student;
+                card.appendChild(nameDisplay);
 
                 // Add card to grid
                 qrGrid.appendChild(card);
 
-                // Generate QR code
-                QRCode.toCanvas(qrContainer, student.id, {
+                // Generate QR code with student name
+                QRCode.toCanvas(qrContainer, student, {
                     width: 150,
                     height: 150,
                     margin: 2,

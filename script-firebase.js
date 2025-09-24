@@ -5,6 +5,16 @@ let studentsData = {};
 let isFirebaseConnected = false;
 let firebaseListeners = [];
 
+// Define all possible score types
+const ALL_SCORE_TYPES = [
+    'حضور القداس',
+    'لبس شماس',
+    'حضور الاجتماع من الأول من ١١ ونص لـ ١١:٤٠',
+    'اعتراف شهري',
+    'مسابقة رياضية',
+    'كل مجموعة هتكون فريق (محتاجين حد يشرح)'
+];
+
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
     initializeApp();
@@ -172,24 +182,16 @@ function onScanSuccess(decodedText, decodedResult) {
         html5QrcodeScanner.pause(true);
     }
 
-    // Extract student ID from QR code
-    const studentId = decodedText.trim();
+    // The QR code now contains the student name directly
+    const studentName = decodedText.trim();
 
-    // Show scoring form
-    document.getElementById('studentId').value = studentId;
-
-    // Pre-fill student name if exists
-    if (studentsData[studentId]) {
-        document.getElementById('studentName').value = studentsData[studentId].name;
-    } else {
-        document.getElementById('studentName').value = '';
-    }
-
+    // Show scoring form with the scanned name
+    document.getElementById('studentName').value = studentName;
     document.getElementById('scoreType').value = '';
-    document.getElementById('score').value = '';
+    document.getElementById('score').value = '1'; // Default 1 point
     document.getElementById('scoringForm').classList.remove('hidden');
 
-    showNotification(`Student ID scanned: ${studentId}`, 'success');
+    showNotification(`اسم الطالب: ${studentName}`, 'success');
 }
 
 function onScanFailure(error) {
@@ -199,26 +201,28 @@ function onScanFailure(error) {
 
 // Scoring functions
 async function submitScore() {
-    const studentId = document.getElementById('studentId').value;
     const studentName = document.getElementById('studentName').value.trim();
     const scoreType = document.getElementById('scoreType').value;
     const score = parseFloat(document.getElementById('score').value);
 
     // Validation
     if (!studentName) {
-        showNotification('Please enter student name', 'error');
+        showNotification('يرجى إدخال اسم الطالب', 'error');
         return;
     }
 
     if (!scoreType) {
-        showNotification('Please select score type', 'error');
+        showNotification('يرجى اختيار نوع النشاط', 'error');
         return;
     }
 
     if (isNaN(score) || score < 0 || score > 100) {
-        showNotification('Please enter a valid score (0-100)', 'error');
+        showNotification('يرجى إدخال نقاط صحيحة (0-100)', 'error');
         return;
     }
+
+    // Use student name as the key (ID)
+    const studentId = studentName;
 
     // Store score locally first
     if (!studentsData[studentId]) {
@@ -230,19 +234,24 @@ async function submitScore() {
         };
     }
 
-    studentsData[studentId].name = studentName;
-    studentsData[studentId].scores[scoreType] = score;
+    // Add the new score (accumulate if already exists)
+    if (studentsData[studentId].scores[scoreType]) {
+        studentsData[studentId].scores[scoreType] += score;
+    } else {
+        studentsData[studentId].scores[scoreType] = score;
+    }
+
     studentsData[studentId].lastUpdated = new Date().toISOString();
     studentsData[studentId].lastUpdatedBy = currentAdmin;
 
     // Save to Firebase (with fallback to localStorage)
     try {
         await saveToFirebase(studentId, studentsData[studentId]);
-        showNotification(`Score submitted: ${studentName} - ${scoreType}: ${score}`, 'success');
+        showNotification(`تم إضافة ${score} نقطة لـ ${studentName} في ${scoreType}`, 'success');
     } catch (error) {
         console.error('Save error:', error);
         saveData(); // Fall back to localStorage
-        showNotification(`Score saved locally: ${studentName} - ${scoreType}: ${score}`, 'info');
+        showNotification(`تم حفظ النقاط محلياً: ${studentName} - ${scoreType}: ${score}`, 'info');
     }
 
     // Reset form and resume scanning
@@ -253,10 +262,9 @@ function cancelScoring() {
     document.getElementById('scoringForm').classList.add('hidden');
 
     // Clear form
-    document.getElementById('studentId').value = '';
     document.getElementById('studentName').value = '';
     document.getElementById('scoreType').value = '';
-    document.getElementById('score').value = '';
+    document.getElementById('score').value = '1'; // Reset to default
 
     // Resume scanning
     if (html5QrcodeScanner) {
@@ -293,29 +301,23 @@ function renderScoresTable() {
     const tableContainer = document.getElementById('scoresTable');
 
     if (Object.keys(studentsData).length === 0) {
-        tableContainer.innerHTML = '<p style="text-align: center; color: #666; font-style: italic;">No student scores recorded yet.</p>';
+        tableContainer.innerHTML = '<p style="text-align: center; color: #666; font-style: italic;">لم يتم تسجيل أي نقاط بعد.</p>';
         return;
     }
 
-    // Get all unique score types
-    const scoreTypes = new Set();
-    Object.values(studentsData).forEach(student => {
-        Object.keys(student.scores || {}).forEach(type => scoreTypes.add(type));
-    });
+    // Use ALL_SCORE_TYPES to ensure all columns always appear
+    const scoreTypesArray = ALL_SCORE_TYPES;
 
-    const scoreTypesArray = Array.from(scoreTypes).sort();
-
-    // Create table HTML
+    // Create table HTML with Arabic headers
     let tableHTML = `
         <table>
             <thead>
                 <tr>
-                    <th>Student ID</th>
-                    <th>Student Name</th>
+                    <th>اسم الطالب</th>
                     ${scoreTypesArray.map(type => `<th>${type}</th>`).join('')}
-                    <th class="total-column">Total</th>
-                    <th>Last Updated</th>
-                    <th>Updated By</th>
+                    <th class="total-column">المجموع</th>
+                    <th>آخر تحديث</th>
+                    <th>المشرف</th>
                 </tr>
             </thead>
             <tbody>
@@ -337,12 +339,11 @@ function renderScoresTable() {
 
         tableHTML += `
             <tr>
-                <td>${studentId}</td>
                 <td><strong>${student.name}</strong></td>
                 ${scoresCells}
                 <td class="total-column"><strong>${total}</strong></td>
                 <td>${lastUpdated}</td>
-                <td>${student.lastUpdatedBy || 'Unknown'}</td>
+                <td>${student.lastUpdatedBy || 'غير معروف'}</td>
             </tr>
         `;
     });
@@ -357,45 +358,52 @@ function renderScoresTable() {
 
 // Excel export function
 function exportToExcel() {
-    if (Object.keys(studentsData).length === 0) {
-        showNotification('No data to export', 'error');
-        return;
-    }
-
-    // Get all unique score types
-    const scoreTypes = new Set();
-    Object.values(studentsData).forEach(student => {
-        Object.keys(student.scores || {}).forEach(type => scoreTypes.add(type));
-    });
-
-    const scoreTypesArray = Array.from(scoreTypes).sort();
+    // Use ALL_SCORE_TYPES to ensure all columns always appear in export
+    const scoreTypesArray = ALL_SCORE_TYPES;
 
     // Prepare data for Excel
     const excelData = [];
 
-    // Header row
-    const headers = ['Student ID', 'Student Name', ...scoreTypesArray, 'Total', 'Last Updated', 'Updated By'];
+    // Header row with Arabic
+    const headers = ['اسم الطالب', ...scoreTypesArray, 'المجموع', 'آخر تحديث', 'المشرف'];
     excelData.push(headers);
+
+    // If no data, still create Excel with headers
+    if (Object.keys(studentsData).length === 0) {
+        // Create workbook with headers only
+        const ws = XLSX.utils.aoa_to_sheet(excelData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "نقاط الطلاب");
+
+        // Generate filename with timestamp
+        const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+        const filename = `student_scores_${timestamp}.xlsx`;
+
+        // Download file
+        XLSX.writeFile(wb, filename);
+        showNotification('تم تصدير ملف Excel بنجاح!', 'success');
+        return;
+    }
 
     // Data rows
     Object.entries(studentsData).forEach(([studentId, student]) => {
         let total = 0;
-        const row = [studentId, student.name];
+        const row = [student.name]; // Only student name, no ID
 
-        // Add score columns
+        // Add score columns for ALL score types
         scoreTypesArray.forEach(type => {
             const score = student.scores?.[type];
             if (score !== undefined) {
                 total += score;
                 row.push(score);
             } else {
-                row.push('');
+                row.push(0); // Show 0 instead of empty for missing scores
             }
         });
 
         row.push(total);
-        row.push(student.lastUpdated ? new Date(student.lastUpdated).toLocaleString() : 'Unknown');
-        row.push(student.lastUpdatedBy || 'Unknown');
+        row.push(student.lastUpdated ? new Date(student.lastUpdated).toLocaleString('ar-SA') : 'غير معروف');
+        row.push(student.lastUpdatedBy || 'غير معروف');
 
         excelData.push(row);
     });
@@ -403,7 +411,7 @@ function exportToExcel() {
     // Create workbook
     const ws = XLSX.utils.aoa_to_sheet(excelData);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Student Scores");
+    XLSX.utils.book_append_sheet(wb, ws, "نقاط الطلاب");
 
     // Generate filename with timestamp
     const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
@@ -412,7 +420,7 @@ function exportToExcel() {
     // Download file
     XLSX.writeFile(wb, filename);
 
-    showNotification('Excel file exported successfully!', 'success');
+    showNotification('تم تصدير ملف Excel بنجاح!', 'success');
 }
 
 // Data management functions
