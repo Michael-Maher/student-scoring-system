@@ -1,24 +1,43 @@
-# Student Scoring System
+# Student Scoring System with Real-Time Sync
 
-A web-based application for scanning student QR codes and recording scores with multi-admin support and Excel export functionality.
+A web-based application for scanning student QR codes and recording scores with **real-time synchronization** across multiple devices, multi-admin support, and Excel export functionality.
 
 ## Features
 
-- **QR Code Scanning**: Camera-based QR code scanning to identify students
-- **Score Management**: Record scores for different item types (Quiz, Assignment, Participation, Project, Exam)
-- **Multi-Admin Support**: Multiple administrators can access and update scores
-- **Excel Export**: Export all data to Excel spreadsheet with student names as rows and item types as columns
-- **Real-time Dashboard**: View all student scores in a centralized table
-- **Responsive Design**: Works on desktop and mobile devices
-- **Data Persistence**: All data stored locally in browser
+- **🔄 Real-Time Sync**: Instant data synchronization across all devices using Firebase
+- **📱 QR Code Scanning**: Camera-based QR code scanning to identify students
+- **📊 Score Management**: Record scores for different item types (Quiz, Assignment, Participation, Project, Exam)
+- **👥 Multi-Admin Support**: Multiple administrators can access and update scores simultaneously
+- **📄 Excel Export**: Export all data to Excel spreadsheet with student names as rows and item types as columns
+- **⚡ Live Dashboard**: View all student scores with real-time updates
+- **📱 Responsive Design**: Works perfectly on desktop and mobile devices
+- **🔌 Offline Support**: Works offline with automatic sync when connection is restored
+- **🎯 Sync Status**: Visual indicators showing connection and sync status
 
-## Quick Start
+## Quick Start (Local Mode)
 
 1. Open `index.html` in a web browser
 2. Enter your admin name to login
 3. Grant camera permissions when prompted
 4. Scan student QR codes to add scores
 5. Use the dashboard to view and export data
+
+## Deployment with Real-Time Sync
+
+### For Multi-Device Real-Time Synchronization:
+
+1. **Follow Firebase Setup**: See `FIREBASE_SETUP.md` for detailed Firebase configuration
+2. **Deploy to GitHub Pages**:
+   - Push code to GitHub repository
+   - Enable GitHub Pages in repository settings
+   - Access via: `https://yourusername.github.io/repository-name/`
+3. **Use on Multiple Phones**: All devices access the same URL for instant sync
+
+### Sync Status Indicators:
+- 🟢 **Green "Synced"**: All devices synchronized
+- 🟡 **Yellow "Syncing..."**: Data being updated
+- 🔴 **Red "Sync Error"**: Connection issue, using offline mode
+- ⚫ **Gray "Offline Mode"**: Local storage only
 
 ## Usage Instructions
 

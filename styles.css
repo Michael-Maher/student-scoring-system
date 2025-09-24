@@ -118,6 +118,63 @@ header h1 {
     background: #5a6fd8;
 }
 
+/* Sync Status */
+.sync-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-right: 15px;
+    padding: 5px 10px;
+    border-radius: 15px;
+    background: #f8f9fa;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.sync-indicator {
+    font-size: 12px;
+    transition: color 0.3s ease;
+}
+
+.sync-indicator.sync-connected {
+    color: #28a745;
+    animation: pulse 2s infinite;
+}
+
+.sync-indicator.sync-synced {
+    color: #28a745;
+}
+
+.sync-indicator.sync-syncing {
+    color: #ffc107;
+    animation: spin 1s linear infinite;
+}
+
+.sync-indicator.sync-offline {
+    color: #6c757d;
+}
+
+.sync-indicator.sync-error {
+    color: #dc3545;
+    animation: shake 0.5s ease-in-out;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-2px); }
+    75% { transform: translateX(2px); }
+}
+
 /* Main Content */
 .section {
     flex: 1;

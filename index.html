@@ -7,6 +7,17 @@
     <link rel="stylesheet" href="styles.css">
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js';
+        import { getDatabase } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js';
+
+        // Firebase configuration will be loaded from firebase-config.js
+        window.firebaseReady = new Promise((resolve) => {
+            window.initFirebase = resolve;
+        });
+    </script>
 </head>
 <body>
     <div id="loginScreen" class="screen">
@@ -23,6 +34,10 @@
         <header>
             <h1>Student Scoring System</h1>
             <div class="header-actions">
+                <div id="syncStatus" class="sync-status">
+                    <span class="sync-indicator" id="syncIndicator">●</span>
+                    <span id="syncText">Connecting...</span>
+                </div>
                 <span id="adminNameDisplay"></span>
                 <button onclick="showDashboard()">Dashboard</button>
                 <button onclick="logout()">Logout</button>
@@ -79,6 +94,7 @@
 
     <div id="notification" class="notification hidden"></div>
 
-    <script src="script.js"></script>
+    <script src="firebase-config.js"></script>
+    <script src="script-firebase.js"></script>
 </body>
 </html>
