@@ -40,9 +40,42 @@ body {
 .login-container h1 {
     color: white;
     font-size: 2.5rem;
-    margin-bottom: 30px;
+    margin-bottom: 20px;
     text-align: center;
     text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+}
+
+/* Church Info Styling */
+.church-info {
+    text-align: center;
+    margin-bottom: 25px;
+    padding: 15px 20px;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border-radius: 15px;
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.church-name {
+    color: #FFD700;
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin: 0 0 8px 0;
+    text-shadow: 0 2px 8px rgba(255, 215, 0, 0.4);
+    letter-spacing: 0.5px;
+    line-height: 1.6;
+}
+
+.service-name {
+    color: #FFA500;
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin: 0;
+    text-shadow: 0 2px 6px rgba(255, 165, 0, 0.3);
+    letter-spacing: 0.3px;
 }
 
 .login-form {
@@ -826,7 +859,7 @@ header h1 {
 
 .header-logo {
     position: absolute;
-    right: 20px;
+    right: 200px;
     top: 50%;
     transform: translateY(-50%);
 }
@@ -834,7 +867,7 @@ header h1 {
 .header-logo-img {
     width: 30px;
     height: 30px;
-    border-radius: 8px;
+    border-radius: 50%;
     box-shadow: 0 4px 10px rgba(0,0,0,0.1);
     object-fit: cover;
 }
