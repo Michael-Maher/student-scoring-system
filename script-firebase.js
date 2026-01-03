@@ -5,15 +5,16 @@ let studentsData = {};
 let isFirebaseConnected = false;
 let firebaseListeners = [];
 
-// Define all possible score types
-const ALL_SCORE_TYPES = [
-    'حضور القداس',
-    'لبس شماس',
-    'حضور الاجتماع من الأول من ١١ ونص لـ ١١:٤٠',
-    'اعتراف شهري',
-    'مسابقة رياضية',
-    'كل مجموعة هتكون فريق (محتاجين حد يشرح)'
-];
+// Define all possible score types with IDs and labels
+const SCORE_TYPES = {
+    'mass': { id: 'mass', label: 'القداس والتناول', allowMultiplePerDay: false },
+    'tunic': { id: 'tunic', label: 'لبس التونيه', allowMultiplePerDay: false },
+    'meeting': { id: 'meeting', label: 'حضور الاجتماع', allowMultiplePerDay: false },
+    'behavior': { id: 'behavior', label: 'سلوك', allowMultiplePerDay: true },
+    'bible': { id: 'bible', label: 'احضار الكتاب المقدس', allowMultiplePerDay: false }
+};
+
+const ALL_SCORE_TYPE_IDS = Object.keys(SCORE_TYPES);
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
@@ -28,14 +29,59 @@ async function initializeApp() {
     if (window.firebase && window.firebase.database) {
         isFirebaseConnected = true;
         updateSyncStatus('connected', 'Connected');
-        initializeFirebaseSync();
+
+        // Set up authentication state listener
+        if (window.firebase.auth) {
+            window.firebase.onAuthStateChanged(window.firebase.auth, (user) => {
+                if (user) {
+                    // User is signed in
+                    console.log('User authenticated:', user.email);
+                    onUserAuthenticated(user);
+                } else {
+                    // User is signed out
+                    console.log('User not authenticated');
+                    showLoginScreen();
+                }
+            });
+        } else {
+            checkLoginStatus();
+        }
     } else {
         isFirebaseConnected = false;
         updateSyncStatus('offline', 'Offline Mode');
         loadStoredData();
+        checkLoginStatus();
     }
+}
 
-    checkLoginStatus();
+function onUserAuthenticated(user) {
+    // Extract admin name from email (before @)
+    const adminName = user.email.split('@')[0];
+    currentAdmin = adminName;
+
+    // Initialize Firebase sync after authentication
+    initializeFirebaseSync();
+
+    // Show main app
+    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('mainApp').classList.remove('hidden');
+    document.getElementById('adminNameDisplay').textContent = `المشرف: ${adminName}`;
+
+    // Initialize QR Scanner
+    initializeQRScanner();
+}
+
+function showLoginScreen() {
+    document.getElementById('loginScreen').classList.remove('hidden');
+    document.getElementById('mainApp').classList.add('hidden');
+
+    // Clear form
+    if (document.getElementById('adminEmail')) {
+        document.getElementById('adminEmail').value = '';
+    }
+    if (document.getElementById('adminPassword')) {
+        document.getElementById('adminPassword').value = '';
+    }
 }
 
 // Firebase synchronization functions
@@ -107,25 +153,100 @@ function updateSyncStatus(status, text) {
 }
 
 // Authentication functions
-function login() {
-    const adminName = document.getElementById('adminName').value.trim();
-    if (!adminName) {
-        showNotification('Please enter your admin name', 'error');
+async function login() {
+    const email = document.getElementById('adminEmail').value.trim();
+    const password = document.getElementById('adminPassword').value;
+    const keepLoggedIn = document.getElementById('keepLoggedIn').checked;
+    const loginError = document.getElementById('loginError');
+
+    // Clear previous error
+    loginError.classList.add('hidden');
+    loginError.textContent = '';
+
+    // Validation
+    if (!email) {
+        loginError.textContent = 'الرجاء إدخال البريد الإلكتروني';
+        loginError.classList.remove('hidden');
         return;
     }
 
-    currentAdmin = adminName;
-    localStorage.setItem('currentAdmin', currentAdmin);
+    if (!password) {
+        loginError.textContent = 'الرجاء إدخال كلمة المرور';
+        loginError.classList.remove('hidden');
+        return;
+    }
 
-    document.getElementById('loginScreen').classList.add('hidden');
-    document.getElementById('mainApp').classList.remove('hidden');
-    document.getElementById('adminNameDisplay').textContent = `Admin: ${currentAdmin}`;
+    // Check if Firebase Auth is available
+    if (!window.firebase || !window.firebase.auth) {
+        // Fallback to simple login (no authentication)
+        const adminName = email.split('@')[0];
+        currentAdmin = adminName;
 
-    initializeQRScanner();
-    showNotification(`Welcome, ${currentAdmin}!`, 'success');
+        if (keepLoggedIn) {
+            localStorage.setItem('currentAdmin', currentAdmin);
+        }
+
+        document.getElementById('loginScreen').classList.add('hidden');
+        document.getElementById('mainApp').classList.remove('hidden');
+        document.getElementById('adminNameDisplay').textContent = `المشرف: ${currentAdmin}`;
+
+        initializeQRScanner();
+        showNotification(`أهلاً ${currentAdmin}!`, 'success');
+        return;
+    }
+
+    try {
+        // Set persistence based on "keep me logged in"
+        const persistence = keepLoggedIn
+            ? window.firebase.browserLocalPersistence
+            : window.firebase.browserSessionPersistence;
+
+        await window.firebase.setPersistence(window.firebase.auth, persistence);
+
+        // Sign in with Firebase Authentication
+        await window.firebase.signInWithEmailAndPassword(window.firebase.auth, email, password);
+
+        // Success notification will be shown by onUserAuthenticated
+        const adminName = email.split('@')[0];
+        showNotification(`أهلاً ${adminName}!`, 'success');
+
+    } catch (error) {
+        console.error('Login error:', error);
+
+        // Show user-friendly error messages
+        let errorMessage = 'حدث خطأ أثناء تسجيل الدخول';
+
+        switch (error.code) {
+            case 'auth/invalid-email':
+                errorMessage = 'البريد الإلكتروني غير صحيح';
+                break;
+            case 'auth/user-disabled':
+                errorMessage = 'هذا الحساب معطل';
+                break;
+            case 'auth/user-not-found':
+                errorMessage = 'المستخدم غير موجود';
+                break;
+            case 'auth/wrong-password':
+                errorMessage = 'كلمة المرور غير صحيحة';
+                break;
+            case 'auth/invalid-credential':
+                errorMessage = 'البريد الإلكتروني أو كلمة المرور غير صحيحة';
+                break;
+            case 'auth/too-many-requests':
+                errorMessage = 'عدد كبير جداً من المحاولات. الرجاء المحاولة لاحقاً';
+                break;
+            case 'auth/network-request-failed':
+                errorMessage = 'خطأ في الاتصال بالإنترنت';
+                break;
+        }
+
+        loginError.textContent = errorMessage;
+        loginError.classList.remove('hidden');
+        showNotification(errorMessage, 'error');
+    }
 }
 
-function logout() {
+async function logout() {
     if (html5QrcodeScanner) {
         html5QrcodeScanner.clear();
     }
@@ -134,14 +255,23 @@ function logout() {
     firebaseListeners.forEach(unsubscribe => unsubscribe());
     firebaseListeners = [];
 
+    // Sign out from Firebase Auth if available
+    if (window.firebase && window.firebase.auth) {
+        try {
+            await window.firebase.signOut(window.firebase.auth);
+        } catch (error) {
+            console.error('Logout error:', error);
+        }
+    }
+
+    // Clear local storage
     localStorage.removeItem('currentAdmin');
     currentAdmin = '';
 
-    document.getElementById('loginScreen').classList.remove('hidden');
-    document.getElementById('mainApp').classList.add('hidden');
-    document.getElementById('adminName').value = '';
+    // Show login screen
+    showLoginScreen();
 
-    showNotification('Logged out successfully', 'info');
+    showNotification('تم تسجيل الخروج بنجاح', 'info');
 }
 
 function checkLoginStatus() {
@@ -150,7 +280,7 @@ function checkLoginStatus() {
         currentAdmin = storedAdmin;
         document.getElementById('loginScreen').classList.add('hidden');
         document.getElementById('mainApp').classList.remove('hidden');
-        document.getElementById('adminNameDisplay').textContent = `Admin: ${currentAdmin}`;
+        document.getElementById('adminNameDisplay').textContent = `المشرف: ${currentAdmin}`;
         initializeQRScanner();
     }
 }
@@ -224,15 +354,37 @@ async function submitScore() {
     // Use student name as the key (ID)
     const studentId = studentName;
 
+    // Get today's date (YYYY-MM-DD format for comparison)
+    const today = new Date().toISOString().split('T')[0];
+
     // Store score locally first
     if (!studentsData[studentId]) {
         studentsData[studentId] = {
             name: studentName,
             scores: {},
+            scans: {}, // Track scans by type and date
             lastUpdated: new Date().toISOString(),
             lastUpdatedBy: currentAdmin
         };
     }
+
+    // Initialize scans tracking if not exists
+    if (!studentsData[studentId].scans) {
+        studentsData[studentId].scans = {};
+    }
+
+    // Check if this score type was already scanned today (except for types that allow multiple per day)
+    const scoreTypeConfig = SCORE_TYPES[scoreType];
+    if (scoreTypeConfig && !scoreTypeConfig.allowMultiplePerDay) {
+        if (studentsData[studentId].scans[scoreType] === today) {
+            showNotification(`⚠️ تم تسجيل "${scoreTypeConfig.label}" لهذا الطالب اليوم بالفعل. لا يمكن التسجيل أكثر من مرة في اليوم الواحد.`, 'error');
+            cancelScoring();
+            return;
+        }
+    }
+
+    // Record the scan date for this score type (سلوك is always recorded but doesn't block)
+    studentsData[studentId].scans[scoreType] = today;
 
     // Add the new score (accumulate if already exists)
     if (studentsData[studentId].scores[scoreType]) {
@@ -247,11 +399,13 @@ async function submitScore() {
     // Save to Firebase (with fallback to localStorage)
     try {
         await saveToFirebase(studentId, studentsData[studentId]);
-        showNotification(`تم إضافة ${score} نقطة لـ ${studentName} في ${scoreType}`, 'success');
+        const typeLabel = scoreTypeConfig ? scoreTypeConfig.label : scoreType;
+        showNotification(`✅ تم إضافة ${score} نقطة لـ ${studentName} في ${typeLabel}`, 'success');
     } catch (error) {
         console.error('Save error:', error);
         saveData(); // Fall back to localStorage
-        showNotification(`تم حفظ النقاط محلياً: ${studentName} - ${scoreType}: ${score}`, 'info');
+        const typeLabel = scoreTypeConfig ? scoreTypeConfig.label : scoreType;
+        showNotification(`تم حفظ النقاط محلياً: ${studentName} - ${typeLabel}: ${score}`, 'info');
     }
 
     // Reset form and resume scanning
@@ -297,26 +451,24 @@ function showDashboard() {
 }
 
 // Dashboard functions
-function renderScoresTable() {
+function renderScoresTable(filteredData = null) {
     const tableContainer = document.getElementById('scoresTable');
+    const dataToRender = filteredData || studentsData;
 
-    if (Object.keys(studentsData).length === 0) {
+    if (Object.keys(dataToRender).length === 0) {
         tableContainer.innerHTML = '<p style="text-align: center; color: #666; font-style: italic;">لم يتم تسجيل أي نقاط بعد.</p>';
         return;
     }
 
-    // Use ALL_SCORE_TYPES to ensure all columns always appear
-    const scoreTypesArray = ALL_SCORE_TYPES;
-
-    // Create table HTML with Arabic headers
+    // Create table HTML with Arabic headers using labels
     let tableHTML = `
         <table>
             <thead>
                 <tr>
                     <th>اسم الطالب</th>
-                    ${scoreTypesArray.map(type => `<th>${type}</th>`).join('')}
+                    ${ALL_SCORE_TYPE_IDS.map(typeId => `<th>${SCORE_TYPES[typeId].label}</th>`).join('')}
                     <th class="total-column">المجموع</th>
-                    <th>آخر تحديث</th>
+                    <th>التاريخ والوقت</th>
                     <th>المشرف</th>
                 </tr>
             </thead>
@@ -324,10 +476,10 @@ function renderScoresTable() {
     `;
 
     // Add student rows
-    Object.entries(studentsData).forEach(([studentId, student]) => {
+    Object.entries(dataToRender).forEach(([studentId, student]) => {
         let total = 0;
-        const scoresCells = scoreTypesArray.map(type => {
-            const score = student.scores?.[type];
+        const scoresCells = ALL_SCORE_TYPE_IDS.map(typeId => {
+            const score = student.scores?.[typeId];
             if (score !== undefined) {
                 total += score;
                 return `<td>${score}</td>`;
@@ -335,7 +487,7 @@ function renderScoresTable() {
             return '<td>-</td>';
         }).join('');
 
-        const lastUpdated = student.lastUpdated ? new Date(student.lastUpdated).toLocaleString() : 'Unknown';
+        const lastUpdated = student.lastUpdated ? new Date(student.lastUpdated).toLocaleString('ar-SA') : 'غير معروف';
 
         tableHTML += `
             <tr>
@@ -358,14 +510,11 @@ function renderScoresTable() {
 
 // Excel export function
 function exportToExcel() {
-    // Use ALL_SCORE_TYPES to ensure all columns always appear in export
-    const scoreTypesArray = ALL_SCORE_TYPES;
-
     // Prepare data for Excel
     const excelData = [];
 
-    // Header row with Arabic
-    const headers = ['اسم الطالب', ...scoreTypesArray, 'المجموع', 'آخر تحديث', 'المشرف'];
+    // Header row with Arabic labels
+    const headers = ['اسم الطالب', ...ALL_SCORE_TYPE_IDS.map(id => SCORE_TYPES[id].label), 'المجموع', 'آخر تحديث', 'المشرف'];
     excelData.push(headers);
 
     // If no data, still create Excel with headers
@@ -390,9 +539,9 @@ function exportToExcel() {
         let total = 0;
         const row = [student.name]; // Only student name, no ID
 
-        // Add score columns for ALL score types
-        scoreTypesArray.forEach(type => {
-            const score = student.scores?.[type];
+        // Add score columns for ALL score types using IDs
+        ALL_SCORE_TYPE_IDS.forEach(typeId => {
+            const score = student.scores?.[typeId];
             if (score !== undefined) {
                 total += score;
                 row.push(score);
@@ -441,7 +590,7 @@ function loadStoredData() {
 }
 
 async function clearAllData() {
-    if (confirm('Are you sure you want to clear all student data? This action cannot be undone.')) {
+    if (confirm('هل أنت متأكد من حذف جميع بيانات الطلاب؟ لا يمكن التراجع عن هذا الإجراء.')) {
         studentsData = {};
 
         if (isFirebaseConnected && window.firebase) {
@@ -458,8 +607,55 @@ async function clearAllData() {
 
         localStorage.removeItem('studentsData');
         renderScoresTable();
-        showNotification('All data cleared successfully', 'info');
+        showNotification('تم مسح جميع البيانات بنجاح', 'info');
     }
+}
+
+// Filtering functions
+function applyFilters() {
+    const nameFilter = document.getElementById('filterName').value.trim().toLowerCase();
+    const adminFilter = document.getElementById('filterAdmin').value.trim().toLowerCase();
+    const dateFilter = document.getElementById('filterDate').value;
+
+    let filteredData = { ...studentsData };
+
+    // Filter by student name
+    if (nameFilter) {
+        filteredData = Object.fromEntries(
+            Object.entries(filteredData).filter(([id, student]) =>
+                student.name.toLowerCase().includes(nameFilter)
+            )
+        );
+    }
+
+    // Filter by admin name
+    if (adminFilter) {
+        filteredData = Object.fromEntries(
+            Object.entries(filteredData).filter(([id, student]) =>
+                student.lastUpdatedBy && student.lastUpdatedBy.toLowerCase().includes(adminFilter)
+            )
+        );
+    }
+
+    // Filter by date
+    if (dateFilter) {
+        filteredData = Object.fromEntries(
+            Object.entries(filteredData).filter(([id, student]) => {
+                if (!student.lastUpdated) return false;
+                const studentDate = new Date(student.lastUpdated).toISOString().split('T')[0];
+                return studentDate === dateFilter;
+            })
+        );
+    }
+
+    renderScoresTable(filteredData);
+}
+
+function clearFilters() {
+    document.getElementById('filterName').value = '';
+    document.getElementById('filterAdmin').value = '';
+    document.getElementById('filterDate').value = '';
+    renderScoresTable();
 }
 
 // Utility functions

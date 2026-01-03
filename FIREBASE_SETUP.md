@@ -58,26 +58,51 @@ const firebaseConfig = {
 };
 ```
 
-## Step 5: Set Up Security Rules
+## Step 5: Set Up Authentication
+
+1. In Firebase Console, click **"Authentication"** in the left sidebar
+2. Click **"Get started"**
+3. Click on **"Email/Password"** in the Sign-in method tab
+4. **Enable** Email/Password authentication
+5. Click **"Save"**
+
+### Add Admin Users
+
+1. Go to **"Authentication"** → **"Users"** tab
+2. Click **"Add user"**
+3. Enter admin credentials:
+   - Email: `admin@yourchurch.com` (or any email you prefer)
+   - Password: Create a strong password
+4. Click **"Add user"**
+5. Repeat for each admin who needs access
+
+**Important**: Share these credentials securely with your admins!
+
+## Step 6: Set Up Security Rules
 
 1. Go back to **"Realtime Database"** in Firebase Console
 2. Click the **"Rules"** tab
-3. Replace the default rules with these **basic security rules**:
+3. Replace the default rules with these **security rules** (requires authentication):
 
 ```javascript
 {
   "rules": {
     "students": {
-      ".read": true,
-      ".write": true,
+      ".read": "auth != null",
+      ".write": "auth != null",
       "$studentId": {
-        ".validate": "newData.hasChildren(['name', 'scores', 'lastUpdated', 'lastUpdatedBy'])",
+        ".validate": "newData.hasChildren(['name', 'scores', 'scans', 'lastUpdated', 'lastUpdatedBy'])",
         "name": {
           ".validate": "newData.isString() && newData.val().length > 0"
         },
         "scores": {
           "$scoreType": {
             ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100"
+          }
+        },
+        "scans": {
+          "$scoreType": {
+            ".validate": "newData.isString()"
           }
         },
         "lastUpdatedBy": {
@@ -89,9 +114,11 @@ const firebaseConfig = {
 }
 ```
 
+**Note**: These rules require users to be authenticated. Only logged-in admins can read/write data.
+
 4. Click **"Publish"**
 
-## Step 6: Deploy and Test
+## Step 7: Deploy and Test
 
 1. **Push your updated code** to GitHub:
 ```bash
@@ -108,7 +135,7 @@ git push origin main
    - Verify scores appear instantly on other phones
    - Check the sync status indicator in the header
 
-## Step 7: Understanding the Sync Status
+## Step 8: Understanding the Sync Status
 
 The app shows sync status in the header with colored indicators:
 

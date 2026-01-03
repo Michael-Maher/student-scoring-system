@@ -24,8 +24,14 @@
         <div class="login-container">
             <h1>🏛️ نظام تسجيل نقاط الطلاب</h1>
             <div class="login-form">
-                <input type="text" id="adminName" placeholder="أدخل اسم المشرف" required>
+                <input type="email" id="adminEmail" placeholder="البريد الإلكتروني" required autocomplete="username">
+                <input type="password" id="adminPassword" placeholder="كلمة المرور" required autocomplete="current-password">
+                <div class="checkbox-group">
+                    <input type="checkbox" id="keepLoggedIn" checked>
+                    <label for="keepLoggedIn">ابقني مسجلاً</label>
+                </div>
                 <button onclick="login()">دخول</button>
+                <div id="loginError" class="login-error hidden"></div>
             </div>
         </div>
     </div>
@@ -60,12 +66,11 @@
                     <label>نوع النشاط:</label>
                     <select id="scoreType" required>
                         <option value="">اختر نوع النشاط</option>
-                        <option value="حضور القداس">🙏 حضور القداس</option>
-                        <option value="لبس شماس">👕 لبس شماس</option>
-                        <option value="حضور الاجتماع من الأول من ١١ ونص لـ ١١:٤٠">⏰ حضور الاجتماع من الأول من ١١ ونص لـ ١١:٤٠</option>
-                        <option value="اعتراف شهري">📿 اعتراف شهري</option>
-                        <option value="مسابقة رياضية">🏆 مسابقة رياضية</option>
-                        <option value="كل مجموعة هتكون فريق (محتاجين حد يشرح)">👥 كل مجموعة هتكون فريق (محتاجين حد يشرح)</option>
+                        <option value="mass">🙏 القداس والتناول</option>
+                        <option value="tunic">👕 لبس التونيه</option>
+                        <option value="meeting">⏰ حضور الاجتماع</option>
+                        <option value="behavior">⭐ سلوك</option>
+                        <option value="bible">📖 احضار الكتاب المقدس</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -82,6 +87,21 @@
 
         <div id="dashboardSection" class="section hidden">
             <h2>📊 لوحة النقاط</h2>
+            <div class="filter-controls">
+                <div class="filter-group">
+                    <label>فلترة حسب الاسم:</label>
+                    <input type="text" id="filterName" placeholder="ابحث عن طالب..." oninput="applyFilters()">
+                </div>
+                <div class="filter-group">
+                    <label>فلترة حسب المشرف:</label>
+                    <input type="text" id="filterAdmin" placeholder="اسم المشرف..." oninput="applyFilters()">
+                </div>
+                <div class="filter-group">
+                    <label>فلترة حسب التاريخ:</label>
+                    <input type="date" id="filterDate" onchange="applyFilters()">
+                </div>
+                <button onclick="clearFilters()" class="clear-filter-btn">مسح الفلاتر</button>
+            </div>
             <div class="dashboard-actions">
                 <button onclick="exportToExcel()" class="export-btn">📄 تصدير إلى Excel</button>
                 <button onclick="clearAllData()" class="clear-btn">🗑️ مسح جميع البيانات</button>

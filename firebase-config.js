@@ -1,13 +1,14 @@
 // Firebase configuration
 // Replace these values with your Firebase project configuration
 const firebaseConfig = {
-    apiKey: "YOUR_API_KEY_HERE",
-    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-    databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT_ID.appspot.com",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyB29CbGcIQRuMnnMe2C8RT4Qkt5G7Y_L9Q",
+  authDomain: "student-scoring-system-1aa10.firebaseapp.com",
+  databaseURL: "https://student-scoring-system-1aa10-default-rtdb.firebaseio.com",
+  projectId: "student-scoring-system-1aa10",
+  storageBucket: "student-scoring-system-1aa10.firebasestorage.app",
+  messagingSenderId: "26728761382",
+  appId: "1:26728761382:web:a378c1f2714794a8627ee7",
+  measurementId: "G-J0HGKX47G7"
 };
 
 // Initialize Firebase when the module loads
@@ -15,10 +16,12 @@ const firebaseConfig = {
     try {
         const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js');
         const { getDatabase, ref, onValue, set, push, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
+        const { getAuth, signInWithEmailAndPassword, setPersistence, browserLocalPersistence, browserSessionPersistence, onAuthStateChanged, signOut } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js');
 
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const database = getDatabase(app);
+        const auth = getAuth(app);
 
         // Make Firebase available globally
         window.firebase = {
@@ -27,7 +30,14 @@ const firebaseConfig = {
             onValue,
             set,
             push,
-            serverTimestamp
+            serverTimestamp,
+            auth,
+            signInWithEmailAndPassword,
+            setPersistence,
+            browserLocalPersistence,
+            browserSessionPersistence,
+            onAuthStateChanged,
+            signOut
         };
 
         // Signal that Firebase is ready
