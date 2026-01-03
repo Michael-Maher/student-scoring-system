@@ -1,9 +1,14 @@
 // Global variables
 let html5QrcodeScanner;
 let currentAdmin = '';
+let currentAdminData = null;
 let studentsData = {};
+let adminsData = {};
 let isFirebaseConnected = false;
 let firebaseListeners = [];
+
+// Head admin phone number
+const HEAD_ADMIN_PHONE = '01207714622';
 
 // Define all possible score types with IDs and labels
 const SCORE_TYPES = {
@@ -30,28 +35,76 @@ async function initializeApp() {
         isFirebaseConnected = true;
         updateSyncStatus('connected', 'Connected');
 
-        // Set up authentication state listener
-        if (window.firebase.auth) {
-            window.firebase.onAuthStateChanged(window.firebase.auth, (user) => {
-                if (user) {
-                    // User is signed in
-                    console.log('User authenticated:', user.email);
-                    onUserAuthenticated(user);
-                } else {
-                    // User is signed out
-                    console.log('User not authenticated');
-                    showLoginScreen();
-                }
-            });
-        } else {
-            checkLoginStatus();
-        }
+        // Initialize admins data first
+        await initializeAdminsData();
+
+        // Check login status
+        checkLoginStatus();
     } else {
         isFirebaseConnected = false;
         updateSyncStatus('offline', 'Offline Mode');
         loadStoredData();
         checkLoginStatus();
     }
+}
+
+// Initialize admins data from Firebase
+async function initializeAdminsData() {
+    if (!window.firebase) return;
+
+    const adminsRef = window.firebase.ref(window.firebase.database, 'admins');
+
+    // Check if admins collection exists
+    const snapshot = await new Promise((resolve) => {
+        window.firebase.onValue(adminsRef, resolve, { onlyOnce: true });
+    });
+
+    if (!snapshot.exists()) {
+        // Initialize with default admins
+        const defaultAdmins = {
+            '01207714622': {
+                name: 'Michael',
+                phone: '01207714622',
+                password: '123456789mI#',
+                isHeadAdmin: true,
+                createdAt: new Date().toISOString()
+            },
+            '01283469752': {
+                name: 'Mina Zaher',
+                phone: '01283469752',
+                password: '01283469752',
+                isHeadAdmin: false,
+                createdAt: new Date().toISOString()
+            },
+            '01207320088': {
+                name: 'Kero Boles',
+                phone: '01207320088',
+                password: '01207320088',
+                isHeadAdmin: false,
+                createdAt: new Date().toISOString()
+            },
+            '01282201313': {
+                name: 'Remon Aziz',
+                phone: '01282201313',
+                password: '01282201313',
+                isHeadAdmin: false,
+                createdAt: new Date().toISOString()
+            }
+        };
+
+        await window.firebase.set(adminsRef, defaultAdmins);
+        adminsData = defaultAdmins;
+        console.log('Default admins initialized');
+    } else {
+        adminsData = snapshot.val() || {};
+    }
+
+    // Listen for real-time updates to admins
+    const unsubscribe = window.firebase.onValue(adminsRef, (snapshot) => {
+        adminsData = snapshot.val() || {};
+    });
+
+    firebaseListeners.push(unsubscribe);
 }
 
 function onUserAuthenticated(user) {
@@ -154,7 +207,7 @@ function updateSyncStatus(status, text) {
 
 // Authentication functions
 async function login() {
-    const email = document.getElementById('adminEmail').value.trim();
+    const phone = document.getElementById('adminPhone').value.trim();
     const password = document.getElementById('adminPassword').value;
     const keepLoggedIn = document.getElementById('keepLoggedIn').checked;
     const loginError = document.getElementById('loginError');
@@ -164,8 +217,14 @@ async function login() {
     loginError.textContent = '';
 
     // Validation
-    if (!email) {
-        loginError.textContent = 'الرجاء إدخال البريد الإلكتروني';
+    if (!phone) {
+        loginError.textContent = 'الرجاء إدخال رقم الهاتف';
+        loginError.classList.remove('hidden');
+        return;
+    }
+
+    if (phone.length !== 11) {
+        loginError.textContent = 'رقم الهاتف يجب أن يكون 11 رقماً';
         loginError.classList.remove('hidden');
         return;
     }
@@ -176,74 +235,51 @@ async function login() {
         return;
     }
 
-    // Check if Firebase Auth is available
-    if (!window.firebase || !window.firebase.auth) {
-        // Fallback to simple login (no authentication)
-        const adminName = email.split('@')[0];
-        currentAdmin = adminName;
+    // Check if admin exists
+    const admin = adminsData[phone];
 
-        if (keepLoggedIn) {
-            localStorage.setItem('currentAdmin', currentAdmin);
-        }
-
-        document.getElementById('loginScreen').classList.add('hidden');
-        document.getElementById('mainApp').classList.remove('hidden');
-        document.getElementById('adminNameDisplay').textContent = `المشرف: ${currentAdmin}`;
-
-        initializeQRScanner();
-        showNotification(`أهلاً ${currentAdmin}!`, 'success');
+    if (!admin) {
+        loginError.textContent = 'رقم الهاتف غير مسجل';
+        loginError.classList.remove('hidden');
         return;
     }
 
-    try {
-        // Set persistence based on "keep me logged in"
-        const persistence = keepLoggedIn
-            ? window.firebase.browserLocalPersistence
-            : window.firebase.browserSessionPersistence;
-
-        await window.firebase.setPersistence(window.firebase.auth, persistence);
-
-        // Sign in with Firebase Authentication
-        await window.firebase.signInWithEmailAndPassword(window.firebase.auth, email, password);
-
-        // Success notification will be shown by onUserAuthenticated
-        const adminName = email.split('@')[0];
-        showNotification(`أهلاً ${adminName}!`, 'success');
-
-    } catch (error) {
-        console.error('Login error:', error);
-
-        // Show user-friendly error messages
-        let errorMessage = 'حدث خطأ أثناء تسجيل الدخول';
-
-        switch (error.code) {
-            case 'auth/invalid-email':
-                errorMessage = 'البريد الإلكتروني غير صحيح';
-                break;
-            case 'auth/user-disabled':
-                errorMessage = 'هذا الحساب معطل';
-                break;
-            case 'auth/user-not-found':
-                errorMessage = 'المستخدم غير موجود';
-                break;
-            case 'auth/wrong-password':
-                errorMessage = 'كلمة المرور غير صحيحة';
-                break;
-            case 'auth/invalid-credential':
-                errorMessage = 'البريد الإلكتروني أو كلمة المرور غير صحيحة';
-                break;
-            case 'auth/too-many-requests':
-                errorMessage = 'عدد كبير جداً من المحاولات. الرجاء المحاولة لاحقاً';
-                break;
-            case 'auth/network-request-failed':
-                errorMessage = 'خطأ في الاتصال بالإنترنت';
-                break;
-        }
-
-        loginError.textContent = errorMessage;
+    // Verify password
+    if (admin.password !== password) {
+        loginError.textContent = 'كلمة المرور غير صحيحة';
         loginError.classList.remove('hidden');
-        showNotification(errorMessage, 'error');
+        return;
     }
+
+    // Login successful
+    currentAdmin = admin.name;
+    currentAdminData = admin;
+
+    // Save login state if "keep me logged in" is checked
+    if (keepLoggedIn) {
+        localStorage.setItem('currentAdminPhone', phone);
+        localStorage.setItem('currentAdminPassword', password);
+    }
+
+    // Show main app
+    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('mainApp').classList.remove('hidden');
+
+    // Update UI
+    document.getElementById('adminNameDisplay').textContent = `${currentAdmin}`;
+
+    // Show "Manage Admins" tab for head admin
+    if (admin.isHeadAdmin) {
+        document.getElementById('manageAdminsNavBtn').classList.remove('hidden');
+    }
+
+    // Initialize Firebase sync
+    initializeFirebaseSync();
+
+    // Initialize QR Scanner
+    initializeQRScanner();
+
+    showNotification(`أهلاً ${currentAdmin}!`, 'success');
 }
 
 async function logout() {
@@ -255,33 +291,52 @@ async function logout() {
     firebaseListeners.forEach(unsubscribe => unsubscribe());
     firebaseListeners = [];
 
-    // Sign out from Firebase Auth if available
-    if (window.firebase && window.firebase.auth) {
-        try {
-            await window.firebase.signOut(window.firebase.auth);
-        } catch (error) {
-            console.error('Logout error:', error);
-        }
-    }
-
-    // Clear local storage
-    localStorage.removeItem('currentAdmin');
+    // Clear stored credentials
+    localStorage.removeItem('currentAdminPhone');
+    localStorage.removeItem('currentAdminPassword');
     currentAdmin = '';
+    currentAdminData = null;
 
     // Show login screen
-    showLoginScreen();
+    document.getElementById('loginScreen').classList.remove('hidden');
+    document.getElementById('mainApp').classList.add('hidden');
+
+    // Clear login form
+    document.getElementById('adminPhone').value = '';
+    document.getElementById('adminPassword').value = '';
 
     showNotification('تم تسجيل الخروج بنجاح', 'info');
 }
 
-function checkLoginStatus() {
-    const storedAdmin = localStorage.getItem('currentAdmin');
-    if (storedAdmin) {
-        currentAdmin = storedAdmin;
-        document.getElementById('loginScreen').classList.add('hidden');
-        document.getElementById('mainApp').classList.remove('hidden');
-        document.getElementById('adminNameDisplay').textContent = `المشرف: ${currentAdmin}`;
-        initializeQRScanner();
+async function checkLoginStatus() {
+    const storedPhone = localStorage.getItem('currentAdminPhone');
+    const storedPassword = localStorage.getItem('currentAdminPassword');
+
+    if (storedPhone && storedPassword && adminsData[storedPhone]) {
+        const admin = adminsData[storedPhone];
+
+        // Verify stored password still matches
+        if (admin.password === storedPassword) {
+            // Auto-login
+            currentAdmin = admin.name;
+            currentAdminData = admin;
+
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('hidden');
+            document.getElementById('adminNameDisplay').textContent = `${currentAdmin}`;
+
+            // Show "Manage Admins" tab for head admin
+            if (admin.isHeadAdmin) {
+                document.getElementById('manageAdminsNavBtn').classList.remove('hidden');
+            }
+
+            initializeFirebaseSync();
+            initializeQRScanner();
+        } else {
+            // Password changed, logout
+            localStorage.removeItem('currentAdminPhone');
+            localStorage.removeItem('currentAdminPassword');
+        }
     }
 }
 
@@ -655,6 +710,300 @@ function clearFilters() {
     document.getElementById('filterName').value = '';
     document.getElementById('filterAdmin').value = '';
     document.getElementById('filterDate').value = '';
+    renderScoresTable();
+}
+
+// Navigation functions
+function setActiveNav(navId) {
+    // Remove active class from all nav buttons
+    document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+    // Add active class to clicked nav
+    if (document.getElementById(navId)) {
+        document.getElementById(navId).classList.add('active');
+    }
+}
+
+function showProfile() {
+    // Hide all sections
+    document.getElementById('scannerSection').classList.add('hidden');
+    document.getElementById('dashboardSection').classList.add('hidden');
+    document.getElementById('profileSection').classList.remove('hidden');
+    document.getElementById('manageAdminsSection').classList.add('hidden');
+
+    setActiveNav('profileNavBtn');
+
+    // Pause scanner
+    if (html5QrcodeScanner) {
+        html5QrcodeScanner.pause(true);
+    }
+
+    // Load profile data
+    loadProfileData();
+}
+
+function loadProfileData() {
+    if (!currentAdminData) return;
+
+    const firstLetter = currentAdminData.name.charAt(0).toUpperCase();
+    document.getElementById('profileAvatar').textContent = firstLetter;
+    document.getElementById('profileName').textContent = currentAdminData.name;
+    document.getElementById('profilePhone').textContent = currentAdminData.phone;
+    document.getElementById('profileRole').textContent = currentAdminData.isHeadAdmin ? 'امين الخدمه' : 'خادم';
+
+    document.getElementById('editProfileName').value = currentAdminData.name;
+    document.getElementById('editProfilePhone').value = currentAdminData.phone;
+    document.getElementById('currentPassword').value = '';
+    document.getElementById('newPassword').value = '';
+}
+
+async function updateProfile() {
+    const newName = document.getElementById('editProfileName').value.trim();
+    const currentPassword = document.getElementById('currentPassword').value;
+    const newPassword = document.getElementById('newPassword').value;
+
+    if (!newName) {
+        showNotification('الرجاء إدخال الاسم', 'error');
+        return;
+    }
+
+    if (!currentPassword) {
+        showNotification('الرجاء إدخال كلمة المرور الحالية', 'error');
+        return;
+    }
+
+    // Verify current password
+    if (currentPassword !== currentAdminData.password) {
+        showNotification('كلمة المرور الحالية غير صحيحة', 'error');
+        return;
+    }
+
+    // Update admin data
+    const updatedData = {
+        ...currentAdminData,
+        name: newName
+    };
+
+    if (newPassword) {
+        updatedData.password = newPassword;
+    }
+
+    // Save to Firebase
+    if (window.firebase && window.firebase.database) {
+        const adminRef = window.firebase.ref(window.firebase.database, `admins/${currentAdminData.phone}`);
+        await window.firebase.set(adminRef, updatedData);
+    }
+
+    currentAdminData = updatedData;
+    currentAdmin = newName;
+
+    // Update stored password if changed
+    if (newPassword && localStorage.getItem('currentAdminPhone')) {
+        localStorage.setItem('currentAdminPassword', newPassword);
+    }
+
+    // Update UI
+    document.getElementById('adminNameDisplay').textContent = `${currentAdmin}`;
+    loadProfileData();
+
+    showNotification('تم تحديث الملف الشخصي بنجاح', 'success');
+}
+
+function showManageAdmins() {
+    if (!currentAdminData || !currentAdminData.isHeadAdmin) {
+        showNotification('غير مصرح لك بالوصول إلى هذه الصفحة', 'error');
+        return;
+    }
+
+    // Hide all sections
+    document.getElementById('scannerSection').classList.add('hidden');
+    document.getElementById('dashboardSection').classList.add('hidden');
+    document.getElementById('profileSection').classList.add('hidden');
+    document.getElementById('manageAdminsSection').classList.remove('hidden');
+
+    setActiveNav('manageAdminsNavBtn');
+
+    // Pause scanner
+    if (html5QrcodeScanner) {
+        html5QrcodeScanner.pause(true);
+    }
+
+    // Load admins list
+    renderAdminsList();
+}
+
+function renderAdminsList() {
+    const container = document.getElementById('adminsList');
+
+    if (!Object.keys(adminsData).length) {
+        container.innerHTML = '<p style="text-align: center; color: #666;">لا يوجد مشرفين</p>';
+        return;
+    }
+
+    let html = '';
+    Object.entries(adminsData).forEach(([phone, admin]) => {
+        const isHeadAdmin = admin.isHeadAdmin;
+        const roleClass = isHeadAdmin ? 'head-admin-badge' : 'admin-badge';
+        const roleText = isHeadAdmin ? 'امين الخدمه' : 'خادم';
+
+        html += `
+            <div class="admin-card">
+                <div class="admin-card-header">
+                    <div class="admin-avatar">${admin.name.charAt(0).toUpperCase()}</div>
+                    <div class="admin-card-info">
+                        <h4>${admin.name}</h4>
+                        <p class="admin-phone">${admin.phone}</p>
+                        <span class="${roleClass}">${roleText}</span>
+                    </div>
+                </div>
+                <div class="admin-card-actions">
+                    ${!isHeadAdmin ? `
+                        <button onclick="editAdmin('${phone}')" class="edit-btn">✏️ تعديل</button>
+                        <button onclick="deleteAdmin('${phone}')" class="delete-btn">🗑️ حذف</button>
+                    ` : '<span class="protected-badge">محمي</span>'}
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+function showAddAdminForm() {
+    document.getElementById('addAdminForm').classList.remove('hidden');
+    document.getElementById('newAdminName').value = '';
+    document.getElementById('newAdminPhone').value = '';
+    document.getElementById('newAdminPassword').value = '';
+}
+
+function hideAddAdminForm() {
+    document.getElementById('addAdminForm').classList.add('hidden');
+}
+
+async function addAdmin() {
+    const name = document.getElementById('newAdminName').value.trim();
+    const phone = document.getElementById('newAdminPhone').value.trim();
+    const password = document.getElementById('newAdminPassword').value;
+
+    if (!name) {
+        showNotification('الرجاء إدخال الاسم', 'error');
+        return;
+    }
+
+    if (!phone || phone.length !== 11) {
+        showNotification('الرجاء إدخال رقم هاتف صحيح (11 رقم)', 'error');
+        return;
+    }
+
+    if (!password) {
+        showNotification('الرجاء إدخال كلمة المرور', 'error');
+        return;
+    }
+
+    // Check if phone already exists
+    if (adminsData[phone]) {
+        showNotification('رقم الهاتف مسجل مسبقاً', 'error');
+        return;
+    }
+
+    const newAdmin = {
+        name,
+        phone,
+        password,
+        isHeadAdmin: false,
+        createdAt: new Date().toISOString()
+    };
+
+    // Save to Firebase
+    if (window.firebase && window.firebase.database) {
+        const adminRef = window.firebase.ref(window.firebase.database, `admins/${phone}`);
+        await window.firebase.set(adminRef, newAdmin);
+    }
+
+    adminsData[phone] = newAdmin;
+
+    hideAddAdminForm();
+    renderAdminsList();
+    showNotification('تم إضافة المشرف بنجاح', 'success');
+}
+
+function editAdmin(phone) {
+    const admin = adminsData[phone];
+    if (!admin) return;
+
+    const newName = prompt('اسم المشرف الجديد:', admin.name);
+    if (!newName) return;
+
+    const newPassword = prompt('كلمة المرور الجديدة (اتركها فارغة للإبقاء على القديمة):');
+
+    const updatedAdmin = {
+        ...admin,
+        name: newName.trim()
+    };
+
+    if (newPassword && newPassword.trim()) {
+        updatedAdmin.password = newPassword.trim();
+    }
+
+    // Save to Firebase
+    if (window.firebase && window.firebase.database) {
+        const adminRef = window.firebase.ref(window.firebase.database, `admins/${phone}`);
+        window.firebase.set(adminRef, updatedAdmin);
+    }
+
+    adminsData[phone] = updatedAdmin;
+    renderAdminsList();
+    showNotification('تم تحديث بيانات المشرف', 'success');
+}
+
+async function deleteAdmin(phone) {
+    const admin = adminsData[phone];
+    if (!admin) return;
+
+    if (!confirm(`هل أنت متأكد من حذف المشرف "${admin.name}"؟`)) {
+        return;
+    }
+
+    // Delete from Firebase
+    if (window.firebase && window.firebase.database) {
+        const adminRef = window.firebase.ref(window.firebase.database, `admins/${phone}`);
+        await window.firebase.set(adminRef, null);
+    }
+
+    delete adminsData[phone];
+    renderAdminsList();
+    showNotification('تم حذف المشرف', 'info');
+}
+
+// Update existing showScanner function
+function showScanner() {
+    document.getElementById('scannerSection').classList.remove('hidden');
+    document.getElementById('dashboardSection').classList.add('hidden');
+    document.getElementById('profileSection').classList.add('hidden');
+    document.getElementById('manageAdminsSection').classList.add('hidden');
+
+    setActiveNav('scannerNavBtn');
+
+    // Reinitialize scanner if needed
+    if (!html5QrcodeScanner) {
+        initializeQRScanner();
+    } else {
+        html5QrcodeScanner.resume();
+    }
+}
+
+// Update existing showDashboard function
+function showDashboard() {
+    if (html5QrcodeScanner) {
+        html5QrcodeScanner.pause(true);
+    }
+
+    document.getElementById('scannerSection').classList.add('hidden');
+    document.getElementById('dashboardSection').classList.remove('hidden');
+    document.getElementById('profileSection').classList.add('hidden');
+    document.getElementById('manageAdminsSection').classList.add('hidden');
+
+    setActiveNav('dashboardNavBtn');
+
     renderScoresTable();
 }
 

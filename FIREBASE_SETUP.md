@@ -88,8 +88,8 @@ const firebaseConfig = {
 {
   "rules": {
     "students": {
-      ".read": "auth != null",
-      ".write": "auth != null",
+      ".read": true,
+      ".write": true,
       "$studentId": {
         ".validate": "newData.hasChildren(['name', 'scores', 'scans', 'lastUpdated', 'lastUpdatedBy'])",
         "name": {
@@ -97,7 +97,7 @@ const firebaseConfig = {
         },
         "scores": {
           "$scoreType": {
-            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100"
+            ".validate": "newData.isNumber() && newData.val() >= 0"
           }
         },
         "scans": {
@@ -107,6 +107,25 @@ const firebaseConfig = {
         },
         "lastUpdatedBy": {
           ".validate": "newData.isString() && newData.val().length > 0"
+        }
+      }
+    },
+    "admins": {
+      ".read": true,
+      ".write": true,
+      "$phone": {
+        ".validate": "newData.hasChildren(['name', 'phone', 'password', 'isHeadAdmin'])",
+        "name": {
+          ".validate": "newData.isString() && newData.val().length > 0"
+        },
+        "phone": {
+          ".validate": "newData.isString() && newData.val().length == 11"
+        },
+        "password": {
+          ".validate": "newData.isString() && newData.val().length > 0"
+        },
+        "isHeadAdmin": {
+          ".validate": "newData.isBoolean()"
         }
       }
     }
