@@ -50,8 +50,12 @@ async function initializeApp() {
 
 // Initialize admins data from Firebase
 async function initializeAdminsData() {
-    if (!window.firebase) return;
+    if (!window.firebase) {
+        console.log('Firebase not available, cannot initialize admins');
+        return;
+    }
 
+    console.log('Initializing admins data from Firebase...');
     const adminsRef = window.firebase.ref(window.firebase.database, 'admins');
 
     // Check if admins collection exists
@@ -61,6 +65,7 @@ async function initializeAdminsData() {
 
     if (!snapshot.exists()) {
         // Initialize with default admins
+        console.log('No admins found in Firebase, creating default admins...');
         const defaultAdmins = {
             '01207714622': {
                 name: 'Michael',
@@ -94,34 +99,19 @@ async function initializeAdminsData() {
 
         await window.firebase.set(adminsRef, defaultAdmins);
         adminsData = defaultAdmins;
-        console.log('Default admins initialized');
+        console.log('Default admins initialized:', Object.keys(adminsData));
     } else {
         adminsData = snapshot.val() || {};
+        console.log('Admins loaded from Firebase:', Object.keys(adminsData));
     }
 
     // Listen for real-time updates to admins
     const unsubscribe = window.firebase.onValue(adminsRef, (snapshot) => {
         adminsData = snapshot.val() || {};
+        console.log('Admins updated from Firebase:', Object.keys(adminsData));
     });
 
     firebaseListeners.push(unsubscribe);
-}
-
-function onUserAuthenticated(user) {
-    // Extract admin name from email (before @)
-    const adminName = user.email.split('@')[0];
-    currentAdmin = adminName;
-
-    // Initialize Firebase sync after authentication
-    initializeFirebaseSync();
-
-    // Show main app
-    document.getElementById('loginScreen').classList.add('hidden');
-    document.getElementById('mainApp').classList.remove('hidden');
-    document.getElementById('adminNameDisplay').textContent = `المشرف: ${adminName}`;
-
-    // Initialize QR Scanner
-    initializeQRScanner();
 }
 
 function showLoginScreen() {
@@ -129,8 +119,8 @@ function showLoginScreen() {
     document.getElementById('mainApp').classList.add('hidden');
 
     // Clear form
-    if (document.getElementById('adminEmail')) {
-        document.getElementById('adminEmail').value = '';
+    if (document.getElementById('adminPhone')) {
+        document.getElementById('adminPhone').value = '';
     }
     if (document.getElementById('adminPassword')) {
         document.getElementById('adminPassword').value = '';
@@ -216,6 +206,8 @@ async function login() {
     loginError.classList.add('hidden');
     loginError.textContent = '';
 
+    console.log('Login attempt - Phone:', phone, 'Admins loaded:', Object.keys(adminsData).length);
+
     // Validation
     if (!phone) {
         loginError.textContent = 'الرجاء إدخال رقم الهاتف';
@@ -235,10 +227,24 @@ async function login() {
         return;
     }
 
+    // Check if admins data is loaded
+    if (Object.keys(adminsData).length === 0) {
+        console.log('Admins data not loaded yet, attempting to reload...');
+        loginError.textContent = 'جاري تحميل البيانات... يرجى الانتظار ثانية والمحاولة مرة أخرى';
+        loginError.classList.remove('hidden');
+
+        // Try to reload admins data
+        if (window.firebase && window.firebase.database) {
+            await initializeAdminsData();
+        }
+        return;
+    }
+
     // Check if admin exists
     const admin = adminsData[phone];
 
     if (!admin) {
+        console.log('Admin not found for phone:', phone, 'Available phones:', Object.keys(adminsData));
         loginError.textContent = 'رقم الهاتف غير مسجل';
         loginError.classList.remove('hidden');
         return;
@@ -246,6 +252,7 @@ async function login() {
 
     // Verify password
     if (admin.password !== password) {
+        console.log('Password mismatch for phone:', phone);
         loginError.textContent = 'كلمة المرور غير صحيحة';
         loginError.classList.remove('hidden');
         return;
@@ -376,7 +383,7 @@ function onScanSuccess(decodedText, decodedResult) {
     document.getElementById('score').value = '1'; // Default 1 point
     document.getElementById('scoringForm').classList.remove('hidden');
 
-    showNotification(`اسم الطالب: ${studentName}`, 'success');
+    showNotification(`اسم المخدوم: ${studentName}`, 'success');
 }
 
 function onScanFailure(error) {
@@ -392,7 +399,7 @@ async function submitScore() {
 
     // Validation
     if (!studentName) {
-        showNotification('يرجى إدخال اسم الطالب', 'error');
+        showNotification('يرجى إدخال اسم المخدوم', 'error');
         return;
     }
 
@@ -432,7 +439,7 @@ async function submitScore() {
     const scoreTypeConfig = SCORE_TYPES[scoreType];
     if (scoreTypeConfig && !scoreTypeConfig.allowMultiplePerDay) {
         if (studentsData[studentId].scans[scoreType] === today) {
-            showNotification(`⚠️ تم تسجيل "${scoreTypeConfig.label}" لهذا الطالب اليوم بالفعل. لا يمكن التسجيل أكثر من مرة في اليوم الواحد.`, 'error');
+            showNotification(`⚠️ تم تسجيل "${scoreTypeConfig.label}" لهذا المخدوم اليوم بالفعل. لا يمكن التسجيل أكثر من مرة في اليوم الواحد.`, 'error');
             cancelScoring();
             return;
         }
@@ -520,11 +527,11 @@ function renderScoresTable(filteredData = null) {
         <table>
             <thead>
                 <tr>
-                    <th>اسم الطالب</th>
+                    <th>اسم المخدوم</th>
                     ${ALL_SCORE_TYPE_IDS.map(typeId => `<th>${SCORE_TYPES[typeId].label}</th>`).join('')}
                     <th class="total-column">المجموع</th>
                     <th>التاريخ والوقت</th>
-                    <th>المشرف</th>
+                    <th>الخادم</th>
                 </tr>
             </thead>
             <tbody>
@@ -569,7 +576,7 @@ function exportToExcel() {
     const excelData = [];
 
     // Header row with Arabic labels
-    const headers = ['اسم الطالب', ...ALL_SCORE_TYPE_IDS.map(id => SCORE_TYPES[id].label), 'المجموع', 'آخر تحديث', 'المشرف'];
+    const headers = ['اسم المخدوم', ...ALL_SCORE_TYPE_IDS.map(id => SCORE_TYPES[id].label), 'المجموع', 'آخر تحديث', 'الخادم'];
     excelData.push(headers);
 
     // If no data, still create Excel with headers
@@ -577,7 +584,7 @@ function exportToExcel() {
         // Create workbook with headers only
         const ws = XLSX.utils.aoa_to_sheet(excelData);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "نقاط الطلاب");
+        XLSX.utils.book_append_sheet(wb, ws, "نقاط المخدومين");
 
         // Generate filename with timestamp
         const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
@@ -615,7 +622,7 @@ function exportToExcel() {
     // Create workbook
     const ws = XLSX.utils.aoa_to_sheet(excelData);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "نقاط الطلاب");
+    XLSX.utils.book_append_sheet(wb, ws, "نقاط المخدومين");
 
     // Generate filename with timestamp
     const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
@@ -645,7 +652,7 @@ function loadStoredData() {
 }
 
 async function clearAllData() {
-    if (confirm('هل أنت متأكد من حذف جميع بيانات الطلاب؟ لا يمكن التراجع عن هذا الإجراء.')) {
+    if (confirm('هل أنت متأكد من حذف جميع بيانات المخدومين؟ لا يمكن التراجع عن هذا الإجراء.')) {
         studentsData = {};
 
         if (isFirebaseConnected && window.firebase) {
@@ -835,7 +842,7 @@ function renderAdminsList() {
     const container = document.getElementById('adminsList');
 
     if (!Object.keys(adminsData).length) {
-        container.innerHTML = '<p style="text-align: center; color: #666;">لا يوجد مشرفين</p>';
+        container.innerHTML = '<p style="text-align: center; color: #666;">لا يوجد خدام</p>';
         return;
     }
 
@@ -923,14 +930,14 @@ async function addAdmin() {
 
     hideAddAdminForm();
     renderAdminsList();
-    showNotification('تم إضافة المشرف بنجاح', 'success');
+    showNotification('تم إضافة الخادم بنجاح', 'success');
 }
 
 function editAdmin(phone) {
     const admin = adminsData[phone];
     if (!admin) return;
 
-    const newName = prompt('اسم المشرف الجديد:', admin.name);
+    const newName = prompt('اسم الخادم الجديد:', admin.name);
     if (!newName) return;
 
     const newPassword = prompt('كلمة المرور الجديدة (اتركها فارغة للإبقاء على القديمة):');
@@ -952,14 +959,14 @@ function editAdmin(phone) {
 
     adminsData[phone] = updatedAdmin;
     renderAdminsList();
-    showNotification('تم تحديث بيانات المشرف', 'success');
+    showNotification('تم تحديث بيانات الخادم', 'success');
 }
 
 async function deleteAdmin(phone) {
     const admin = adminsData[phone];
     if (!admin) return;
 
-    if (!confirm(`هل أنت متأكد من حذف المشرف "${admin.name}"؟`)) {
+    if (!confirm(`هل أنت متأكد من حذف الخادم "${admin.name}"؟`)) {
         return;
     }
 
@@ -971,7 +978,7 @@ async function deleteAdmin(phone) {
 
     delete adminsData[phone];
     renderAdminsList();
-    showNotification('تم حذف المشرف', 'info');
+    showNotification('تم حذف الخادم', 'info');
 }
 
 // Update existing showScanner function
