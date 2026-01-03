@@ -847,28 +847,40 @@ header h1 {
 .logo-container {
     text-align: center;
     margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
 }
 
 .app-logo {
-    max-width: 150px;
-    height: auto;
-    border-radius: 15px;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
     box-shadow: 0 8px 20px rgba(0,0,0,0.15);
     animation: float 3s ease-in-out infinite;
+    object-fit: cover;
+}
+
+.logo-text {
+    color: white;
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin: 0;
+    text-shadow: 2px 2px 8px rgba(0,0,0,0.5);
+    font-family: 'Cairo', sans-serif;
 }
 
 .header-logo {
-    position: absolute;
-    right: 200px;
-    top: 50%;
-    transform: translateY(-50%);
+    position: relative;
+    margin-left: 15px;
 }
 
 .header-logo-img {
-    width: 30px;
-    height: 30px;
+    width: 35px;
+    height: 35px;
     border-radius: 50%;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
     object-fit: cover;
 }
 
@@ -1231,11 +1243,22 @@ header h1 {
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
+    .logo-container {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .logo-text {
+        font-size: 1.3rem;
+    }
+
+    .app-logo {
+        width: 100px;
+        height: 100px;
+    }
+
     .header-logo {
-        position: static;
-        transform: none;
-        text-align: center;
-        margin-bottom: 10px;
+        margin-left: 10px;
     }
 
     .vip-header {
