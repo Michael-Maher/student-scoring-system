@@ -357,21 +357,32 @@ async function checkLoginStatus() {
 
 // QR Scanner functions
 function initializeQRScanner() {
+    // Clear any existing scanner
     if (html5QrcodeScanner) {
-        html5QrcodeScanner.clear();
+        try {
+            html5QrcodeScanner.clear().catch(err => console.log('Scanner clear error:', err));
+        } catch (error) {
+            console.log('Scanner already cleared:', error);
+        }
     }
 
-    html5QrcodeScanner = new Html5QrcodeScanner(
-        "qr-reader",
-        {
-            fps: 10,
-            qrbox: { width: 250, height: 250 },
-            aspectRatio: 1.0
-        },
-        false
-    );
+    // Small delay to ensure DOM is ready
+    setTimeout(() => {
+        html5QrcodeScanner = new Html5QrcodeScanner(
+            "qr-reader",
+            {
+                fps: 10,
+                qrbox: { width: 250, height: 250 },
+                aspectRatio: 1.0,
+                rememberLastUsedCamera: true,
+                showTorchButtonIfSupported: true
+            },
+            false
+        );
 
-    html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+        html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+        console.log('QR Scanner initialized and rendered');
+    }, 100);
 }
 
 function onScanSuccess(decodedText, decodedResult) {
@@ -1531,11 +1542,22 @@ function showScanner() {
 
     setActiveNav('scannerNavBtn');
 
-    // Reinitialize scanner if needed
-    if (!html5QrcodeScanner) {
+    // Check if scanner container exists and has content
+    const scannerContainer = document.getElementById('qr-reader');
+    const hasContent = scannerContainer && scannerContainer.children.length > 0;
+
+    // Reinitialize scanner if needed or if container is empty
+    if (!html5QrcodeScanner || !hasContent) {
+        console.log('Initializing scanner - no scanner or empty container');
         initializeQRScanner();
     } else {
-        html5QrcodeScanner.resume();
+        try {
+            html5QrcodeScanner.resume();
+            console.log('Scanner resumed');
+        } catch (error) {
+            console.log('Error resuming scanner, reinitializing:', error);
+            initializeQRScanner();
+        }
     }
 }
 
