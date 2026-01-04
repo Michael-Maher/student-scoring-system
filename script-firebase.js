@@ -140,16 +140,32 @@ function initializeFirebaseSync() {
 
     // Listen for real-time updates
     const unsubscribe = window.firebase.onValue(studentsRef, (snapshot) => {
-        console.log('📥 Firebase students data received:', snapshot.exists());
+        const timestamp = new Date().toLocaleTimeString();
+        console.log(`📥 [${timestamp}] Firebase students data received:`, snapshot.exists());
         if (snapshot.exists()) {
-            studentsData = snapshot.val() || {};
-            console.log('✅ Students data loaded from Firebase:', Object.keys(studentsData).length, 'students');
-            updateSyncStatus('synced', 'تم التحديث');
+            const newData = snapshot.val() || {};
+            const studentCount = Object.keys(newData).length;
+            const previousCount = Object.keys(studentsData).length;
 
-            // Update dashboard if it's currently visible
-            if (!document.getElementById('dashboardSection').classList.contains('hidden')) {
-                renderScoresTable();
+            console.log(`✅ [${timestamp}] Students data loaded from Firebase:`, studentCount, 'students (was', previousCount, ')');
+
+            // Check if data actually changed
+            if (JSON.stringify(studentsData) !== JSON.stringify(newData)) {
+                console.log('🔄 Data changed, updating local studentsData');
+                studentsData = newData;
+
+                // Update dashboard if it's currently visible
+                if (!document.getElementById('dashboardSection').classList.contains('hidden')) {
+                    console.log('📊 Dashboard is visible, re-rendering table');
+                    renderScoresTable();
+                } else {
+                    console.log('📱 Dashboard not visible, skipping render');
+                }
+            } else {
+                console.log('ℹ️ Data unchanged, skipping update');
             }
+
+            updateSyncStatus('synced', 'تم التحديث');
         } else {
             studentsData = {};
             console.log('ℹ️ No students data in Firebase yet');
@@ -181,18 +197,25 @@ function saveToFirebase(studentId, studentData) {
     updateSyncStatus('syncing', 'تحديث…');
 
     const studentRef = window.firebase.ref(window.firebase.database, `students/${studentId}`);
-    return window.firebase.set(studentRef, {
+    const dataToSave = {
         ...studentData,
         lastUpdated: window.firebase.serverTimestamp(),
         lastUpdatedBy: currentAdmin
-    }).then(() => {
+    };
+
+    console.log('📦 Data to save to Firebase:', JSON.stringify(dataToSave, null, 2));
+
+    return window.firebase.set(studentRef, dataToSave).then(() => {
         console.log('✅ Successfully saved to Firebase:', studentId);
+        console.log('🔄 Firebase listener should trigger soon to update local data');
         updateSyncStatus('synced', 'تم التحديث');
     }).catch((error) => {
         console.error('❌ Firebase save error:', error);
+        console.error('❌ Error details:', error.message, error.code);
         updateSyncStatus('error', 'خطأ في المزامنة');
         // Fall back to localStorage
         saveData();
+        throw error; // Re-throw to be caught by caller
     });
 }
 
@@ -518,16 +541,18 @@ async function submitScore() {
     studentsData[studentId].lastUpdated = new Date().toISOString();
     studentsData[studentId].lastUpdatedBy = currentAdmin;
 
+    // Save to localStorage as backup
+    saveData();
+
     // Save to Firebase (with fallback to localStorage)
     try {
         await saveToFirebase(studentId, studentsData[studentId]);
         const typeLabel = scoreTypeConfig ? scoreTypeConfig.label : scoreType;
         showNotification(`✅ تم إضافة ${score} نقطة لـ ${studentName} في ${typeLabel}`, 'success');
     } catch (error) {
-        console.error('Save error:', error);
-        saveData(); // Fall back to localStorage
+        console.error('❌ Firebase save error:', error);
         const typeLabel = scoreTypeConfig ? scoreTypeConfig.label : scoreType;
-        showNotification(`تم حفظ النقاط محلياً: ${studentName} - ${typeLabel}: ${score}`, 'info');
+        showNotification(`⚠️ تم حفظ النقاط محلياً فقط (لم يتم المزامنة): ${studentName} - ${typeLabel}: ${score}`, 'error');
     }
 
     // Reset form and resume scanning

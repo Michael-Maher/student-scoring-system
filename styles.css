@@ -868,8 +868,8 @@ header h1 {
 }
 
 .app-logo {
-    width: 120px;
-    height: 120px;
+    width: 180px;
+    height: 180px;
     border-radius: 50%;
     box-shadow: 0 8px 20px rgba(0,0,0,0.15);
     animation: float 3s ease-in-out infinite;
@@ -909,8 +909,8 @@ header h1 {
 }
 
 .header-logo-img {
-    width: 45px;
-    height: 45px;
+    width: 60px;
+    height: 60px;
     border-radius: 50%;
     box-shadow: 0 4px 10px rgba(0,0,0,0.2);
     object-fit: cover;
@@ -1295,8 +1295,8 @@ header h1 {
     }
 
     .app-logo {
-        width: 100px;
-        height: 100px;
+        width: 150px;
+        height: 150px;
     }
 
     .header-logo {
