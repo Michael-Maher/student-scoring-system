@@ -1744,41 +1744,36 @@ function showScanner() {
 
     setActiveNav('scannerNavBtn');
 
-    // Wait for section to be visible and DOM to be ready before initializing scanner
-    setTimeout(() => {
-        console.log('🔍 Checking scanner state after delay...');
+    // Check if scanner container exists
+    const scannerContainer = document.getElementById('qr-reader');
+    if (!scannerContainer) {
+        console.error('❌ Scanner container (#qr-reader) not found!');
+        return;
+    }
 
-        // Check if scanner container exists and has content
-        const scannerContainer = document.getElementById('qr-reader');
-        if (!scannerContainer) {
-            console.error('❌ Scanner container (#qr-reader) not found!');
-            return;
-        }
+    const hasContent = scannerContainer.children.length > 0;
 
-        const hasContent = scannerContainer.children.length > 0;
-        const scannerSectionVisible = !document.getElementById('scannerSection').classList.contains('hidden');
+    console.log('📊 Scanner state:');
+    console.log('  - Container found: ✅');
+    console.log('  - Has content:', hasContent ? '✅' : '❌');
+    console.log('  - Scanner instance exists:', html5QrcodeScanner ? '✅' : '❌');
 
-        console.log('📊 Scanner state:');
-        console.log('  - Container found: ✅');
-        console.log('  - Has content:', hasContent ? '✅' : '❌');
-        console.log('  - Scanner instance exists:', html5QrcodeScanner ? '✅' : '❌');
-        console.log('  - Scanner section visible:', scannerSectionVisible ? '✅' : '❌');
-
-        // Always reinitialize if no content or no scanner instance
-        if (!html5QrcodeScanner || !hasContent) {
-            console.log('🔧 Initializing scanner - no scanner or empty container');
+    // Only initialize if scanner doesn't exist yet
+    if (!html5QrcodeScanner || !hasContent) {
+        console.log('🔧 Initializing scanner for the first time');
+        setTimeout(() => {
             initializeQRScanner();
-        } else {
-            // Try to resume, reinitialize if it fails
-            try {
-                html5QrcodeScanner.resume();
-                console.log('▶️ Scanner resumed successfully');
-            } catch (error) {
-                console.log('⚠️ Error resuming scanner, reinitializing:', error);
-                initializeQRScanner();
-            }
+        }, 200);
+    } else {
+        // Scanner already exists, just resume it
+        console.log('▶️ Resuming existing scanner');
+        try {
+            html5QrcodeScanner.resume();
+            console.log('✅ Scanner resumed successfully');
+        } catch (error) {
+            console.log('⚠️ Error resuming scanner:', error);
         }
-    }, 200);
+    }
 }
 
 // Update existing showDashboard function
