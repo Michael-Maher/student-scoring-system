@@ -293,6 +293,20 @@ header h1 {
 
 #qr-reader {
     width: 100%;
+    position: relative;
+    z-index: 1;
+}
+
+/* Ensure scanner video doesn't block navigation */
+#qr-reader video {
+    max-width: 100%;
+    position: relative;
+    z-index: 1;
+}
+
+#qr-reader__scan_region {
+    position: relative !important;
+    z-index: 1 !important;
 }
 
 #qr-reader-results {
@@ -996,6 +1010,8 @@ header h1 {
     overflow-x: auto;
     justify-content: center;
     flex-wrap: wrap;
+    position: relative;
+    z-index: 200;
 }
 
 .nav-btn {

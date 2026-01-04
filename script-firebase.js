@@ -357,6 +357,8 @@ async function checkLoginStatus() {
 
 // QR Scanner functions
 function initializeQRScanner() {
+    console.log('initializeQRScanner called');
+
     // Clear any existing scanner
     if (html5QrcodeScanner) {
         try {
@@ -364,25 +366,40 @@ function initializeQRScanner() {
         } catch (error) {
             console.log('Scanner already cleared:', error);
         }
+        html5QrcodeScanner = null;
     }
 
-    // Small delay to ensure DOM is ready
-    setTimeout(() => {
-        html5QrcodeScanner = new Html5QrcodeScanner(
-            "qr-reader",
-            {
-                fps: 10,
-                qrbox: { width: 250, height: 250 },
-                aspectRatio: 1.0,
-                rememberLastUsedCamera: true,
-                showTorchButtonIfSupported: true
-            },
-            false
-        );
+    // Check if container exists
+    const container = document.getElementById('qr-reader');
+    if (!container) {
+        console.error('QR reader container not found!');
+        return;
+    }
 
-        html5QrcodeScanner.render(onScanSuccess, onScanFailure);
-        console.log('QR Scanner initialized and rendered');
-    }, 100);
+    // Clear container first
+    container.innerHTML = '';
+
+    // Longer delay to ensure DOM is fully ready and previous scanner is cleared
+    setTimeout(() => {
+        try {
+            html5QrcodeScanner = new Html5QrcodeScanner(
+                "qr-reader",
+                {
+                    fps: 10,
+                    qrbox: { width: 250, height: 250 },
+                    aspectRatio: 1.0,
+                    rememberLastUsedCamera: true,
+                    showTorchButtonIfSupported: true
+                },
+                false
+            );
+
+            html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+            console.log('QR Scanner initialized and rendered successfully');
+        } catch (error) {
+            console.error('Error initializing scanner:', error);
+        }
+    }, 200);
 }
 
 function onScanSuccess(decodedText, decodedResult) {
@@ -1539,6 +1556,8 @@ async function deleteScoreType(typeId) {
 
 // Update existing showScanner function
 function showScanner() {
+    console.log('showScanner called');
+
     document.getElementById('scannerSection').classList.remove('hidden');
     document.getElementById('dashboardSection').classList.add('hidden');
     document.getElementById('profileSection').classList.add('hidden');
@@ -1549,16 +1568,24 @@ function showScanner() {
 
     // Check if scanner container exists and has content
     const scannerContainer = document.getElementById('qr-reader');
-    const hasContent = scannerContainer && scannerContainer.children.length > 0;
+    if (!scannerContainer) {
+        console.error('Scanner container not found!');
+        return;
+    }
 
-    // Reinitialize scanner if needed or if container is empty
+    const hasContent = scannerContainer.children.length > 0;
+    console.log('Scanner container has content:', hasContent);
+    console.log('html5QrcodeScanner exists:', !!html5QrcodeScanner);
+
+    // Always reinitialize if no content or no scanner instance
     if (!html5QrcodeScanner || !hasContent) {
         console.log('Initializing scanner - no scanner or empty container');
         initializeQRScanner();
     } else {
+        // Try to resume, reinitialize if it fails
         try {
             html5QrcodeScanner.resume();
-            console.log('Scanner resumed');
+            console.log('Scanner resumed successfully');
         } catch (error) {
             console.log('Error resuming scanner, reinitializing:', error);
             initializeQRScanner();
