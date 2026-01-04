@@ -182,16 +182,19 @@ function initializeFirebaseSync() {
 function saveToFirebase(studentId, studentData) {
     console.log('💾 saveToFirebase called for:', studentId);
     console.log('🔌 Firebase available:', !!window.firebase);
-    console.log('🔌 Firebase connected:', isFirebaseConnected);
+    console.log('🔌 Firebase database:', !!window.firebase?.database);
+    console.log('🔌 Firebase connected flag:', isFirebaseConnected);
 
-    if (!window.firebase || !isFirebaseConnected) {
-        console.log('⚠️ Firebase not available, falling back to localStorage');
-        // Fall back to localStorage
-        saveData();
+    // Always save to localStorage as backup first
+    saveData();
+
+    // Check if Firebase is available
+    if (!window.firebase || !window.firebase.database) {
+        console.log('⚠️ Firebase not available, data saved to localStorage only');
         return Promise.resolve();
     }
 
-    console.log('📤 Saving to Firebase:', studentId, studentData);
+    console.log('📤 Attempting to save to Firebase:', studentId);
     updateSyncStatus('syncing', 'تحديث…');
 
     const studentRef = window.firebase.ref(window.firebase.database, `students/${studentId}`);
@@ -211,8 +214,6 @@ function saveToFirebase(studentId, studentData) {
         console.error('❌ Firebase save error:', error);
         console.error('❌ Error details:', error.message, error.code);
         updateSyncStatus('error', 'خطأ في المزامنة');
-        // Fall back to localStorage
-        saveData();
         throw error; // Re-throw to be caught by caller
     });
 }
