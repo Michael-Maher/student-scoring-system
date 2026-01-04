@@ -508,18 +508,6 @@ function cancelScoring() {
 }
 
 // Navigation functions
-function showScanner() {
-    document.getElementById('scannerSection').classList.remove('hidden');
-    document.getElementById('dashboardSection').classList.add('hidden');
-
-    // Reinitialize scanner if needed
-    if (!html5QrcodeScanner) {
-        initializeQRScanner();
-    } else {
-        html5QrcodeScanner.resume();
-    }
-}
-
 // Helper function to format date as two lines (Day, Date / Time in 12h format)
 function formatDateTwoLines(dateString) {
     if (!dateString) return 'غير معروف';
