@@ -326,8 +326,10 @@ async function login() {
     // Initialize Firebase sync
     initializeFirebaseSync();
 
-    // Show scanner section by default
-    showScanner();
+    // Show scanner section by default with a delay to ensure DOM is ready
+    setTimeout(() => {
+        showScanner();
+    }, 150);
 
     showNotification(`أهلاً ${currentAdmin}!`, 'success');
 }
@@ -384,8 +386,10 @@ async function checkLoginStatus() {
             await initializeScoreTypes();
             initializeFirebaseSync();
 
-            // Show scanner section by default
-            showScanner();
+            // Show scanner section by default with a delay to ensure DOM is ready
+            setTimeout(() => {
+                showScanner();
+            }, 150);
         } else {
             // Password changed, logout
             localStorage.removeItem('currentAdminPhone');
@@ -396,14 +400,15 @@ async function checkLoginStatus() {
 
 // QR Scanner functions
 function initializeQRScanner() {
-    console.log('initializeQRScanner called');
+    console.log('🔧 initializeQRScanner called');
 
     // Clear any existing scanner
     if (html5QrcodeScanner) {
+        console.log('🧹 Clearing existing scanner instance...');
         try {
-            html5QrcodeScanner.clear().catch(err => console.log('Scanner clear error:', err));
+            html5QrcodeScanner.clear().catch(err => console.log('⚠️ Scanner clear error:', err));
         } catch (error) {
-            console.log('Scanner already cleared:', error);
+            console.log('ℹ️ Scanner already cleared:', error);
         }
         html5QrcodeScanner = null;
     }
@@ -411,15 +416,17 @@ function initializeQRScanner() {
     // Check if container exists
     const container = document.getElementById('qr-reader');
     if (!container) {
-        console.error('QR reader container not found!');
+        console.error('❌ QR reader container (#qr-reader) not found!');
         return;
     }
 
+    console.log('✅ Container found, clearing innerHTML...');
     // Clear container first
     container.innerHTML = '';
 
     // Longer delay to ensure DOM is fully ready and previous scanner is cleared
     setTimeout(() => {
+        console.log('⏱️ Delay complete, creating scanner instance...');
         try {
             html5QrcodeScanner = new Html5QrcodeScanner(
                 "qr-reader",
@@ -433,12 +440,20 @@ function initializeQRScanner() {
                 false
             );
 
+            console.log('📷 Rendering scanner...');
             html5QrcodeScanner.render(onScanSuccess, onScanFailure);
-            console.log('QR Scanner initialized and rendered successfully');
+            console.log('✅ QR Scanner initialized and rendered successfully');
+
+            // Verify scanner DOM was created
+            setTimeout(() => {
+                const scannerElements = container.children.length;
+                console.log('🔍 Scanner DOM verification: container has', scannerElements, 'child elements');
+            }, 100);
         } catch (error) {
-            console.error('Error initializing scanner:', error);
+            console.error('❌ Error initializing scanner:', error);
+            console.error('❌ Error stack:', error.stack);
         }
-    }, 200);
+    }, 250);
 }
 
 function onScanSuccess(decodedText, decodedResult) {
@@ -1357,53 +1372,80 @@ async function deleteAdmin(phone) {
 
 // Score Types Management Functions
 async function initializeScoreTypes() {
+    console.log('🔧 Initializing score types...');
+    console.log('📋 Current SCORE_TYPES:', Object.keys(SCORE_TYPES));
+
+    // Always update UI with current score types (default or loaded)
+    updateScoreTypeSelects();
+    console.log('✅ Score type selects updated with current types');
+
     if (!window.firebase) {
-        console.log('Firebase not available, using default score types');
+        console.log('⚠️ Firebase not available, using default score types only');
         return;
     }
 
-    const scoreTypesRef = window.firebase.ref(window.firebase.database, 'scoreTypes');
-    const snapshot = await new Promise((resolve) => {
-        window.firebase.onValue(scoreTypesRef, resolve, { onlyOnce: true });
-    });
+    try {
+        const scoreTypesRef = window.firebase.ref(window.firebase.database, 'scoreTypes');
+        const snapshot = await new Promise((resolve) => {
+            window.firebase.onValue(scoreTypesRef, resolve, { onlyOnce: true });
+        });
 
-    if (snapshot.exists()) {
-        SCORE_TYPES = snapshot.val();
-        ALL_SCORE_TYPE_IDS = Object.keys(SCORE_TYPES);
-        console.log('Score types loaded from Firebase:', ALL_SCORE_TYPE_IDS);
-        updateScoreTypeSelects();
-    } else {
-        // Save default score types to Firebase
-        await window.firebase.set(scoreTypesRef, SCORE_TYPES);
-        console.log('Default score types saved to Firebase');
-    }
-
-    // Listen for real-time updates
-    const unsubscribe = window.firebase.onValue(scoreTypesRef, (snapshot) => {
         if (snapshot.exists()) {
             SCORE_TYPES = snapshot.val();
             ALL_SCORE_TYPE_IDS = Object.keys(SCORE_TYPES);
+            console.log('✅ Score types loaded from Firebase:', ALL_SCORE_TYPE_IDS);
             updateScoreTypeSelects();
-            console.log('Score types updated from Firebase');
+        } else {
+            // Save default score types to Firebase
+            console.log('📤 No score types in Firebase, saving defaults...');
+            await window.firebase.set(scoreTypesRef, SCORE_TYPES);
+            console.log('✅ Default score types saved to Firebase');
+            updateScoreTypeSelects();
         }
-    });
 
-    firebaseListeners.push(unsubscribe);
+        // Listen for real-time updates
+        const unsubscribe = window.firebase.onValue(scoreTypesRef, (snapshot) => {
+            if (snapshot.exists()) {
+                const newTypes = snapshot.val();
+                console.log('🔄 Score types updated from Firebase:', Object.keys(newTypes));
+                SCORE_TYPES = newTypes;
+                ALL_SCORE_TYPE_IDS = Object.keys(SCORE_TYPES);
+                updateScoreTypeSelects();
+            }
+        });
+
+        firebaseListeners.push(unsubscribe);
+        console.log('✅ Score types real-time listener registered');
+    } catch (error) {
+        console.error('❌ Error initializing score types from Firebase:', error);
+        // Continue with default types
+        updateScoreTypeSelects();
+    }
 }
 
 function updateScoreTypeSelects() {
+    console.log('🔄 Updating score type select dropdowns...');
+    console.log('📋 Available score types:', ALL_SCORE_TYPE_IDS.length, ':', ALL_SCORE_TYPE_IDS);
+
     // Update scoring form select
     const scoreTypeSelect = document.getElementById('scoreType');
     if (scoreTypeSelect) {
         const currentValue = scoreTypeSelect.value;
         scoreTypeSelect.innerHTML = '<option value="">اختر نوع النشاط</option>';
+
+        let optionsAdded = 0;
         ALL_SCORE_TYPE_IDS.forEach(typeId => {
             const option = document.createElement('option');
             option.value = typeId;
             option.textContent = SCORE_TYPES[typeId].label;
             scoreTypeSelect.appendChild(option);
+            optionsAdded++;
         });
+
         scoreTypeSelect.value = currentValue;
+        console.log('✅ Scoring form dropdown: added', optionsAdded, 'options');
+    } else {
+        console.log('⚠️ Scoring form select element (#scoreType) not found');
     }
 
     // Update filter select
@@ -1411,13 +1453,20 @@ function updateScoreTypeSelects() {
     if (filterScoreType) {
         const currentFilterValue = filterScoreType.value;
         filterScoreType.innerHTML = '<option value="">الكل</option>';
+
+        let filterOptionsAdded = 0;
         ALL_SCORE_TYPE_IDS.forEach(typeId => {
             const option = document.createElement('option');
             option.value = typeId;
             option.textContent = SCORE_TYPES[typeId].label;
             filterScoreType.appendChild(option);
+            filterOptionsAdded++;
         });
+
         filterScoreType.value = currentFilterValue;
+        console.log('✅ Filter dropdown: added', filterOptionsAdded, 'options');
+    } else {
+        console.log('⚠️ Filter select element (#filterScoreType) not found');
     }
 }
 
@@ -1601,8 +1650,9 @@ async function deleteScoreType(typeId) {
 
 // Update existing showScanner function
 function showScanner() {
-    console.log('showScanner called');
+    console.log('📱 showScanner called');
 
+    // Show scanner section and hide others
     document.getElementById('scannerSection').classList.remove('hidden');
     document.getElementById('dashboardSection').classList.add('hidden');
     document.getElementById('profileSection').classList.add('hidden');
@@ -1611,34 +1661,41 @@ function showScanner() {
 
     setActiveNav('scannerNavBtn');
 
-    // Wait for section to be visible before initializing scanner
+    // Wait for section to be visible and DOM to be ready before initializing scanner
     setTimeout(() => {
+        console.log('🔍 Checking scanner state after delay...');
+
         // Check if scanner container exists and has content
         const scannerContainer = document.getElementById('qr-reader');
         if (!scannerContainer) {
-            console.error('Scanner container not found!');
+            console.error('❌ Scanner container (#qr-reader) not found!');
             return;
         }
 
         const hasContent = scannerContainer.children.length > 0;
-        console.log('Scanner container has content:', hasContent);
-        console.log('html5QrcodeScanner exists:', !!html5QrcodeScanner);
+        const scannerSectionVisible = !document.getElementById('scannerSection').classList.contains('hidden');
+
+        console.log('📊 Scanner state:');
+        console.log('  - Container found: ✅');
+        console.log('  - Has content:', hasContent ? '✅' : '❌');
+        console.log('  - Scanner instance exists:', html5QrcodeScanner ? '✅' : '❌');
+        console.log('  - Scanner section visible:', scannerSectionVisible ? '✅' : '❌');
 
         // Always reinitialize if no content or no scanner instance
         if (!html5QrcodeScanner || !hasContent) {
-            console.log('Initializing scanner - no scanner or empty container');
+            console.log('🔧 Initializing scanner - no scanner or empty container');
             initializeQRScanner();
         } else {
             // Try to resume, reinitialize if it fails
             try {
                 html5QrcodeScanner.resume();
-                console.log('Scanner resumed successfully');
+                console.log('▶️ Scanner resumed successfully');
             } catch (error) {
-                console.log('Error resuming scanner, reinitializing:', error);
+                console.log('⚠️ Error resuming scanner, reinitializing:', error);
                 initializeQRScanner();
             }
         }
-    }, 100);
+    }, 200);
 }
 
 // Update existing showDashboard function
