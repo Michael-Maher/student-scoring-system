@@ -16,7 +16,7 @@ const firebaseConfig = {
     try {
         const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js');
         const { getDatabase, ref, onValue, set, push, serverTimestamp, get } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
-        const { getAuth, signInWithEmailAndPassword, setPersistence, browserLocalPersistence, browserSessionPersistence, onAuthStateChanged, signOut } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js');
+        const { getAuth, signInAnonymously, onAuthStateChanged, signOut } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js');
 
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
@@ -33,20 +33,25 @@ const firebaseConfig = {
             serverTimestamp,
             get,
             auth,
-            signInWithEmailAndPassword,
-            setPersistence,
-            browserLocalPersistence,
-            browserSessionPersistence,
+            signInAnonymously,
             onAuthStateChanged,
             signOut
         };
+
+        console.log('🔥 Firebase initialized successfully');
+
+        // Sign in anonymously to enable database writes
+        try {
+            await signInAnonymously(auth);
+            console.log('✅ Firebase Anonymous Authentication successful');
+        } catch (authError) {
+            console.error('❌ Firebase Authentication failed:', authError);
+        }
 
         // Signal that Firebase is ready
         if (window.initFirebase) {
             window.initFirebase();
         }
-
-        console.log('Firebase initialized successfully');
     } catch (error) {
         console.error('Firebase initialization failed:', error);
         // Fall back to localStorage mode

@@ -35,7 +35,18 @@ async function initializeApp() {
         isFirebaseConnected = true;
         updateSyncStatus('connected', 'متصل');
 
-        // Initialize admins data first
+        // Wait for authentication to complete before loading data
+        if (window.firebase.auth && window.firebase.onAuthStateChanged) {
+            await new Promise((resolve) => {
+                const unsubscribe = window.firebase.onAuthStateChanged(window.firebase.auth, (user) => {
+                    console.log('🔐 Auth state changed:', user ? 'authenticated' : 'not authenticated');
+                    unsubscribe();
+                    resolve();
+                });
+            });
+        }
+
+        // Initialize admins data after authentication is ready
         await initializeAdminsData();
 
         // Check login status
@@ -55,61 +66,72 @@ async function initializeAdminsData() {
         return;
     }
 
-    console.log('Initializing admins data from Firebase...');
+    console.log('📋 Initializing admins data from Firebase...');
     const adminsRef = window.firebase.ref(window.firebase.database, 'admins');
 
-    // Check if admins collection exists using get()
-    const snapshot = await window.firebase.get(adminsRef);
+    try {
+        // Check if admins collection exists using get()
+        const snapshot = await window.firebase.get(adminsRef);
 
-    if (!snapshot.exists()) {
-        // Initialize with default admins
-        console.log('No admins found in Firebase, creating default admins...');
-        const defaultAdmins = {
-            '01207714622': {
-                name: 'Michael',
-                phone: '01207714622',
-                password: '123456789mI#',
-                isHeadAdmin: true,
-                createdAt: new Date().toISOString()
-            },
-            '01283469752': {
-                name: 'Mina Zaher',
-                phone: '01283469752',
-                password: '01283469752',
-                isHeadAdmin: false,
-                createdAt: new Date().toISOString()
-            },
-            '01207320088': {
-                name: 'Kero Boles',
-                phone: '01207320088',
-                password: '01207320088',
-                isHeadAdmin: false,
-                createdAt: new Date().toISOString()
-            },
-            '01282201313': {
-                name: 'Remon Aziz',
-                phone: '01282201313',
-                password: '01282201313',
-                isHeadAdmin: false,
-                createdAt: new Date().toISOString()
+        if (!snapshot.exists()) {
+            // Initialize with default admins
+            console.log('➕ No admins found in Firebase, creating default admins...');
+            const defaultAdmins = {
+                '01207714622': {
+                    name: 'Michael',
+                    phone: '01207714622',
+                    password: '123456789mI#',
+                    isHeadAdmin: true,
+                    createdAt: new Date().toISOString()
+                },
+                '01283469752': {
+                    name: 'Mina Zaher',
+                    phone: '01283469752',
+                    password: '01283469752',
+                    isHeadAdmin: false,
+                    createdAt: new Date().toISOString()
+                },
+                '01207320088': {
+                    name: 'Kero Boles',
+                    phone: '01207320088',
+                    password: '01207320088',
+                    isHeadAdmin: false,
+                    createdAt: new Date().toISOString()
+                },
+                '01282201313': {
+                    name: 'Remon Aziz',
+                    phone: '01282201313',
+                    password: '01282201313',
+                    isHeadAdmin: false,
+                    createdAt: new Date().toISOString()
+                }
+            };
+
+            try {
+                await window.firebase.set(adminsRef, defaultAdmins);
+                adminsData = defaultAdmins;
+                console.log('✅ Default admins created in Firebase:', Object.keys(adminsData));
+            } catch (writeError) {
+                console.error('❌ Failed to write default admins to Firebase:', writeError);
+                console.log('⚠️ Using local default admins (Firebase write failed - check authentication and database rules)');
+                adminsData = defaultAdmins;
             }
-        };
+        } else {
+            adminsData = snapshot.val() || {};
+            console.log('✅ Admins loaded from Firebase:', Object.keys(adminsData).length, 'admins');
+        }
 
-        await window.firebase.set(adminsRef, defaultAdmins);
-        adminsData = defaultAdmins;
-        console.log('Default admins initialized:', Object.keys(adminsData));
-    } else {
-        adminsData = snapshot.val() || {};
-        console.log('Admins loaded from Firebase:', Object.keys(adminsData));
+        // Listen for real-time updates to admins
+        const unsubscribe = window.firebase.onValue(adminsRef, (snapshot) => {
+            adminsData = snapshot.val() || {};
+            console.log('🔄 Admins updated from Firebase:', Object.keys(adminsData).length, 'admins');
+        });
+
+        firebaseListeners.push(unsubscribe);
+    } catch (error) {
+        console.error('❌ Error initializing admins data:', error);
+        console.log('⚠️ Falling back to empty admins data');
     }
-
-    // Listen for real-time updates to admins
-    const unsubscribe = window.firebase.onValue(adminsRef, (snapshot) => {
-        adminsData = snapshot.val() || {};
-        console.log('Admins updated from Firebase:', Object.keys(adminsData));
-    });
-
-    firebaseListeners.push(unsubscribe);
 }
 
 function showLoginScreen() {

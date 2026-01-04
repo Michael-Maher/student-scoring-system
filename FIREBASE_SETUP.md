@@ -78,66 +78,49 @@ const firebaseConfig = {
 
 **Important**: Share these credentials securely with your admins!
 
-## Step 6: Set Up Security Rules
+## Step 6: CRITICAL - Enable Anonymous Authentication
+
+**IMPORTANT: This step is required for the app to work!**
+
+1. In Firebase Console, click **"Authentication"** in the left sidebar
+2. Click **"Get started"** (if you haven't set up auth yet)
+3. Go to **"Sign-in method"** tab
+4. Find **"Anonymous"** in the list
+5. Click on **"Anonymous"**
+6. Toggle **"Enable"** to ON
+7. Click **"Save"**
+
+## Step 7: Set Up Security Rules
 
 1. Go back to **"Realtime Database"** in Firebase Console
 2. Click the **"Rules"** tab
-3. Replace the default rules with these **security rules** (requires authentication):
+3. Replace the default rules with these **security rules**:
 
-```javascript
+```json
 {
   "rules": {
     "students": {
-      ".read": true,
-      ".write": true,
-      "$studentId": {
-        ".validate": "newData.hasChildren(['name', 'scores', 'scans', 'lastUpdated', 'lastUpdatedBy'])",
-        "name": {
-          ".validate": "newData.isString() && newData.val().length > 0"
-        },
-        "scores": {
-          "$scoreType": {
-            ".validate": "newData.isNumber() && newData.val() >= 0"
-          }
-        },
-        "scans": {
-          "$scoreType": {
-            ".validate": "newData.isString()"
-          }
-        },
-        "lastUpdatedBy": {
-          ".validate": "newData.isString() && newData.val().length > 0"
-        }
-      }
+      ".read": "auth != null",
+      ".write": "auth != null"
     },
     "admins": {
-      ".read": true,
-      ".write": true,
-      "$phone": {
-        ".validate": "newData.hasChildren(['name', 'phone', 'password', 'isHeadAdmin'])",
-        "name": {
-          ".validate": "newData.isString() && newData.val().length > 0"
-        },
-        "phone": {
-          ".validate": "newData.isString() && newData.val().length == 11"
-        },
-        "password": {
-          ".validate": "newData.isString() && newData.val().length > 0"
-        },
-        "isHeadAdmin": {
-          ".validate": "newData.isBoolean()"
-        }
-      }
+      ".read": "auth != null",
+      ".write": "auth != null"
     }
   }
 }
 ```
 
-**Note**: These rules require users to be authenticated. Only logged-in admins can read/write data.
+**What these rules mean:**
+- `"auth != null"` - Only authenticated users (including anonymous) can read/write
+- This allows your app to sync data while maintaining basic security
+- Anonymous authentication is automatically handled by the app
 
 4. Click **"Publish"**
 
-## Step 7: Deploy and Test
+**IMPORTANT**: If you don't enable Anonymous Authentication, the app will only save data locally and won't sync to Firebase!
+
+## Step 8: Deploy and Test
 
 1. **Push your updated code** to GitHub:
 ```bash
@@ -154,7 +137,7 @@ git push origin main
    - Verify scores appear instantly on other phones
    - Check the sync status indicator in the header
 
-## Step 8: Understanding the Sync Status
+## Step 9: Understanding the Sync Status
 
 The app shows sync status in the header with colored indicators:
 
