@@ -58,10 +58,8 @@ async function initializeAdminsData() {
     console.log('Initializing admins data from Firebase...');
     const adminsRef = window.firebase.ref(window.firebase.database, 'admins');
 
-    // Check if admins collection exists
-    const snapshot = await new Promise((resolve) => {
-        window.firebase.onValue(adminsRef, resolve, { onlyOnce: true });
-    });
+    // Check if admins collection exists using get()
+    const snapshot = await window.firebase.get(adminsRef);
 
     if (!snapshot.exists()) {
         // Initialize with default admins
@@ -326,8 +324,11 @@ async function login() {
     // Initialize Firebase sync
     initializeFirebaseSync();
 
+    console.log('🚀 Login complete, scheduling scanner initialization...');
+
     // Show scanner section by default with a delay to ensure DOM is ready
     setTimeout(() => {
+        console.log('⏰ Timer fired, calling showScanner()...');
         showScanner();
     }, 150);
 
@@ -386,8 +387,11 @@ async function checkLoginStatus() {
             await initializeScoreTypes();
             initializeFirebaseSync();
 
+            console.log('🚀 Auto-login complete, scheduling scanner initialization...');
+
             // Show scanner section by default with a delay to ensure DOM is ready
             setTimeout(() => {
+                console.log('⏰ Auto-login timer fired, calling showScanner()...');
                 showScanner();
             }, 150);
         } else {
@@ -1386,9 +1390,11 @@ async function initializeScoreTypes() {
 
     try {
         const scoreTypesRef = window.firebase.ref(window.firebase.database, 'scoreTypes');
-        const snapshot = await new Promise((resolve) => {
-            window.firebase.onValue(scoreTypesRef, resolve, { onlyOnce: true });
-        });
+        console.log('📡 Fetching score types from Firebase...');
+
+        // Use get() for one-time read
+        const snapshot = await window.firebase.get(scoreTypesRef);
+        console.log('📦 Received snapshot, exists:', snapshot.exists());
 
         if (snapshot.exists()) {
             SCORE_TYPES = snapshot.val();
@@ -1398,13 +1404,17 @@ async function initializeScoreTypes() {
         } else {
             // Save default score types to Firebase
             console.log('📤 No score types in Firebase, saving defaults...');
+            console.log('📋 Default types to save:', SCORE_TYPES);
             await window.firebase.set(scoreTypesRef, SCORE_TYPES);
             console.log('✅ Default score types saved to Firebase');
+            console.log('💡 You can now see "scoreTypes" in your Firebase Realtime Database');
             updateScoreTypeSelects();
         }
 
         // Listen for real-time updates
+        console.log('👂 Setting up real-time listener for score types...');
         const unsubscribe = window.firebase.onValue(scoreTypesRef, (snapshot) => {
+            console.log('🔔 Score types changed in Firebase');
             if (snapshot.exists()) {
                 const newTypes = snapshot.val();
                 console.log('🔄 Score types updated from Firebase:', Object.keys(newTypes));
@@ -1418,10 +1428,36 @@ async function initializeScoreTypes() {
         console.log('✅ Score types real-time listener registered');
     } catch (error) {
         console.error('❌ Error initializing score types from Firebase:', error);
+        console.error('❌ Error stack:', error.stack);
         // Continue with default types
         updateScoreTypeSelects();
     }
 }
+
+// Helper function to manually sync score types to Firebase (useful for debugging)
+async function syncScoreTypesToFirebase() {
+    if (!window.firebase || !window.firebase.database) {
+        console.error('❌ Firebase not available');
+        return;
+    }
+
+    console.log('🔄 Manually syncing score types to Firebase...');
+    console.log('📋 Current score types:', SCORE_TYPES);
+
+    try {
+        const scoreTypesRef = window.firebase.ref(window.firebase.database, 'scoreTypes');
+        await window.firebase.set(scoreTypesRef, SCORE_TYPES);
+        console.log('✅ Score types synced to Firebase successfully!');
+        console.log('💡 Check Firebase Console -> Realtime Database -> scoreTypes');
+        showNotification('✅ تم مزامنة أنواع النقاط مع Firebase بنجاح', 'success');
+    } catch (error) {
+        console.error('❌ Error syncing score types:', error);
+        showNotification('❌ خطأ في المزامنة', 'error');
+    }
+}
+
+// Make it globally available for console access
+window.syncScoreTypesToFirebase = syncScoreTypesToFirebase;
 
 function updateScoreTypeSelects() {
     console.log('🔄 Updating score type select dropdowns...');
@@ -1546,6 +1582,8 @@ async function addScoreType() {
     const label = document.getElementById('newScoreTypeLabel').value.trim();
     const allowMultiple = document.getElementById('newScoreTypeMultiple').value === 'true';
 
+    console.log('➕ Adding new score type:', { id, label, allowMultiple });
+
     if (!id) {
         showNotification('الرجاء إدخال المعرف (ID)', 'error');
         return;
@@ -1572,48 +1610,76 @@ async function addScoreType() {
         allowMultiplePerDay: allowMultiple
     };
 
+    // Update local data
     SCORE_TYPES[id] = newScoreType;
     ALL_SCORE_TYPE_IDS = Object.keys(SCORE_TYPES);
+    console.log('✅ Score type added locally:', id);
 
+    // Save to Firebase
     if (window.firebase && window.firebase.database) {
-        const scoreTypesRef = window.firebase.ref(window.firebase.database, 'scoreTypes');
-        await window.firebase.set(scoreTypesRef, SCORE_TYPES);
+        try {
+            console.log('📤 Saving score types to Firebase...');
+            const scoreTypesRef = window.firebase.ref(window.firebase.database, 'scoreTypes');
+            await window.firebase.set(scoreTypesRef, SCORE_TYPES);
+            console.log('✅ Score types saved to Firebase successfully');
+            console.log('🔔 Real-time listeners will notify all users of this change');
+        } catch (error) {
+            console.error('❌ Error saving score types to Firebase:', error);
+            showNotification('⚠️ تم الإضافة محلياً فقط - خطأ في المزامنة', 'error');
+            return;
+        }
     }
 
     updateScoreTypeSelects();
     hideAddScoreTypeForm();
     renderScoreTypesList();
-    showNotification('تم إضافة نوع النقاط بنجاح', 'success');
+    showNotification('✅ تم إضافة نوع النقاط بنجاح وتم مزامنته مع جميع المستخدمين', 'success');
 }
 
-function editScoreType(typeId) {
+async function editScoreType(typeId) {
     const scoreType = SCORE_TYPES[typeId];
     if (!scoreType) return;
+
+    console.log('✏️ Editing score type:', typeId, scoreType);
 
     const newLabel = prompt('الاسم العربي الجديد:', scoreType.label);
     if (!newLabel || !newLabel.trim()) return;
 
     const allowMultiple = confirm('السماح بالتسجيل أكثر من مرة في اليوم؟');
 
+    // Update local data
     SCORE_TYPES[typeId] = {
         ...scoreType,
         label: newLabel.trim(),
         allowMultiplePerDay: allowMultiple
     };
+    console.log('✅ Score type updated locally:', typeId, SCORE_TYPES[typeId]);
 
+    // Save to Firebase
     if (window.firebase && window.firebase.database) {
-        const scoreTypesRef = window.firebase.ref(window.firebase.database, 'scoreTypes');
-        window.firebase.set(scoreTypesRef, SCORE_TYPES);
+        try {
+            console.log('📤 Saving updated score types to Firebase...');
+            const scoreTypesRef = window.firebase.ref(window.firebase.database, 'scoreTypes');
+            await window.firebase.set(scoreTypesRef, SCORE_TYPES);
+            console.log('✅ Score types saved to Firebase successfully');
+            console.log('🔔 Real-time listeners will notify all users of this change');
+        } catch (error) {
+            console.error('❌ Error saving score types to Firebase:', error);
+            showNotification('⚠️ تم التحديث محلياً فقط - خطأ في المزامنة', 'error');
+            return;
+        }
     }
 
     updateScoreTypeSelects();
     renderScoreTypesList();
-    showNotification('تم تحديث نوع النقاط', 'success');
+    showNotification('✅ تم تحديث نوع النقاط بنجاح وتم مزامنته مع جميع المستخدمين', 'success');
 }
 
 async function deleteScoreType(typeId) {
     const scoreType = SCORE_TYPES[typeId];
     if (!scoreType) return;
+
+    console.log('🗑️ Deleting score type:', typeId, scoreType);
 
     if (!confirm(`هل أنت متأكد من حذف نوع النقاط "${scoreType.label}"؟\n\nسيتم حذف جميع النقاط المرتبطة بهذا النوع من جميع المخدومين!`)) {
         return;
@@ -1622,30 +1688,47 @@ async function deleteScoreType(typeId) {
     // Remove from SCORE_TYPES
     delete SCORE_TYPES[typeId];
     ALL_SCORE_TYPE_IDS = Object.keys(SCORE_TYPES);
+    console.log('✅ Score type removed locally');
 
     // Remove from all students
+    let studentsAffected = 0;
     Object.keys(studentsData).forEach(studentId => {
         if (studentsData[studentId].scores && studentsData[studentId].scores[typeId]) {
             delete studentsData[studentId].scores[typeId];
+            studentsAffected++;
         }
         if (studentsData[studentId].scans && studentsData[studentId].scans[typeId]) {
             delete studentsData[studentId].scans[typeId];
         }
     });
+    console.log(`🔄 Removed score type from ${studentsAffected} students`);
 
     // Save to Firebase
     if (window.firebase && window.firebase.database) {
-        const scoreTypesRef = window.firebase.ref(window.firebase.database, 'scoreTypes');
-        await window.firebase.set(scoreTypesRef, SCORE_TYPES);
+        try {
+            console.log('📤 Saving updated score types to Firebase...');
+            const scoreTypesRef = window.firebase.ref(window.firebase.database, 'scoreTypes');
+            await window.firebase.set(scoreTypesRef, SCORE_TYPES);
+            console.log('✅ Score types saved to Firebase');
 
-        // Update all students in Firebase
-        const studentsRef = window.firebase.ref(window.firebase.database, 'students');
-        await window.firebase.set(studentsRef, studentsData);
+            if (studentsAffected > 0) {
+                console.log('📤 Updating students in Firebase...');
+                const studentsRef = window.firebase.ref(window.firebase.database, 'students');
+                await window.firebase.set(studentsRef, studentsData);
+                console.log('✅ Students updated in Firebase');
+            }
+
+            console.log('🔔 Real-time listeners will notify all users of this change');
+        } catch (error) {
+            console.error('❌ Error saving to Firebase:', error);
+            showNotification('⚠️ تم الحذف محلياً فقط - خطأ في المزامنة', 'error');
+            return;
+        }
     }
 
     updateScoreTypeSelects();
     renderScoreTypesList();
-    showNotification('تم حذف نوع النقاط', 'info');
+    showNotification('✅ تم حذف نوع النقاط بنجاح وتم مزامنته مع جميع المستخدمين', 'success');
 }
 
 // Update existing showScanner function

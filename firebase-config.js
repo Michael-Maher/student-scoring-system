@@ -15,7 +15,7 @@ const firebaseConfig = {
 (async function() {
     try {
         const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js');
-        const { getDatabase, ref, onValue, set, push, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
+        const { getDatabase, ref, onValue, set, push, serverTimestamp, get } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
         const { getAuth, signInWithEmailAndPassword, setPersistence, browserLocalPersistence, browserSessionPersistence, onAuthStateChanged, signOut } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js');
 
         // Initialize Firebase
@@ -31,6 +31,7 @@ const firebaseConfig = {
             set,
             push,
             serverTimestamp,
+            get,
             auth,
             signInWithEmailAndPassword,
             setPersistence,
