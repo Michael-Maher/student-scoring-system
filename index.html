@@ -81,6 +81,10 @@
                 <span class="nav-icon">👥</span>
                 <span class="nav-text">إدارة الخدام</span>
             </button>
+            <button onclick="showManageScoreTypes()" class="nav-btn hidden" id="manageScoreTypesNavBtn">
+                <span class="nav-icon">⚙️</span>
+                <span class="nav-text">أنواع النقاط</span>
+            </button>
         </nav>
 
         <div id="scannerSection" class="section">
@@ -133,9 +137,21 @@
                     <label>فلترة حسب التاريخ:</label>
                     <input type="date" id="filterDate" onchange="applyFilters()">
                 </div>
+                <div class="filter-group">
+                    <label>فلترة حسب النوع:</label>
+                    <select id="filterScoreType" onchange="applyFilters()">
+                        <option value="">الكل</option>
+                        <option value="mass">🙏 القداس والتناول</option>
+                        <option value="tunic">👕 لبس التونيه</option>
+                        <option value="meeting">⏰ حضور الاجتماع</option>
+                        <option value="behavior">⭐ سلوك</option>
+                        <option value="bible">📖 احضار الكتاب المقدس</option>
+                    </select>
+                </div>
                 <button onclick="clearFilters()" class="clear-filter-btn">مسح الفلاتر</button>
             </div>
             <div class="dashboard-actions">
+                <button onclick="toggleLeaderboard()" class="leaderboard-btn" id="leaderboardBtn">🏆 عرض الترتيب</button>
                 <button onclick="exportToExcel()" class="export-btn">📄 تصدير إلى Excel</button>
                 <button onclick="clearAllData()" class="clear-btn">🗑️ مسح جميع البيانات</button>
                 <button onclick="showScanner()" class="back-btn">🔙 العودة للمسح</button>
@@ -211,6 +227,41 @@
                 </div>
 
                 <div id="adminsList" class="admins-list"></div>
+            </div>
+        </div>
+
+        <div id="manageScoreTypesSection" class="section hidden">
+            <h2>⚙️ إدارة أنواع النقاط</h2>
+            <div class="manage-score-types-container">
+                <div class="score-type-actions-bar">
+                    <button onclick="showAddScoreTypeForm()" class="vip-button">➕ إضافة نوع جديد</button>
+                </div>
+
+                <div id="addScoreTypeForm" class="score-type-form hidden">
+                    <h3>➕ إضافة نوع نقاط جديد</h3>
+                    <div class="form-group">
+                        <label>المعرف (ID):</label>
+                        <input type="text" id="newScoreTypeId" placeholder="مثال: homework" pattern="[a-z_]+" title="استخدم حروف إنجليزية صغيرة و _ فقط">
+                        <small class="hint">استخدم حروف إنجليزية صغيرة فقط (a-z) و _ للمسافات</small>
+                    </div>
+                    <div class="form-group">
+                        <label>الاسم العربي:</label>
+                        <input type="text" id="newScoreTypeLabel" placeholder="مثال: الواجب المنزلي">
+                    </div>
+                    <div class="form-group">
+                        <label>السماح بالتسجيل أكثر من مرة في اليوم:</label>
+                        <select id="newScoreTypeMultiple">
+                            <option value="false">لا (مرة واحدة فقط)</option>
+                            <option value="true">نعم (عدة مرات)</option>
+                        </select>
+                    </div>
+                    <div class="form-actions">
+                        <button onclick="addScoreType()" class="vip-button">إضافة</button>
+                        <button onclick="hideAddScoreTypeForm()" class="cancel-btn">إلغاء</button>
+                    </div>
+                </div>
+
+                <div id="scoreTypesList" class="score-types-list"></div>
             </div>
         </div>
     </div>

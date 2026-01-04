@@ -11,7 +11,7 @@ let firebaseListeners = [];
 const HEAD_ADMIN_PHONE = '01207714622';
 
 // Define all possible score types with IDs and labels
-const SCORE_TYPES = {
+let SCORE_TYPES = {
     'mass': { id: 'mass', label: 'القداس والتناول', allowMultiplePerDay: false },
     'tunic': { id: 'tunic', label: 'لبس التونيه', allowMultiplePerDay: false },
     'meeting': { id: 'meeting', label: 'حضور الاجتماع', allowMultiplePerDay: false },
@@ -19,7 +19,7 @@ const SCORE_TYPES = {
     'bible': { id: 'bible', label: 'احضار الكتاب المقدس', allowMultiplePerDay: false }
 };
 
-const ALL_SCORE_TYPE_IDS = Object.keys(SCORE_TYPES);
+let ALL_SCORE_TYPE_IDS = Object.keys(SCORE_TYPES);
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
@@ -275,10 +275,14 @@ async function login() {
     // Update UI
     document.getElementById('adminNameDisplay').textContent = `${currentAdmin}`;
 
-    // Show "Manage Admins" tab for head admin
+    // Show "Manage Admins" and "Manage Score Types" tabs for head admin
     if (admin.isHeadAdmin) {
         document.getElementById('manageAdminsNavBtn').classList.remove('hidden');
+        document.getElementById('manageScoreTypesNavBtn').classList.remove('hidden');
     }
+
+    // Initialize score types from Firebase
+    await initializeScoreTypes();
 
     // Initialize Firebase sync
     initializeFirebaseSync();
@@ -332,11 +336,13 @@ async function checkLoginStatus() {
             document.getElementById('mainApp').classList.remove('hidden');
             document.getElementById('adminNameDisplay').textContent = `${currentAdmin}`;
 
-            // Show "Manage Admins" tab for head admin
+            // Show "Manage Admins" and "Manage Score Types" tabs for head admin
             if (admin.isHeadAdmin) {
                 document.getElementById('manageAdminsNavBtn').classList.remove('hidden');
+                document.getElementById('manageScoreTypesNavBtn').classList.remove('hidden');
             }
 
+            await initializeScoreTypes();
             initializeFirebaseSync();
             initializeQRScanner();
         } else {
@@ -559,6 +565,7 @@ function renderScoresTable(filteredData = null) {
                     <th class="total-column">المجموع</th>
                     <th>التاريخ والوقت</th>
                     <th>الخادم</th>
+                    <th>الإجراءات</th>
                 </tr>
             </thead>
             <tbody>
@@ -585,6 +592,7 @@ function renderScoresTable(filteredData = null) {
                 <td class="total-column"><strong>${total}</strong></td>
                 <td>${lastUpdated}</td>
                 <td>${student.lastUpdatedBy || 'غير معروف'}</td>
+                <td><button onclick="editStudentRow('${studentId}')" class="edit-row-btn">✏️</button></td>
             </tr>
         `;
     });
@@ -595,6 +603,167 @@ function renderScoresTable(filteredData = null) {
     `;
 
     tableContainer.innerHTML = tableHTML;
+}
+
+// Edit student row function
+async function editStudentRow(studentId) {
+    const student = studentsData[studentId];
+    if (!student) {
+        showNotification('المخدوم غير موجود', 'error');
+        return;
+    }
+
+    // Create edit dialog content
+    let dialogHTML = `
+        <div style="max-width: 600px;">
+            <h3 style="margin-bottom: 20px;">✏️ تعديل نقاط ${student.name}</h3>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">اسم المخدوم:</label>
+                <input type="text" id="editStudentName" value="${student.name}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
+            </div>
+    `;
+
+    // Add input fields for each score type
+    ALL_SCORE_TYPE_IDS.forEach(typeId => {
+        const currentScore = student.scores?.[typeId] || 0;
+        dialogHTML += `
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">${SCORE_TYPES[typeId].label}:</label>
+                <input type="number" id="editScore_${typeId}" value="${currentScore}" min="0" max="1000" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
+            </div>
+        `;
+    });
+
+    dialogHTML += `
+            <div style="display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end;">
+                <button onclick="saveStudentEdit('${studentId}')" style="padding: 10px 20px; background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); border: none; border-radius: 5px; font-weight: 600; cursor: pointer;">💾 حفظ</button>
+                <button onclick="deleteStudent('${studentId}')" style="padding: 10px 20px; background: #dc3545; color: white; border: none; border-radius: 5px; font-weight: 600; cursor: pointer;">🗑️ حذف</button>
+                <button onclick="closeEditDialog()" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 5px; font-weight: 600; cursor: pointer;">إلغاء</button>
+            </div>
+        </div>
+    `;
+
+    // Show edit dialog
+    showEditDialog(dialogHTML);
+}
+
+function showEditDialog(content) {
+    // Create dialog overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'editDialogOverlay';
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 10000;
+    `;
+
+    const dialog = document.createElement('div');
+    dialog.style.cssText = `
+        background: white;
+        padding: 30px;
+        border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        max-height: 80vh;
+        overflow-y: auto;
+    `;
+    dialog.innerHTML = content;
+
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+}
+
+function closeEditDialog() {
+    const overlay = document.getElementById('editDialogOverlay');
+    if (overlay) {
+        overlay.remove();
+    }
+}
+
+async function saveStudentEdit(studentId) {
+    const newName = document.getElementById('editStudentName').value.trim();
+
+    if (!newName) {
+        showNotification('الرجاء إدخال اسم المخدوم', 'error');
+        return;
+    }
+
+    // Collect all scores
+    const newScores = {};
+    ALL_SCORE_TYPE_IDS.forEach(typeId => {
+        const input = document.getElementById(`editScore_${typeId}`);
+        if (input) {
+            const value = parseFloat(input.value) || 0;
+            if (value > 0) {
+                newScores[typeId] = value;
+            }
+        }
+    });
+
+    // If student name changed, we need to delete old entry and create new one
+    if (newName !== studentId) {
+        // Delete old entry
+        delete studentsData[studentId];
+
+        // Create new entry with new name
+        studentsData[newName] = {
+            name: newName,
+            scores: newScores,
+            scans: studentsData[studentId]?.scans || {},
+            lastUpdated: new Date().toISOString(),
+            lastUpdatedBy: currentAdmin
+        };
+
+        // Update Firebase
+        if (window.firebase && window.firebase.database) {
+            // Delete old entry
+            const oldRef = window.firebase.ref(window.firebase.database, `students/${studentId}`);
+            await window.firebase.set(oldRef, null);
+
+            // Save new entry
+            await saveToFirebase(newName, studentsData[newName]);
+        }
+    } else {
+        // Just update scores
+        studentsData[studentId].scores = newScores;
+        studentsData[studentId].lastUpdated = new Date().toISOString();
+        studentsData[studentId].lastUpdatedBy = currentAdmin;
+
+        // Save to Firebase
+        await saveToFirebase(studentId, studentsData[studentId]);
+    }
+
+    closeEditDialog();
+    renderScoresTable();
+    showNotification('تم تحديث البيانات بنجاح', 'success');
+}
+
+async function deleteStudent(studentId) {
+    const student = studentsData[studentId];
+    if (!student) return;
+
+    if (!confirm(`هل أنت متأكد من حذف المخدوم "${student.name}"؟\n\nسيتم حذف جميع نقاطه نهائياً!`)) {
+        return;
+    }
+
+    // Delete from data
+    delete studentsData[studentId];
+
+    // Delete from Firebase
+    if (window.firebase && window.firebase.database) {
+        const studentRef = window.firebase.ref(window.firebase.database, `students/${studentId}`);
+        await window.firebase.set(studentRef, null);
+    }
+
+    closeEditDialog();
+    renderScoresTable();
+    showNotification('تم حذف المخدوم', 'info');
 }
 
 // Excel export function
@@ -705,6 +874,7 @@ function applyFilters() {
     const nameFilter = document.getElementById('filterName').value.trim().toLowerCase();
     const adminFilter = document.getElementById('filterAdmin').value.trim().toLowerCase();
     const dateFilter = document.getElementById('filterDate').value;
+    const scoreTypeFilter = document.getElementById('filterScoreType').value;
 
     let filteredData = { ...studentsData };
 
@@ -737,6 +907,15 @@ function applyFilters() {
         );
     }
 
+    // Filter by score type - show only students who have this score type
+    if (scoreTypeFilter) {
+        filteredData = Object.fromEntries(
+            Object.entries(filteredData).filter(([id, student]) =>
+                student.scores && student.scores[scoreTypeFilter] !== undefined
+            )
+        );
+    }
+
     renderScoresTable(filteredData);
 }
 
@@ -744,7 +923,103 @@ function clearFilters() {
     document.getElementById('filterName').value = '';
     document.getElementById('filterAdmin').value = '';
     document.getElementById('filterDate').value = '';
+    document.getElementById('filterScoreType').value = '';
     renderScoresTable();
+}
+
+// Leaderboard functionality
+let isLeaderboardMode = false;
+
+function toggleLeaderboard() {
+    isLeaderboardMode = !isLeaderboardMode;
+    const btn = document.getElementById('leaderboardBtn');
+
+    if (isLeaderboardMode) {
+        btn.textContent = '📊 عرض عادي';
+        btn.classList.add('active');
+        renderLeaderboard();
+    } else {
+        btn.textContent = '🏆 عرض الترتيب';
+        btn.classList.remove('active');
+        renderScoresTable();
+    }
+}
+
+function renderLeaderboard() {
+    const tableContainer = document.getElementById('scoresTable');
+
+    if (Object.keys(studentsData).length === 0) {
+        tableContainer.innerHTML = '<p style="text-align: center; color: #666; font-style: italic;">لم يتم تسجيل أي نقاط بعد.</p>';
+        return;
+    }
+
+    // Calculate totals and create array
+    const studentsArray = Object.entries(studentsData).map(([studentId, student]) => {
+        let total = 0;
+        ALL_SCORE_TYPE_IDS.forEach(typeId => {
+            if (student.scores?.[typeId]) {
+                total += student.scores[typeId];
+            }
+        });
+        return { ...student, total };
+    });
+
+    // Sort by total points (highest to lowest)
+    studentsArray.sort((a, b) => b.total - a.total);
+
+    // Create table HTML
+    let tableHTML = `
+        <div class="leaderboard-header">
+            <h3>🏆 ترتيب المخدومين حسب النقاط</h3>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>الترتيب</th>
+                    <th>اسم المخدوم</th>
+                    ${ALL_SCORE_TYPE_IDS.map(typeId => `<th>${SCORE_TYPES[typeId].label}</th>`).join('')}
+                    <th class="total-column">المجموع</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    // Add student rows with ranking
+    studentsArray.forEach((student, index) => {
+        const rank = index + 1;
+        let rankBadge = '';
+
+        if (rank === 1) {
+            rankBadge = '🥇';
+        } else if (rank === 2) {
+            rankBadge = '🥈';
+        } else if (rank === 3) {
+            rankBadge = '🥉';
+        } else {
+            rankBadge = rank;
+        }
+
+        const scoresCells = ALL_SCORE_TYPE_IDS.map(typeId => {
+            const score = student.scores?.[typeId];
+            return score !== undefined ? `<td>${score}</td>` : '<td>-</td>';
+        }).join('');
+
+        tableHTML += `
+            <tr class="rank-${rank}">
+                <td><strong>${rankBadge}</strong></td>
+                <td><strong>${student.name}</strong></td>
+                ${scoresCells}
+                <td class="total-column"><strong>${student.total}</strong></td>
+            </tr>
+        `;
+    });
+
+    tableHTML += `
+            </tbody>
+        </table>
+    `;
+
+    tableContainer.innerHTML = tableHTML;
 }
 
 // Navigation functions
@@ -763,6 +1038,7 @@ function showProfile() {
     document.getElementById('dashboardSection').classList.add('hidden');
     document.getElementById('profileSection').classList.remove('hidden');
     document.getElementById('manageAdminsSection').classList.add('hidden');
+    document.getElementById('manageScoreTypesSection').classList.add('hidden');
 
     setActiveNav('profileNavBtn');
 
@@ -853,6 +1129,7 @@ function showManageAdmins() {
     document.getElementById('dashboardSection').classList.add('hidden');
     document.getElementById('profileSection').classList.add('hidden');
     document.getElementById('manageAdminsSection').classList.remove('hidden');
+    document.getElementById('manageScoreTypesSection').classList.add('hidden');
 
     setActiveNav('manageAdminsNavBtn');
 
@@ -868,13 +1145,18 @@ function showManageAdmins() {
 function renderAdminsList() {
     const container = document.getElementById('adminsList');
 
+    console.log('renderAdminsList called, adminsData:', adminsData);
+    console.log('adminsData keys:', Object.keys(adminsData));
+
     if (!Object.keys(adminsData).length) {
         container.innerHTML = '<p style="text-align: center; color: #666;">لا يوجد خدام</p>';
+        console.log('No admins data found - showing empty message');
         return;
     }
 
     let html = '';
     Object.entries(adminsData).forEach(([phone, admin]) => {
+        console.log('Processing admin:', phone, admin);
         const isHeadAdmin = admin.isHeadAdmin;
         const roleClass = isHeadAdmin ? 'head-admin-badge' : 'admin-badge';
         const roleText = isHeadAdmin ? 'امين الخدمه' : 'خادم';
@@ -899,6 +1181,7 @@ function renderAdminsList() {
         `;
     });
 
+    console.log('Generated HTML length:', html.length);
     container.innerHTML = html;
 }
 
@@ -1008,12 +1291,252 @@ async function deleteAdmin(phone) {
     showNotification('تم حذف الخادم', 'info');
 }
 
+// Score Types Management Functions
+async function initializeScoreTypes() {
+    if (!window.firebase) {
+        console.log('Firebase not available, using default score types');
+        return;
+    }
+
+    const scoreTypesRef = window.firebase.ref(window.firebase.database, 'scoreTypes');
+    const snapshot = await new Promise((resolve) => {
+        window.firebase.onValue(scoreTypesRef, resolve, { onlyOnce: true });
+    });
+
+    if (snapshot.exists()) {
+        SCORE_TYPES = snapshot.val();
+        ALL_SCORE_TYPE_IDS = Object.keys(SCORE_TYPES);
+        console.log('Score types loaded from Firebase:', ALL_SCORE_TYPE_IDS);
+        updateScoreTypeSelects();
+    } else {
+        // Save default score types to Firebase
+        await window.firebase.set(scoreTypesRef, SCORE_TYPES);
+        console.log('Default score types saved to Firebase');
+    }
+
+    // Listen for real-time updates
+    const unsubscribe = window.firebase.onValue(scoreTypesRef, (snapshot) => {
+        if (snapshot.exists()) {
+            SCORE_TYPES = snapshot.val();
+            ALL_SCORE_TYPE_IDS = Object.keys(SCORE_TYPES);
+            updateScoreTypeSelects();
+            console.log('Score types updated from Firebase');
+        }
+    });
+
+    firebaseListeners.push(unsubscribe);
+}
+
+function updateScoreTypeSelects() {
+    // Update scoring form select
+    const scoreTypeSelect = document.getElementById('scoreType');
+    if (scoreTypeSelect) {
+        const currentValue = scoreTypeSelect.value;
+        scoreTypeSelect.innerHTML = '<option value="">اختر نوع النشاط</option>';
+        ALL_SCORE_TYPE_IDS.forEach(typeId => {
+            const option = document.createElement('option');
+            option.value = typeId;
+            option.textContent = SCORE_TYPES[typeId].label;
+            scoreTypeSelect.appendChild(option);
+        });
+        scoreTypeSelect.value = currentValue;
+    }
+
+    // Update filter select
+    const filterScoreType = document.getElementById('filterScoreType');
+    if (filterScoreType) {
+        const currentFilterValue = filterScoreType.value;
+        filterScoreType.innerHTML = '<option value="">الكل</option>';
+        ALL_SCORE_TYPE_IDS.forEach(typeId => {
+            const option = document.createElement('option');
+            option.value = typeId;
+            option.textContent = SCORE_TYPES[typeId].label;
+            filterScoreType.appendChild(option);
+        });
+        filterScoreType.value = currentFilterValue;
+    }
+}
+
+function showManageScoreTypes() {
+    if (!currentAdminData || !currentAdminData.isHeadAdmin) {
+        showNotification('غير مصرح لك بالوصول إلى هذه الصفحة', 'error');
+        return;
+    }
+
+    document.getElementById('scannerSection').classList.add('hidden');
+    document.getElementById('dashboardSection').classList.add('hidden');
+    document.getElementById('profileSection').classList.add('hidden');
+    document.getElementById('manageAdminsSection').classList.add('hidden');
+    document.getElementById('manageScoreTypesSection').classList.remove('hidden');
+
+    setActiveNav('manageScoreTypesNavBtn');
+
+    if (html5QrcodeScanner) {
+        html5QrcodeScanner.pause(true);
+    }
+
+    renderScoreTypesList();
+}
+
+function renderScoreTypesList() {
+    const container = document.getElementById('scoreTypesList');
+
+    if (!Object.keys(SCORE_TYPES).length) {
+        container.innerHTML = '<p style="text-align: center; color: #666;">لا توجد أنواع نقاط</p>';
+        return;
+    }
+
+    let html = '<div class="score-types-grid">';
+    Object.entries(SCORE_TYPES).forEach(([typeId, scoreType]) => {
+        const multipleText = scoreType.allowMultiplePerDay ? 'نعم' : 'لا';
+        const multipleClass = scoreType.allowMultiplePerDay ? 'badge-yes' : 'badge-no';
+
+        html += `
+            <div class="score-type-card">
+                <div class="score-type-header">
+                    <h4>${scoreType.label}</h4>
+                    <code class="score-type-id">${typeId}</code>
+                </div>
+                <div class="score-type-info">
+                    <p><strong>تسجيل متعدد:</strong> <span class="badge ${multipleClass}">${multipleText}</span></p>
+                </div>
+                <div class="score-type-actions">
+                    <button onclick="editScoreType('${typeId}')" class="edit-btn">✏️ تعديل</button>
+                    <button onclick="deleteScoreType('${typeId}')" class="delete-btn">🗑️ حذف</button>
+                </div>
+            </div>
+        `;
+    });
+    html += '</div>';
+
+    container.innerHTML = html;
+}
+
+function showAddScoreTypeForm() {
+    document.getElementById('addScoreTypeForm').classList.remove('hidden');
+    document.getElementById('newScoreTypeId').value = '';
+    document.getElementById('newScoreTypeLabel').value = '';
+    document.getElementById('newScoreTypeMultiple').value = 'false';
+}
+
+function hideAddScoreTypeForm() {
+    document.getElementById('addScoreTypeForm').classList.add('hidden');
+}
+
+async function addScoreType() {
+    const id = document.getElementById('newScoreTypeId').value.trim().toLowerCase();
+    const label = document.getElementById('newScoreTypeLabel').value.trim();
+    const allowMultiple = document.getElementById('newScoreTypeMultiple').value === 'true';
+
+    if (!id) {
+        showNotification('الرجاء إدخال المعرف (ID)', 'error');
+        return;
+    }
+
+    if (!/^[a-z_]+$/.test(id)) {
+        showNotification('المعرف يجب أن يحتوي على حروف إنجليزية صغيرة و _ فقط', 'error');
+        return;
+    }
+
+    if (!label) {
+        showNotification('الرجاء إدخال الاسم العربي', 'error');
+        return;
+    }
+
+    if (SCORE_TYPES[id]) {
+        showNotification('هذا المعرف موجود بالفعل', 'error');
+        return;
+    }
+
+    const newScoreType = {
+        id,
+        label,
+        allowMultiplePerDay: allowMultiple
+    };
+
+    SCORE_TYPES[id] = newScoreType;
+    ALL_SCORE_TYPE_IDS = Object.keys(SCORE_TYPES);
+
+    if (window.firebase && window.firebase.database) {
+        const scoreTypesRef = window.firebase.ref(window.firebase.database, 'scoreTypes');
+        await window.firebase.set(scoreTypesRef, SCORE_TYPES);
+    }
+
+    updateScoreTypeSelects();
+    hideAddScoreTypeForm();
+    renderScoreTypesList();
+    showNotification('تم إضافة نوع النقاط بنجاح', 'success');
+}
+
+function editScoreType(typeId) {
+    const scoreType = SCORE_TYPES[typeId];
+    if (!scoreType) return;
+
+    const newLabel = prompt('الاسم العربي الجديد:', scoreType.label);
+    if (!newLabel || !newLabel.trim()) return;
+
+    const allowMultiple = confirm('السماح بالتسجيل أكثر من مرة في اليوم؟');
+
+    SCORE_TYPES[typeId] = {
+        ...scoreType,
+        label: newLabel.trim(),
+        allowMultiplePerDay: allowMultiple
+    };
+
+    if (window.firebase && window.firebase.database) {
+        const scoreTypesRef = window.firebase.ref(window.firebase.database, 'scoreTypes');
+        window.firebase.set(scoreTypesRef, SCORE_TYPES);
+    }
+
+    updateScoreTypeSelects();
+    renderScoreTypesList();
+    showNotification('تم تحديث نوع النقاط', 'success');
+}
+
+async function deleteScoreType(typeId) {
+    const scoreType = SCORE_TYPES[typeId];
+    if (!scoreType) return;
+
+    if (!confirm(`هل أنت متأكد من حذف نوع النقاط "${scoreType.label}"؟\n\nسيتم حذف جميع النقاط المرتبطة بهذا النوع من جميع المخدومين!`)) {
+        return;
+    }
+
+    // Remove from SCORE_TYPES
+    delete SCORE_TYPES[typeId];
+    ALL_SCORE_TYPE_IDS = Object.keys(SCORE_TYPES);
+
+    // Remove from all students
+    Object.keys(studentsData).forEach(studentId => {
+        if (studentsData[studentId].scores && studentsData[studentId].scores[typeId]) {
+            delete studentsData[studentId].scores[typeId];
+        }
+        if (studentsData[studentId].scans && studentsData[studentId].scans[typeId]) {
+            delete studentsData[studentId].scans[typeId];
+        }
+    });
+
+    // Save to Firebase
+    if (window.firebase && window.firebase.database) {
+        const scoreTypesRef = window.firebase.ref(window.firebase.database, 'scoreTypes');
+        await window.firebase.set(scoreTypesRef, SCORE_TYPES);
+
+        // Update all students in Firebase
+        const studentsRef = window.firebase.ref(window.firebase.database, 'students');
+        await window.firebase.set(studentsRef, studentsData);
+    }
+
+    updateScoreTypeSelects();
+    renderScoreTypesList();
+    showNotification('تم حذف نوع النقاط', 'info');
+}
+
 // Update existing showScanner function
 function showScanner() {
     document.getElementById('scannerSection').classList.remove('hidden');
     document.getElementById('dashboardSection').classList.add('hidden');
     document.getElementById('profileSection').classList.add('hidden');
     document.getElementById('manageAdminsSection').classList.add('hidden');
+    document.getElementById('manageScoreTypesSection').classList.add('hidden');
 
     setActiveNav('scannerNavBtn');
 
@@ -1038,6 +1561,7 @@ function showDashboard() {
     document.getElementById('dashboardSection').classList.remove('hidden');
     document.getElementById('profileSection').classList.add('hidden');
     document.getElementById('manageAdminsSection').classList.add('hidden');
+    document.getElementById('manageScoreTypesSection').classList.add('hidden');
 
     setActiveNav('dashboardNavBtn');
 
