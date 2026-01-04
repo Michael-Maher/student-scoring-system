@@ -1566,31 +1566,34 @@ function showScanner() {
 
     setActiveNav('scannerNavBtn');
 
-    // Check if scanner container exists and has content
-    const scannerContainer = document.getElementById('qr-reader');
-    if (!scannerContainer) {
-        console.error('Scanner container not found!');
-        return;
-    }
-
-    const hasContent = scannerContainer.children.length > 0;
-    console.log('Scanner container has content:', hasContent);
-    console.log('html5QrcodeScanner exists:', !!html5QrcodeScanner);
-
-    // Always reinitialize if no content or no scanner instance
-    if (!html5QrcodeScanner || !hasContent) {
-        console.log('Initializing scanner - no scanner or empty container');
-        initializeQRScanner();
-    } else {
-        // Try to resume, reinitialize if it fails
-        try {
-            html5QrcodeScanner.resume();
-            console.log('Scanner resumed successfully');
-        } catch (error) {
-            console.log('Error resuming scanner, reinitializing:', error);
-            initializeQRScanner();
+    // Wait for section to be visible before initializing scanner
+    setTimeout(() => {
+        // Check if scanner container exists and has content
+        const scannerContainer = document.getElementById('qr-reader');
+        if (!scannerContainer) {
+            console.error('Scanner container not found!');
+            return;
         }
-    }
+
+        const hasContent = scannerContainer.children.length > 0;
+        console.log('Scanner container has content:', hasContent);
+        console.log('html5QrcodeScanner exists:', !!html5QrcodeScanner);
+
+        // Always reinitialize if no content or no scanner instance
+        if (!html5QrcodeScanner || !hasContent) {
+            console.log('Initializing scanner - no scanner or empty container');
+            initializeQRScanner();
+        } else {
+            // Try to resume, reinitialize if it fails
+            try {
+                html5QrcodeScanner.resume();
+                console.log('Scanner resumed successfully');
+            } catch (error) {
+                console.log('Error resuming scanner, reinitializing:', error);
+                initializeQRScanner();
+            }
+        }
+    }, 100);
 }
 
 // Update existing showDashboard function
