@@ -33,7 +33,7 @@ async function initializeApp() {
     // Check if Firebase is available
     if (window.firebase && window.firebase.database) {
         isFirebaseConnected = true;
-        updateSyncStatus('connected', 'Connected');
+        updateSyncStatus('connected', 'متصل');
 
         // Initialize admins data first
         await initializeAdminsData();
@@ -42,7 +42,7 @@ async function initializeApp() {
         checkLoginStatus();
     } else {
         isFirebaseConnected = false;
-        updateSyncStatus('offline', 'Offline Mode');
+        updateSyncStatus('offline', 'غير متصل…');
         loadStoredData();
         checkLoginStatus();
     }
@@ -137,7 +137,7 @@ function initializeFirebaseSync() {
     const unsubscribe = window.firebase.onValue(studentsRef, (snapshot) => {
         if (snapshot.exists()) {
             studentsData = snapshot.val() || {};
-            updateSyncStatus('synced', 'Synced');
+            updateSyncStatus('synced', 'تم التحديث');
 
             // Update dashboard if it's currently visible
             if (!document.getElementById('dashboardSection').classList.contains('hidden')) {
@@ -148,7 +148,7 @@ function initializeFirebaseSync() {
         }
     }, (error) => {
         console.error('Firebase sync error:', error);
-        updateSyncStatus('error', 'Sync Error');
+        updateSyncStatus('error', 'خطأ في المزامنة');
         // Fall back to localStorage
         loadStoredData();
     });
@@ -163,7 +163,7 @@ function saveToFirebase(studentId, studentData) {
         return Promise.resolve();
     }
 
-    updateSyncStatus('syncing', 'Syncing...');
+    updateSyncStatus('syncing', 'تحديث…');
 
     const studentRef = window.firebase.ref(window.firebase.database, `students/${studentId}`);
     return window.firebase.set(studentRef, {
@@ -171,10 +171,10 @@ function saveToFirebase(studentId, studentData) {
         lastUpdated: window.firebase.serverTimestamp(),
         lastUpdatedBy: currentAdmin
     }).then(() => {
-        updateSyncStatus('synced', 'Synced');
+        updateSyncStatus('synced', 'تم التحديث');
     }).catch((error) => {
         console.error('Firebase save error:', error);
-        updateSyncStatus('error', 'Sync Error');
+        updateSyncStatus('error', 'خطأ في المزامنة');
         // Fall back to localStorage
         saveData();
     });
@@ -512,6 +512,33 @@ function showDashboard() {
     renderScoresTable();
 }
 
+// Helper function to format date as two lines (Day, Date / Time in 12h format)
+function formatDateTwoLines(dateString) {
+    if (!dateString) return 'غير معروف';
+
+    const date = new Date(dateString);
+
+    // Arabic day names
+    const arabicDays = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+    const dayName = arabicDays[date.getDay()];
+
+    // Format date as YYYY/MM/DD
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const dateStr = `${year}/${month}/${day}`;
+
+    // Format time in 12h format
+    let hours = date.getHours();
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'م' : 'ص';
+    hours = hours % 12;
+    hours = hours ? hours : 12; // 0 should be 12
+    const timeStr = `${hours}:${minutes} ${ampm}`;
+
+    return `${dayName}، ${dateStr}<br>${timeStr}`;
+}
+
 // Dashboard functions
 function renderScoresTable(filteredData = null) {
     const tableContainer = document.getElementById('scoresTable');
@@ -549,7 +576,7 @@ function renderScoresTable(filteredData = null) {
             return '<td>-</td>';
         }).join('');
 
-        const lastUpdated = student.lastUpdated ? new Date(student.lastUpdated).toLocaleString('ar-SA') : 'غير معروف';
+        const lastUpdated = formatDateTwoLines(student.lastUpdated);
 
         tableHTML += `
             <tr>
@@ -656,14 +683,14 @@ async function clearAllData() {
         studentsData = {};
 
         if (isFirebaseConnected && window.firebase) {
-            updateSyncStatus('syncing', 'Clearing...');
+            updateSyncStatus('syncing', 'جاري المسح…');
             try {
                 const studentsRef = window.firebase.ref(window.firebase.database, 'students');
                 await window.firebase.set(studentsRef, null);
-                updateSyncStatus('synced', 'Synced');
+                updateSyncStatus('synced', 'تم التحديث');
             } catch (error) {
                 console.error('Firebase clear error:', error);
-                updateSyncStatus('error', 'Clear Error');
+                updateSyncStatus('error', 'خطأ في المسح');
             }
         }
 
@@ -1000,6 +1027,9 @@ function showScanner() {
 
 // Update existing showDashboard function
 function showDashboard() {
+    // Hide scoring form if it's visible
+    document.getElementById('scoringForm').classList.add('hidden');
+
     if (html5QrcodeScanner) {
         html5QrcodeScanner.pause(true);
     }
