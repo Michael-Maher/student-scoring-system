@@ -129,14 +129,21 @@ function showLoginScreen() {
 
 // Firebase synchronization functions
 function initializeFirebaseSync() {
-    if (!window.firebase) return;
+    console.log('🔄 initializeFirebaseSync called');
+    if (!window.firebase) {
+        console.log('❌ Firebase not available');
+        return;
+    }
 
     const studentsRef = window.firebase.ref(window.firebase.database, 'students');
+    console.log('📡 Setting up Firebase listener for students data');
 
     // Listen for real-time updates
     const unsubscribe = window.firebase.onValue(studentsRef, (snapshot) => {
+        console.log('📥 Firebase students data received:', snapshot.exists());
         if (snapshot.exists()) {
             studentsData = snapshot.val() || {};
+            console.log('✅ Students data loaded from Firebase:', Object.keys(studentsData).length, 'students');
             updateSyncStatus('synced', 'تم التحديث');
 
             // Update dashboard if it's currently visible
@@ -145,24 +152,32 @@ function initializeFirebaseSync() {
             }
         } else {
             studentsData = {};
+            console.log('ℹ️ No students data in Firebase yet');
         }
     }, (error) => {
-        console.error('Firebase sync error:', error);
+        console.error('❌ Firebase sync error:', error);
         updateSyncStatus('error', 'خطأ في المزامنة');
         // Fall back to localStorage
         loadStoredData();
     });
 
     firebaseListeners.push(unsubscribe);
+    console.log('✅ Firebase listener registered');
 }
 
 function saveToFirebase(studentId, studentData) {
+    console.log('💾 saveToFirebase called for:', studentId);
+    console.log('🔌 Firebase available:', !!window.firebase);
+    console.log('🔌 Firebase connected:', isFirebaseConnected);
+
     if (!window.firebase || !isFirebaseConnected) {
+        console.log('⚠️ Firebase not available, falling back to localStorage');
         // Fall back to localStorage
         saveData();
         return Promise.resolve();
     }
 
+    console.log('📤 Saving to Firebase:', studentId, studentData);
     updateSyncStatus('syncing', 'تحديث…');
 
     const studentRef = window.firebase.ref(window.firebase.database, `students/${studentId}`);
@@ -171,9 +186,10 @@ function saveToFirebase(studentId, studentData) {
         lastUpdated: window.firebase.serverTimestamp(),
         lastUpdatedBy: currentAdmin
     }).then(() => {
+        console.log('✅ Successfully saved to Firebase:', studentId);
         updateSyncStatus('synced', 'تم التحديث');
     }).catch((error) => {
-        console.error('Firebase save error:', error);
+        console.error('❌ Firebase save error:', error);
         updateSyncStatus('error', 'خطأ في المزامنة');
         // Fall back to localStorage
         saveData();
@@ -433,9 +449,12 @@ function onScanFailure(error) {
 
 // Scoring functions
 async function submitScore() {
+    console.log('🎯 submitScore called');
     const studentName = document.getElementById('studentName').value.trim();
     const scoreType = document.getElementById('scoreType').value;
     const score = parseFloat(document.getElementById('score').value);
+
+    console.log('📝 Score details:', { studentName, scoreType, score });
 
     // Validation
     if (!studentName) {
@@ -455,6 +474,7 @@ async function submitScore() {
 
     // Use student name as the key (ID)
     const studentId = studentName;
+    console.log('👤 Student ID:', studentId);
 
     // Get today's date (YYYY-MM-DD format for comparison)
     const today = new Date().toISOString().split('T')[0];
