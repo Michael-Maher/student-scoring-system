@@ -388,9 +388,13 @@ function initializeQRScanner() {
 function onScanSuccess(decodedText, decodedResult) {
     console.log(`QR Code detected: ${decodedText}`);
 
-    // Stop scanning temporarily
+    // Stop scanning temporarily (don't clear DOM)
     if (html5QrcodeScanner) {
-        html5QrcodeScanner.pause(true);
+        try {
+            html5QrcodeScanner.pause(false);
+        } catch (error) {
+            console.log('Error pausing scanner:', error);
+        }
     }
 
     // The QR code now contains the student name directly
@@ -1032,9 +1036,13 @@ function showProfile() {
 
     setActiveNav('profileNavBtn');
 
-    // Pause scanner
+    // Pause scanner (don't clear DOM)
     if (html5QrcodeScanner) {
-        html5QrcodeScanner.pause(true);
+        try {
+            html5QrcodeScanner.pause(false);
+        } catch (error) {
+            console.log('Error pausing scanner:', error);
+        }
     }
 
     // Load profile data
@@ -1123,9 +1131,13 @@ function showManageAdmins() {
 
     setActiveNav('manageAdminsNavBtn');
 
-    // Pause scanner
+    // Pause scanner (don't clear DOM)
     if (html5QrcodeScanner) {
-        html5QrcodeScanner.pause(true);
+        try {
+            html5QrcodeScanner.pause(false);
+        } catch (error) {
+            console.log('Error pausing scanner:', error);
+        }
     }
 
     // Load admins list
@@ -1361,8 +1373,13 @@ function showManageScoreTypes() {
 
     setActiveNav('manageScoreTypesNavBtn');
 
+    // Pause scanner (don't clear DOM)
     if (html5QrcodeScanner) {
-        html5QrcodeScanner.pause(true);
+        try {
+            html5QrcodeScanner.pause(false);
+        } catch (error) {
+            console.log('Error pausing scanner:', error);
+        }
     }
 
     renderScoreTypesList();
@@ -1554,8 +1571,13 @@ function showDashboard() {
     // Hide scoring form if it's visible
     document.getElementById('scoringForm').classList.add('hidden');
 
+    // Pause scanner (don't clear DOM)
     if (html5QrcodeScanner) {
-        html5QrcodeScanner.pause(true);
+        try {
+            html5QrcodeScanner.pause(false);
+        } catch (error) {
+            console.log('Error pausing scanner:', error);
+        }
     }
 
     document.getElementById('scannerSection').classList.add('hidden');
@@ -1584,14 +1606,22 @@ function showNotification(message, type = 'info') {
 // Handle page visibility changes
 document.addEventListener('visibilitychange', function() {
     if (document.hidden) {
-        // Page is hidden, pause scanner
+        // Page is hidden, pause scanner (don't clear DOM)
         if (html5QrcodeScanner) {
-            html5QrcodeScanner.pause(true);
+            try {
+                html5QrcodeScanner.pause(false);
+            } catch (error) {
+                console.log('Error pausing scanner on visibility change:', error);
+            }
         }
     } else {
         // Page is visible, resume scanner if on scanner section
         if (html5QrcodeScanner && !document.getElementById('scannerSection').classList.contains('hidden')) {
-            html5QrcodeScanner.resume();
+            try {
+                html5QrcodeScanner.resume();
+            } catch (error) {
+                console.log('Error resuming scanner on visibility change:', error);
+            }
         }
     }
 });
