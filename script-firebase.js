@@ -287,8 +287,8 @@ async function login() {
     // Initialize Firebase sync
     initializeFirebaseSync();
 
-    // Initialize QR Scanner
-    initializeQRScanner();
+    // Show scanner section by default
+    showScanner();
 
     showNotification(`أهلاً ${currentAdmin}!`, 'success');
 }
@@ -344,7 +344,9 @@ async function checkLoginStatus() {
 
             await initializeScoreTypes();
             initializeFirebaseSync();
-            initializeQRScanner();
+
+            // Show scanner section by default
+            showScanner();
         } else {
             // Password changed, logout
             localStorage.removeItem('currentAdminPhone');
@@ -505,17 +507,6 @@ function showScanner() {
     } else {
         html5QrcodeScanner.resume();
     }
-}
-
-function showDashboard() {
-    if (html5QrcodeScanner) {
-        html5QrcodeScanner.pause(true);
-    }
-
-    document.getElementById('scannerSection').classList.add('hidden');
-    document.getElementById('dashboardSection').classList.remove('hidden');
-
-    renderScoresTable();
 }
 
 // Helper function to format date as two lines (Day, Date / Time in 12h format)
