@@ -172,7 +172,42 @@ function initializeFirebaseSync() {
             // Check if data actually changed
             if (JSON.stringify(studentsData) !== JSON.stringify(newData)) {
                 console.log('🔄 Data changed, updating local studentsData');
-                studentsData = newData;
+
+                // Deep merge instead of complete replacement to preserve any pending local changes
+                Object.keys(newData).forEach(studentId => {
+                    if (!studentsData[studentId]) {
+                        // New student, just copy
+                        studentsData[studentId] = newData[studentId];
+                        // Ensure scans object exists
+                        if (!studentsData[studentId].scans) {
+                            studentsData[studentId].scans = {};
+                        }
+                    } else {
+                        // Existing student, merge carefully
+                        // Save local scans before updating (to preserve any pending writes)
+                        const localScans = studentsData[studentId].scans || {};
+
+                        // Always update scores and basic info from Firebase (source of truth)
+                        studentsData[studentId].scores = newData[studentId].scores || {};
+                        studentsData[studentId].name = newData[studentId].name;
+                        studentsData[studentId].lastUpdated = newData[studentId].lastUpdated;
+                        studentsData[studentId].lastUpdatedBy = newData[studentId].lastUpdatedBy;
+
+                        // Merge scans data: local changes take precedence over Firebase
+                        // This prevents race conditions during save operations
+                        studentsData[studentId].scans = {
+                            ...(newData[studentId].scans || {}),
+                            ...localScans
+                        };
+                    }
+                });
+
+                // Remove students that no longer exist in Firebase
+                Object.keys(studentsData).forEach(studentId => {
+                    if (!newData[studentId]) {
+                        delete studentsData[studentId];
+                    }
+                });
 
                 // Update dashboard if it's currently visible
                 if (!document.getElementById('dashboardSection').classList.contains('hidden')) {
@@ -227,6 +262,7 @@ function saveToFirebase(studentId, studentData) {
     };
 
     console.log('📦 Data to save to Firebase:', JSON.stringify(dataToSave, null, 2));
+    console.log('🔍 Scans data being saved:', JSON.stringify(dataToSave.scans, null, 2));
 
     return window.firebase.set(studentRef, dataToSave).then(() => {
         console.log('✅ Successfully saved to Firebase:', studentId);
@@ -235,6 +271,9 @@ function saveToFirebase(studentId, studentData) {
     }).catch((error) => {
         console.error('❌ Firebase save error:', error);
         console.error('❌ Error details:', error.message, error.code);
+        if (error.code === 'PERMISSION_DENIED') {
+            console.error('🚫 Permission denied - check Firebase security rules');
+        }
         updateSyncStatus('error', 'خطأ في المزامنة');
         throw error; // Re-throw to be caught by caller
     });
@@ -572,6 +611,8 @@ async function submitScore() {
 
     // Record the scan date for this score type (سلوك is always recorded but doesn't block)
     studentsData[studentId].scans[scoreType] = today;
+    console.log('📅 Recorded scan date:', { studentId, scoreType, date: today });
+    console.log('🔍 Current scans for student:', JSON.stringify(studentsData[studentId].scans, null, 2));
 
     // Add the new score (accumulate if already exists)
     if (studentsData[studentId].scores[scoreType]) {
@@ -582,6 +623,8 @@ async function submitScore() {
 
     studentsData[studentId].lastUpdated = new Date().toISOString();
     studentsData[studentId].lastUpdatedBy = currentAdmin;
+
+    console.log('💾 About to save student data:', JSON.stringify(studentsData[studentId], null, 2));
 
     // Save to localStorage as backup
     saveData();
