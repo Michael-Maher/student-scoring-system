@@ -1,131 +1,237 @@
-# Student Scoring System with Real-Time Sync
+# Student Scoring System - نظام تسجيل نقاط المخدومين
 
-A web-based application for scanning student QR codes and recording scores with **real-time synchronization** across multiple devices, multi-admin support, and Excel export functionality.
+A web-based application for scanning student QR codes and recording scores with **real-time Firebase synchronization** across multiple devices, multi-admin support, and Excel export functionality.
 
 ## Features
 
-- **🔄 Real-Time Sync**: Instant data synchronization across all devices using Firebase
+- **🔄 Real-Time Sync**: Instant data synchronization across all devices using Firebase Realtime Database
 - **📱 QR Code Scanning**: Camera-based QR code scanning to identify students
-- **📊 Score Management**: Record scores for different item types (Quiz, Assignment, Participation, Project, Exam)
-- **👥 Multi-Admin Support**: Multiple administrators can access and update scores simultaneously
-- **📄 Excel Export**: Export all data to Excel spreadsheet with student names as rows and item types as columns
+- **📊 Score Management**: Record scores for different activities with duplicate prevention
+- **👥 Multi-Admin Support**: Multiple administrators with phone number authentication
+- **📄 Excel Export**: Export all data to Excel spreadsheet
 - **⚡ Live Dashboard**: View all student scores with real-time updates
-- **📱 Responsive Design**: Works perfectly on desktop and mobile devices
+- **📱 Responsive Design**: Works on desktop and mobile devices
 - **🔌 Offline Support**: Works offline with automatic sync when connection is restored
 - **🎯 Sync Status**: Visual indicators showing connection and sync status
+- **🔒 Duplicate Prevention**: Prevents scanning the same activity type twice per day (configurable)
 
-## Quick Start (Local Mode)
+## Quick Start
 
-1. Open `index.html` in a web browser
-2. Enter your admin name to login
-3. Grant camera permissions when prompted
-4. Scan student QR codes to add scores
-5. Use the dashboard to view and export data
+### 1. Local Testing
 
-## Deployment with Real-Time Sync
+```bash
+# Start a local server
+python3 -m http.server 8000
 
-### For Multi-Device Real-Time Synchronization:
+# Open in browser
+http://localhost:8000
+```
 
-1. **Follow Firebase Setup**: See `FIREBASE_SETUP.md` for detailed Firebase configuration
-2. **Deploy to GitHub Pages**:
-   - Push code to GitHub repository
-   - Enable GitHub Pages in repository settings
-   - Access via: `https://yourusername.github.io/repository-name/`
-3. **Use on Multiple Phones**: All devices access the same URL for instant sync
+### 2. Firebase Setup (Required for Multi-Device Sync)
 
-### Sync Status Indicators:
-- 🟢 **Green "Synced"**: All devices synchronized
-- 🟡 **Yellow "Syncing..."**: Data being updated
-- 🔴 **Red "Sync Error"**: Connection issue, using offline mode
-- ⚫ **Gray "Offline Mode"**: Local storage only
+**IMPORTANT:** You must enable Anonymous Authentication in Firebase Console for the app to save data.
 
-## Usage Instructions
+1. Go to [Firebase Console](https://console.firebase.google.com/project/student-scoring-system-1aa10/authentication/providers)
+2. Click on **"Anonymous"**
+3. Toggle **"Enable"** to ON
+4. Click **"Save"**
 
-### For Administrators
+For detailed setup instructions, see `FIREBASE_SETUP.md`
 
-1. **Login**: Enter your admin name on the login screen
-2. **Scan QR Code**: Point camera at student's QR code
-3. **Enter Score**: Fill in student name, select score type, and enter score (0-100)
-4. **Submit**: Click "Submit Score" to save the data
-5. **View Dashboard**: Click "Dashboard" to see all scores
-6. **Export Data**: Click "Export to Excel" to download spreadsheet
+### 3. Login
 
-### QR Code Format
+Default admin credentials (phone-based):
+- Phone: `01207714622` (Head Admin)
+- Password: Set in Firebase Realtime Database under `admins/`
 
-Student QR codes should contain the student's unique ID (text or numbers).
+## Score Types (أنواع الأنشطة)
 
-### Score Types
+The system includes 5 predefined score types:
 
-- Quiz
-- Assignment
-- Participation
-- Project
-- Exam
+1. **القداس والتناول** (Mass & Communion) - No multiple scans per day
+2. **لبس التونيه** (Wearing Tunic) - No multiple scans per day
+3. **حضور الاجتماع** (Meeting Attendance) - No multiple scans per day
+4. **سلوك** (Behavior) - Allows multiple scans per day
+5. **احضار الكتاب المقدس** (Bringing Bible) - No multiple scans per day
+
+Score types can be customized by the head admin in the settings.
+
+## Files Structure
+
+```
+student-scoring-system/
+├── index.html              # Main application UI
+├── script-firebase.js      # Application logic with Firebase integration
+├── firebase-config.js      # Firebase configuration and initialization
+├── styles.css              # Application styling
+├── logo.png                # Church logo
+├── sample-qr-codes.html    # QR code generator for testing
+├── README.md               # This file
+├── FIREBASE_SETUP.md       # Detailed Firebase setup guide
+├── DEPLOYMENT_GUIDE.md     # Deployment instructions
+└── QUICK_START.md          # Quick start guide
+```
 
 ## Technical Details
 
-### Files Structure
+### Technologies Used
+
+- **Frontend**: HTML5, CSS3, JavaScript (ES6+)
+- **QR Scanning**: html5-qrcode library v2.3.8
+- **Database**: Firebase Realtime Database
+- **Authentication**: Firebase Anonymous Authentication
+- **Export**: SheetJS (xlsx) library v0.18.5
+
+### Data Structure
+
+Firebase Realtime Database structure:
+
+```json
+{
+  "students": {
+    "student_name_sanitized": {
+      "name": "Original Student Name",
+      "scores": {
+        "mass": 10,
+        "behavior": 25
+      },
+      "scans": {
+        "mass": "2026-01-05",
+        "behavior": "2026-01-05"
+      },
+      "lastUpdated": "server_timestamp",
+      "lastUpdatedBy": "Admin Name"
+    }
+  },
+  "admins": {
+    "phone_number": {
+      "name": "Admin Name",
+      "password": "hashed_password"
+    }
+  },
+  "scoreTypes": {
+    "type_id": {
+      "id": "type_id",
+      "label": "Display Label",
+      "allowMultiplePerDay": false
+    }
+  }
+}
 ```
-/
-├── index.html          # Main HTML file
-├── styles.css          # CSS styling
-├── script.js          # JavaScript functionality
-└── README.md          # This file
-```
 
-### Dependencies
+### Key Features
 
-- **html5-qrcode**: QR code scanning library (loaded from CDN)
-- **xlsx**: Excel export functionality (loaded from CDN)
+#### 1. Path Sanitization
+Student names/IDs are sanitized to remove Firebase-invalid characters (`.`, `#`, `$`, `[`, `]`, `/`, `:`) while preserving the original name in the database.
 
-### Data Storage
+#### 2. Duplicate Prevention
+The system tracks scan dates for each activity type and prevents duplicate scans on the same day (unless `allowMultiplePerDay` is enabled).
 
-All data is stored in the browser's localStorage. Data includes:
-- Student ID and name
-- Scores by item type
-- Last update timestamp
-- Admin who made the update
+#### 3. Real-Time Sync
+Uses Firebase listeners with deep merge strategy to prevent data loss during concurrent updates.
 
-### Browser Compatibility
+#### 4. Offline Support
+- Data saves to localStorage as backup
+- Automatic sync when connection is restored
+- Visual sync status indicators
 
-- Chrome/Edge: Full support
-- Firefox: Full support
-- Safari: Full support (iOS 11+)
-- Mobile browsers: Supported with camera access
+## Usage
 
-## Security Notes
+### For Administrators
 
-- No server-side authentication
-- Data stored locally in each browser
-- Camera access required for QR scanning
-- Admin names are for tracking purposes only
+1. **Login**: Enter phone number and password
+2. **Scan QR Code**: Point camera at student's QR code
+3. **Select Activity**: Choose the activity type
+4. **Enter Score**: Default is 1 point (adjustable)
+5. **Submit**: Click "Submit Score"
+
+### For Head Admin
+
+Additional permissions:
+- Add/edit/delete admins
+- Customize score types
+- View all admin activity
+
+### QR Code Format
+
+QR codes can contain:
+- Student names (Arabic or English)
+- Student IDs (numbers or text)
+- URLs (automatically sanitized)
+
+Generate test QR codes using `sample-qr-codes.html`
+
+## Sync Status Indicators
+
+- 🟢 **متصل** (Connected): Firebase connected, ready to sync
+- 🟡 **تحديث…** (Syncing): Data being saved/loaded
+- ✅ **تم التحديث** (Synced): All data synchronized
+- 🔴 **خطأ في المزامنة** (Sync Error): Connection issue
+- ⚫ **غير متصل** (Offline): Local storage only
 
 ## Troubleshooting
 
+### Data Not Saving to Firebase
+
+**Symptom**: Console shows "PERMISSION_DENIED" or path validation errors
+
+**Solutions**:
+1. Enable Anonymous Authentication in Firebase Console
+2. Check Firebase Database Rules allow authenticated writes
+3. Verify QR code content doesn't contain invalid characters (handled automatically)
+
 ### Camera Not Working
-- Grant camera permissions in browser
-- Check if other applications are using camera
-- Try refreshing the page
 
-### QR Code Not Scanning
-- Ensure good lighting
-- Hold QR code steady
-- Try different distances from camera
+- Grant camera permissions in browser settings
+- Use HTTPS or localhost (required for camera access)
+- Check if another app is using the camera
 
-### Data Not Saving
-- Check browser localStorage is enabled
-- Clear browser cache if issues persist
+### Excel Export Not Working
 
-### Excel Export Issues
 - Ensure pop-ups are not blocked
 - Check browser download permissions
+- Verify data exists in the dashboard
 
-## Future Enhancements
+## Browser Compatibility
 
-Potential improvements could include:
-- Server-side data storage
-- User authentication system
-- Score analytics and reporting
-- Bulk import/export features
-- Score history tracking
-- Email notifications
+- Chrome/Edge: ✅ Full support
+- Firefox: ✅ Full support
+- Safari: ✅ Full support (iOS 11+)
+- Mobile browsers: ✅ Supported with camera access
+
+## Security
+
+- Anonymous authentication for Firebase writes
+- Phone-based admin authentication
+- Database rules enforce authentication (`auth != null`)
+- Client-side password verification
+- No sensitive data in QR codes
+
+## Development
+
+### Running Locally
+
+```bash
+# Start local server (required for camera access)
+python3 -m http.server 8000
+
+# Or using Node.js
+npx http-server -p 8000
+
+# Access at
+http://localhost:8000
+```
+
+### Deploying to Production
+
+See `DEPLOYMENT_GUIDE.md` for GitHub Pages deployment instructions.
+
+## License
+
+This project is created for church/educational use.
+
+## Support
+
+For Firebase setup help, see `FIREBASE_SETUP.md`
+For deployment help, see `DEPLOYMENT_GUIDE.md`
+For quick start, see `QUICK_START.md`

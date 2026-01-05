@@ -10,13 +10,13 @@ let firebaseListeners = [];
 // Head admin phone number
 const HEAD_ADMIN_PHONE = '01207714622';
 
-// Define all possible score types with IDs and labels
+// Define all possible score types with IDs, labels, and emojis
 let SCORE_TYPES = {
-    'mass': { id: 'mass', label: 'القداس والتناول', allowMultiplePerDay: false },
-    'tunic': { id: 'tunic', label: 'لبس التونيه', allowMultiplePerDay: false },
-    'meeting': { id: 'meeting', label: 'حضور الاجتماع', allowMultiplePerDay: false },
-    'behavior': { id: 'behavior', label: 'سلوك', allowMultiplePerDay: true },
-    'bible': { id: 'bible', label: 'احضار الكتاب المقدس', allowMultiplePerDay: false }
+    'mass': { id: 'mass', label: '⛪ القداس والتناول', allowMultiplePerDay: false },
+    'tunic': { id: 'tunic', label: '👔 لبس التونيه', allowMultiplePerDay: false },
+    'meeting': { id: 'meeting', label: '📖 حضور الاجتماع', allowMultiplePerDay: false },
+    'behavior': { id: 'behavior', label: '⭐ سلوك', allowMultiplePerDay: true },
+    'bible': { id: 'bible', label: '📕 احضار الكتاب المقدس', allowMultiplePerDay: false }
 };
 
 let ALL_SCORE_TYPE_IDS = Object.keys(SCORE_TYPES);
@@ -292,12 +292,8 @@ function saveToFirebase(studentId, studentData) {
         lastUpdatedBy: currentAdmin
     };
 
-    console.log('📦 Data to save to Firebase:', JSON.stringify(dataToSave, null, 2));
-    console.log('🔍 Scans data being saved:', JSON.stringify(dataToSave.scans, null, 2));
-
     return window.firebase.set(studentRef, dataToSave).then(() => {
-        console.log('✅ Successfully saved to Firebase:', studentId);
-        console.log('🔄 Firebase listener should trigger soon to update local data');
+        console.log('✅ Saved to Firebase:', studentId);
         updateSyncStatus('synced', 'تم التحديث');
     }).catch((error) => {
         console.error('❌ Firebase save error:', error);
@@ -607,12 +603,8 @@ async function submitScore() {
         return;
     }
 
-    // Use student name as the key (ID)
-    // Sanitize the student ID to remove Firebase-invalid characters
-    // Firebase paths cannot contain: . # $ [ ] /
+    // Sanitize student name for use as Firebase key
     const studentId = sanitizeFirebaseKey(studentName);
-    console.log('👤 Student ID:', studentId);
-    console.log('👤 Original name:', studentName);
 
     // Get today's date (YYYY-MM-DD format for comparison)
     const today = new Date().toISOString().split('T')[0];
@@ -643,10 +635,8 @@ async function submitScore() {
         }
     }
 
-    // Record the scan date for this score type (سلوك is always recorded but doesn't block)
+    // Record the scan date for this score type
     studentsData[studentId].scans[scoreType] = today;
-    console.log('📅 Recorded scan date:', { studentId, scoreType, date: today });
-    console.log('🔍 Current scans for student:', JSON.stringify(studentsData[studentId].scans, null, 2));
 
     // Add the new score (accumulate if already exists)
     if (studentsData[studentId].scores[scoreType]) {
@@ -658,7 +648,7 @@ async function submitScore() {
     studentsData[studentId].lastUpdated = new Date().toISOString();
     studentsData[studentId].lastUpdatedBy = currentAdmin;
 
-    console.log('💾 About to save student data:', JSON.stringify(studentsData[studentId], null, 2));
+    console.log('💾 Saving score:', { student: studentName, scoreType, score });
 
     // Save to localStorage as backup
     saveData();
