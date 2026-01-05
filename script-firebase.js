@@ -21,6 +21,24 @@ let SCORE_TYPES = {
 
 let ALL_SCORE_TYPE_IDS = Object.keys(SCORE_TYPES);
 
+// Helper function to sanitize Firebase keys
+// Firebase paths cannot contain: . # $ [ ] /
+function sanitizeFirebaseKey(key) {
+    if (!key) return 'unknown';
+
+    // Replace invalid characters with underscores
+    // Keep the original name readable but Firebase-safe
+    return key
+        .replace(/\./g, '_')   // Replace dots
+        .replace(/#/g, '_')    // Replace hash
+        .replace(/\$/g, '_')   // Replace dollar
+        .replace(/\[/g, '_')   // Replace open bracket
+        .replace(/\]/g, '_')   // Replace close bracket
+        .replace(/\//g, '_')   // Replace forward slash
+        .replace(/:/g, '_')    // Replace colon (for URLs)
+        .trim();
+}
+
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
     initializeApp();
@@ -590,8 +608,11 @@ async function submitScore() {
     }
 
     // Use student name as the key (ID)
-    const studentId = studentName;
+    // Sanitize the student ID to remove Firebase-invalid characters
+    // Firebase paths cannot contain: . # $ [ ] /
+    const studentId = sanitizeFirebaseKey(studentName);
     console.log('👤 Student ID:', studentId);
+    console.log('👤 Original name:', studentName);
 
     // Get today's date (YYYY-MM-DD format for comparison)
     const today = new Date().toISOString().split('T')[0];

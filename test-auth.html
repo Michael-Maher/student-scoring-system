@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Quick Auth Test</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #00ff00;
+        }
+        .log { margin: 5px 0; }
+        .error { color: #ff0000; }
+        .success { color: #00ff00; }
+        .warning { color: #ffaa00; }
+    </style>
+</head>
+<body>
+    <h1>Firebase Auth Quick Test</h1>
+    <div id="log"></div>
+
+    <script type="module">
+        const log = (msg, type = 'log') => {
+            const div = document.createElement('div');
+            div.className = `log ${type}`;
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            document.getElementById('log').appendChild(div);
+            console.log(msg);
+        };
+
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js';
+        import { getDatabase, ref, set, get } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js';
+        import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js';
+
+        const config = {
+            apiKey: "AIzaSyB29CbGcIQRuMnnMe2C8RT4Qkt5G7Y_L9Q",
+            authDomain: "student-scoring-system-1aa10.firebaseapp.com",
+            databaseURL: "https://student-scoring-system-1aa10-default-rtdb.firebaseio.com",
+            projectId: "student-scoring-system-1aa10",
+            storageBucket: "student-scoring-system-1aa10.firebasestorage.app",
+            messagingSenderId: "26728761382",
+            appId: "1:26728761382:web:a378c1f2714794a8627ee7"
+        };
+
+        try {
+            log('1. Initializing Firebase...', 'log');
+            const app = initializeApp(config);
+            log('✓ Firebase initialized', 'success');
+
+            log('2. Getting auth service...', 'log');
+            const auth = getAuth(app);
+            log('✓ Auth service ready', 'success');
+
+            log('3. Attempting anonymous sign in...', 'log');
+            const userCred = await signInAnonymously(auth);
+            log(`✓ SIGNED IN! UID: ${userCred.user.uid}`, 'success');
+
+            log('4. Getting database reference...', 'log');
+            const db = getDatabase(app);
+            log('✓ Database ready', 'success');
+
+            log('5. Attempting to write test data...', 'log');
+            const testRef = ref(db, 'students/TEST_' + Date.now());
+            await set(testRef, {
+                name: 'Test Student',
+                scores: { test: 100 },
+                timestamp: new Date().toISOString()
+            });
+            log('✓ WRITE SUCCESSFUL!', 'success');
+
+            log('6. Verifying write...', 'log');
+            const snapshot = await get(testRef);
+            if (snapshot.exists()) {
+                log('✓ DATA VERIFIED IN FIREBASE!', 'success');
+                log(`Data: ${JSON.stringify(snapshot.val())}`, 'success');
+            }
+
+            log('', 'log');
+            log('========================================', 'success');
+            log('SUCCESS! Firebase is working correctly!', 'success');
+            log('========================================', 'success');
+            log('', 'log');
+            log('If this works but the main app doesn\'t, the issue is in the app code.', 'warning');
+
+        } catch (error) {
+            log(`✗ ERROR: ${error.code}`, 'error');
+            log(`Message: ${error.message}`, 'error');
+
+            if (error.code === 'auth/operation-not-allowed') {
+                log('', 'error');
+                log('========================================', 'error');
+                log('ANONYMOUS AUTH IS NOT ENABLED!', 'error');
+                log('========================================', 'error');
+                log('', 'error');
+                log('TO FIX:', 'warning');
+                log('1. Go to: https://console.firebase.google.com/project/student-scoring-system-1aa10/authentication/providers', 'warning');
+                log('2. Click on "Anonymous"', 'warning');
+                log('3. Toggle "Enable" to ON', 'warning');
+                log('4. Click "Save"', 'warning');
+                log('5. Refresh this page', 'warning');
+            } else if (error.code === 'PERMISSION_DENIED') {
+                log('', 'error');
+                log('DATABASE RULES ARE BLOCKING WRITES!', 'error');
+                log('Check: https://console.firebase.google.com/project/student-scoring-system-1aa10/database/student-scoring-system-1aa10-default-rtdb/rules', 'warning');
+            }
+        }
+    </script>
+</body>
+</html>
