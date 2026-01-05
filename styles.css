@@ -868,12 +868,14 @@ header h1 {
 }
 
 .app-logo {
-    width: 180px;
-    height: 180px;
+    width: 220px;
+    height: 220px;
     border-radius: 50%;
     box-shadow: 0 8px 20px rgba(0,0,0,0.15);
     animation: float 3s ease-in-out infinite;
     object-fit: cover;
+    object-position: center;
+    aspect-ratio: 1 / 1;
 }
 
 .logo-text-container {
@@ -1295,8 +1297,8 @@ header h1 {
     }
 
     .app-logo {
-        width: 150px;
-        height: 150px;
+        width: 180px;
+        height: 180px;
     }
 
     .header-logo {
@@ -1330,7 +1332,8 @@ header h1 {
     }
 
     .app-logo {
-        max-width: 120px;
+        width: 150px;
+        height: 150px;
     }
 }
 
