@@ -32,22 +32,35 @@ async function initializeApp() {
 
     // Check if Firebase is available
     if (window.firebase && window.firebase.database) {
-        isFirebaseConnected = true;
-        updateSyncStatus('connected', 'متصل');
+        console.log('🔗 Firebase is available, checking authentication...');
 
         // Wait for authentication to complete before loading data
         if (window.firebase.auth && window.firebase.onAuthStateChanged) {
             await new Promise((resolve) => {
                 const unsubscribe = window.firebase.onAuthStateChanged(window.firebase.auth, (user) => {
                     console.log('🔐 Auth state changed:', user ? 'authenticated' : 'not authenticated');
+                    if (user) {
+                        console.log('✅ User authenticated with UID:', user.uid);
+                        isFirebaseConnected = true;
+                        updateSyncStatus('connected', 'متصل');
+                    } else {
+                        console.log('❌ No authenticated user - Firebase writes will fail!');
+                        isFirebaseConnected = false;
+                        updateSyncStatus('error', 'خطأ مصادقة');
+                    }
                     unsubscribe();
                     resolve();
                 });
             });
         }
 
-        // Initialize admins data after authentication is ready
-        await initializeAdminsData();
+        if (isFirebaseConnected) {
+            // Initialize admins data after authentication is ready
+            await initializeAdminsData();
+        } else {
+            console.warn('⚠️ Firebase authentication failed, using offline mode');
+            loadStoredData();
+        }
 
         // Check login status
         checkLoginStatus();

@@ -42,10 +42,24 @@ const firebaseConfig = {
 
         // Sign in anonymously to enable database writes
         try {
-            await signInAnonymously(auth);
+            const userCredential = await signInAnonymously(auth);
             console.log('✅ Firebase Anonymous Authentication successful');
+            console.log('👤 Anonymous user ID:', userCredential.user.uid);
+
+            // Store authentication status for debugging
+            window.firebaseAuthSuccess = true;
         } catch (authError) {
             console.error('❌ Firebase Authentication failed:', authError);
+            console.error('❌ Error code:', authError.code);
+            console.error('❌ Error message:', authError.message);
+
+            if (authError.code === 'auth/operation-not-allowed') {
+                console.error('🚫 CRITICAL: Anonymous authentication is NOT enabled in Firebase Console!');
+                console.error('📝 To fix: Go to Firebase Console → Authentication → Sign-in method → Enable Anonymous');
+            }
+
+            window.firebaseAuthSuccess = false;
+            alert('⚠️ Firebase Authentication Failed!\n\nAnonymous authentication is not enabled.\n\nPlease enable it in Firebase Console:\nAuthentication → Sign-in method → Anonymous\n\nData will only be saved locally until this is fixed.');
         }
 
         // Signal that Firebase is ready
