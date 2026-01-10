@@ -2593,9 +2593,9 @@ function downloadBookmark(qrId) {
                 // Draw bookmark template
                 ctx.drawImage(bookmarkImg, 0, 0);
 
-                // Calculate QR position - smaller and moved to leading (left)
+                // Calculate QR position - slightly moved to trailing (right)
                 const qrSize = 200; // Smaller QR code
-                const qrX = 30; // Moved to leading (left) side
+                const qrX = 42; // Slightly to trailing (right) side
                 const qrY = bookmarkImg.height - 240; // Adjusted vertical position
 
                 // Draw QR code on bookmark (replacing the existing one)
