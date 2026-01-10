@@ -2473,26 +2473,24 @@ function downloadBookmark(qrId) {
                 // Draw bookmark template
                 ctx.drawImage(bookmarkImg, 0, 0);
 
-                // Calculate QR position (1.9cm size, moved slightly to trailing/right)
-                // 1.9 cm = 71.81 pixels at 96 DPI (standard screen DPI)
-                const cmToPixels = 96 / 2.54; // Convert cm to pixels
-                const qrSize = Math.round(1.9 * cmToPixels); // 1.9cm = ~72 pixels
-                const qrX = 35; // Moved slightly more to trailing (right) side
-                const qrY = bookmarkImg.height - 135; // Vertical position in white box
+                // Calculate QR position - much larger size to fill white box
+                const qrSize = 105; // Much larger QR code
+                const qrX = 33; // Moved slightly to trailing (right) side
+                const qrY = bookmarkImg.height - 145; // Vertical position in white box
 
                 // Draw QR code on bookmark (replacing the existing one)
                 ctx.drawImage(qrCanvas, qrX, qrY, qrSize, qrSize);
 
-                // Add student name below QR code
+                // Add student name below QR code with minimal spacing
                 ctx.fillStyle = '#000000';
-                ctx.font = 'bold 12px Arial, sans-serif';
+                ctx.font = 'bold 15px Arial, sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'top';
 
                 // Draw name centered below QR, with word wrap if needed
                 const nameX = qrX + (qrSize / 2);
-                const nameY = qrY + qrSize + 4;
-                const maxWidth = 72; // Match QR width (1.9cm)
+                const nameY = qrY + qrSize + 2; // Minimal gap (2px) between QR and name
+                const maxWidth = 105; // Match QR width
 
                 // Simple word wrap
                 const words = qr.name.split(' ');
@@ -2512,9 +2510,9 @@ function downloadBookmark(qrId) {
                 }
                 lines.push(line.trim());
 
-                // Draw each line
+                // Draw each line with minimal line spacing
                 lines.forEach((textLine, index) => {
-                    ctx.fillText(textLine, nameX, nameY + (index * 18));
+                    ctx.fillText(textLine, nameX, nameY + (index * 16));
                 });
 
                 // Convert to blob and download
