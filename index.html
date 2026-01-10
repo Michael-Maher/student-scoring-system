@@ -132,6 +132,14 @@
                     <input type="text" id="filterName" placeholder="ابحث عن مخدوم..." oninput="applyFilters()">
                 </div>
                 <div class="filter-group">
+                    <label>فلترة حسب السنة الدراسية:</label>
+                    <input type="text" id="filterAcademicYear" placeholder="السنة الدراسية..." oninput="applyFilters()">
+                </div>
+                <div class="filter-group">
+                    <label>فلترة حسب الفريق:</label>
+                    <input type="text" id="filterTeam" placeholder="الفريق..." oninput="applyFilters()">
+                </div>
+                <div class="filter-group">
                     <label>فلترة حسب الخادم:</label>
                     <input type="text" id="filterAdmin" placeholder="اسم الخادم..." oninput="applyFilters()">
                 </div>
@@ -218,43 +226,24 @@
                     </div>
                 </div>
 
-                <div class="modern-filters">
-                    <div class="filter-header">
-                        <h4>🔍 بحث وتصفية</h4>
-                        <button onclick="clearQRFilters()" class="modern-clear-btn">
-                            <span>✖</span> مسح
-                        </button>
+                <div class="filter-controls">
+                    <div class="filter-group">
+                        <label>فلترة حسب الاسم:</label>
+                        <input type="text" id="qrFilterName" placeholder="ابحث..." oninput="applyQRFilters()">
                     </div>
-                    <div class="filter-grid">
-                        <div class="modern-filter-group">
-                            <label>
-                                <span class="filter-icon">👤</span>
-                                <span>الاسم</span>
-                            </label>
-                            <input type="text" id="qrFilterName" placeholder="بحث..." oninput="applyQRFilters()">
-                        </div>
-                        <div class="modern-filter-group">
-                            <label>
-                                <span class="filter-icon">📚</span>
-                                <span>السنة الدراسية</span>
-                            </label>
-                            <input type="text" id="qrFilterYear" placeholder="السنة..." oninput="applyQRFilters()">
-                        </div>
-                        <div class="modern-filter-group">
-                            <label>
-                                <span class="filter-icon">📱</span>
-                                <span>الهاتف</span>
-                            </label>
-                            <input type="tel" id="qrFilterPhone" placeholder="رقم الهاتف..." oninput="applyQRFilters()">
-                        </div>
-                        <div class="modern-filter-group">
-                            <label>
-                                <span class="filter-icon">⚽</span>
-                                <span>الفريق</span>
-                            </label>
-                            <input type="text" id="qrFilterTeam" placeholder="الفريق..." oninput="applyQRFilters()">
-                        </div>
+                    <div class="filter-group">
+                        <label>فلترة حسب السنة الدراسية:</label>
+                        <input type="text" id="qrFilterYear" placeholder="السنة الدراسية..." oninput="applyQRFilters()">
                     </div>
+                    <div class="filter-group">
+                        <label>فلترة حسب الفريق:</label>
+                        <input type="text" id="qrFilterTeam" placeholder="الفريق..." oninput="applyQRFilters()">
+                    </div>
+                    <div class="filter-group">
+                        <label>فلترة حسب الهاتف:</label>
+                        <input type="tel" id="qrFilterPhone" placeholder="رقم الهاتف..." oninput="applyQRFilters()">
+                    </div>
+                    <button onclick="clearQRFilters()" class="clear-filter-btn">مسح الفلاتر</button>
                 </div>
 
                 <div id="qrCodesTable" class="qr-codes-table"></div>

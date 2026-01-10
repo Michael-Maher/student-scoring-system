@@ -741,6 +741,8 @@ function renderScoresTable(filteredData = null) {
             <thead>
                 <tr>
                     <th>اسم المخدوم</th>
+                    <th>السنة الدراسية</th>
+                    <th>الفريق</th>
                     ${ALL_SCORE_TYPE_IDS.map(typeId => `<th>${SCORE_TYPES[typeId].label}</th>`).join('')}
                     <th class="total-column">المجموع</th>
                     <th>التاريخ والوقت</th>
@@ -768,6 +770,8 @@ function renderScoresTable(filteredData = null) {
         tableHTML += `
             <tr>
                 <td><strong>${student.name}</strong></td>
+                <td>${student.academicYear || '-'}</td>
+                <td>${student.team || '-'}</td>
                 ${scoresCells}
                 <td class="total-column"><strong>${total}</strong></td>
                 <td>${lastUpdated}</td>
@@ -796,11 +800,20 @@ async function editStudentRow(studentId) {
     // Create edit dialog content
     let dialogHTML = `
         <div style="max-width: 600px;">
-            <h3 style="margin-bottom: 20px;">✏️ تعديل نقاط ${student.name}</h3>
+            <h3 style="margin-bottom: 20px;">✏️ تعديل بيانات ${student.name}</h3>
             <div style="margin-bottom: 15px;">
                 <label style="display: block; margin-bottom: 5px; font-weight: 600;">اسم المخدوم:</label>
                 <input type="text" id="editStudentName" value="${student.name}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
             </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">السنة الدراسية:</label>
+                <input type="text" id="editStudentAcademicYear" value="${student.academicYear || ''}" placeholder="مثال: 2024-2025" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">الفريق:</label>
+                <input type="text" id="editStudentTeam" value="${student.team || ''}" placeholder="مثال: الفريق الأحمر" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
+            </div>
+            <h4 style="margin: 20px 0 10px 0; color: #667eea;">النقاط:</h4>
     `;
 
     // Add input fields for each score type
@@ -868,6 +881,8 @@ function closeEditDialog() {
 
 async function saveStudentEdit(studentId) {
     const newName = document.getElementById('editStudentName').value.trim();
+    const newAcademicYear = document.getElementById('editStudentAcademicYear').value.trim();
+    const newTeam = document.getElementById('editStudentTeam').value.trim();
 
     if (!newName) {
         showNotification('الرجاء إدخال اسم المخدوم', 'error');
@@ -900,6 +915,8 @@ async function saveStudentEdit(studentId) {
         // Create new entry with new name, preserving scans data
         studentsData[newStudentKey] = {
             name: newName,
+            academicYear: newAcademicYear,
+            team: newTeam,
             scores: newScores,
             scans: oldStudentData.scans || {},
             lastUpdated: new Date().toISOString(),
@@ -919,7 +936,9 @@ async function saveStudentEdit(studentId) {
         // Save to localStorage
         saveData();
     } else {
-        // Just update scores - name unchanged
+        // Just update data - name unchanged
+        studentsData[studentId].academicYear = newAcademicYear;
+        studentsData[studentId].team = newTeam;
         studentsData[studentId].scores = newScores;
         studentsData[studentId].lastUpdated = new Date().toISOString();
         studentsData[studentId].lastUpdatedBy = currentAdmin;
@@ -961,7 +980,7 @@ function exportToExcel() {
     const excelData = [];
 
     // Header row with Arabic labels
-    const headers = ['اسم المخدوم', ...ALL_SCORE_TYPE_IDS.map(id => SCORE_TYPES[id].label), 'المجموع', 'آخر تحديث', 'الخادم'];
+    const headers = ['اسم المخدوم', 'السنة الدراسية', 'الفريق', ...ALL_SCORE_TYPE_IDS.map(id => SCORE_TYPES[id].label), 'المجموع', 'آخر تحديث', 'الخادم'];
     excelData.push(headers);
 
     // If no data, still create Excel with headers
@@ -984,7 +1003,11 @@ function exportToExcel() {
     // Data rows
     Object.entries(studentsData).forEach(([studentId, student]) => {
         let total = 0;
-        const row = [student.name]; // Only student name, no ID
+        const row = [
+            student.name,
+            student.academicYear || '-',
+            student.team || '-'
+        ];
 
         // Add score columns for ALL score types using IDs
         ALL_SCORE_TYPE_IDS.forEach(typeId => {
@@ -1061,6 +1084,8 @@ async function clearAllData() {
 // Filtering functions
 function applyFilters() {
     const nameFilter = document.getElementById('filterName').value.trim().toLowerCase();
+    const academicYearFilter = document.getElementById('filterAcademicYear').value.trim().toLowerCase();
+    const teamFilter = document.getElementById('filterTeam').value.trim().toLowerCase();
     const adminFilter = document.getElementById('filterAdmin').value.trim().toLowerCase();
     const dateFilter = document.getElementById('filterDate').value;
     const scoreTypeFilter = document.getElementById('filterScoreType').value;
@@ -1072,6 +1097,24 @@ function applyFilters() {
         filteredData = Object.fromEntries(
             Object.entries(filteredData).filter(([id, student]) =>
                 student.name.toLowerCase().includes(nameFilter)
+            )
+        );
+    }
+
+    // Filter by academic year
+    if (academicYearFilter) {
+        filteredData = Object.fromEntries(
+            Object.entries(filteredData).filter(([id, student]) =>
+                student.academicYear && student.academicYear.toLowerCase().includes(academicYearFilter)
+            )
+        );
+    }
+
+    // Filter by team
+    if (teamFilter) {
+        filteredData = Object.fromEntries(
+            Object.entries(filteredData).filter(([id, student]) =>
+                student.team && student.team.toLowerCase().includes(teamFilter)
             )
         );
     }
@@ -1110,6 +1153,8 @@ function applyFilters() {
 
 function clearFilters() {
     document.getElementById('filterName').value = '';
+    document.getElementById('filterAcademicYear').value = '';
+    document.getElementById('filterTeam').value = '';
     document.getElementById('filterAdmin').value = '';
     document.getElementById('filterDate').value = '';
     document.getElementById('filterScoreType').value = '';
