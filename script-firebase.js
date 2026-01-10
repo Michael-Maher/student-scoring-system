@@ -2170,9 +2170,10 @@ async function generateQRCode() {
 
 // Populate filter dropdowns with unique values from existing data
 function populateFilterDropdowns() {
-    // Get unique academic years and teams from both students and QR codes
+    // Get unique academic years, teams, and admins from both students and QR codes
     const academicYears = new Set();
     const teams = new Set();
+    const admins = new Set();
 
     // Collect from students data
     Object.values(studentsData).forEach(student => {
@@ -2181,6 +2182,9 @@ function populateFilterDropdowns() {
         }
         if (student.team && student.team.trim()) {
             teams.add(student.team.trim());
+        }
+        if (student.lastUpdatedBy && student.lastUpdatedBy.trim()) {
+            admins.add(student.lastUpdatedBy.trim());
         }
     });
 
@@ -2191,6 +2195,9 @@ function populateFilterDropdowns() {
         }
         if (qr.team && qr.team.trim()) {
             teams.add(qr.team.trim());
+        }
+        if (qr.createdBy && qr.createdBy.trim()) {
+            admins.add(qr.createdBy.trim());
         }
     });
 
@@ -2220,6 +2227,20 @@ function populateFilterDropdowns() {
             dashboardTeamFilter.appendChild(option);
         });
         if (currentValue) dashboardTeamFilter.value = currentValue;
+    }
+
+    // Populate Dashboard Admin/Servant filter
+    const dashboardAdminFilter = document.getElementById('filterAdmin');
+    if (dashboardAdminFilter) {
+        const currentValue = dashboardAdminFilter.value;
+        dashboardAdminFilter.innerHTML = '<option value="">الكل</option>';
+        Array.from(admins).sort().forEach(admin => {
+            const option = document.createElement('option');
+            option.value = admin;
+            option.textContent = admin;
+            dashboardAdminFilter.appendChild(option);
+        });
+        if (currentValue) dashboardAdminFilter.value = currentValue;
     }
 
     // Populate QR Generator Academic Year filter
@@ -2572,24 +2593,24 @@ function downloadBookmark(qrId) {
                 // Draw bookmark template
                 ctx.drawImage(bookmarkImg, 0, 0);
 
-                // Calculate QR position - DOUBLE SIZE (240px) moved to trailing
-                const qrSize = 240; // DOUBLE SIZE QR code (was 120px)
-                const qrX = 50; // Moved more to trailing (right) side
-                const qrY = bookmarkImg.height - 280; // Adjusted vertical position for larger QR
+                // Calculate QR position - smaller and moved to leading (left)
+                const qrSize = 200; // Smaller QR code
+                const qrX = 30; // Moved to leading (left) side
+                const qrY = bookmarkImg.height - 240; // Adjusted vertical position
 
                 // Draw QR code on bookmark (replacing the existing one)
                 ctx.drawImage(qrCanvas, qrX, qrY, qrSize, qrSize);
 
                 // Add student name below QR code with minimal spacing
                 ctx.fillStyle = '#000000';
-                ctx.font = 'bold 28px Arial, sans-serif'; // Larger font for bigger QR
+                ctx.font = 'bold 24px Arial, sans-serif'; // Font proportional to QR size
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'top';
 
                 // Draw name centered below QR, with word wrap if needed
                 const nameX = qrX + (qrSize / 2);
                 const nameY = qrY + qrSize + 1; // Minimal gap (1px) between QR and name
-                const maxWidth = 240; // Match QR width
+                const maxWidth = 200; // Match QR width
 
                 // Simple word wrap
                 const words = qr.name.split(' ');
@@ -2611,7 +2632,7 @@ function downloadBookmark(qrId) {
 
                 // Draw each line with minimal line spacing
                 lines.forEach((textLine, index) => {
-                    ctx.fillText(textLine, nameX, nameY + (index * 30));
+                    ctx.fillText(textLine, nameX, nameY + (index * 26));
                 });
 
                 // Convert to blob and download
