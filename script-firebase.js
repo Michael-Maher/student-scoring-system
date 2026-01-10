@@ -549,6 +549,9 @@ function initializeQRScanner() {
     }, 250);
 }
 
+// Store scanned QR data temporarily
+let scannedQRData = null;
+
 function onScanSuccess(decodedText, decodedResult) {
     console.log(`QR Code detected: ${decodedText}`);
 
@@ -564,12 +567,14 @@ function onScanSuccess(decodedText, decodedResult) {
     // Check if this is a new format QR (pipe-delimited) or old format (just name)
     let studentName = decodedText.trim();
     let additionalInfo = '';
+    scannedQRData = null; // Reset
 
     if (decodedText.includes('|')) {
         // New format: name|year|phone|team
         const qrData = decodeQRData(decodedText);
         if (qrData && qrData.name) {
             studentName = qrData.name;
+            scannedQRData = qrData; // Store for later use
             // Build additional info string
             const infoParts = [];
             if (qrData.academicYear) infoParts.push(`السنة: ${qrData.academicYear}`);
@@ -628,11 +633,23 @@ async function submitScore() {
     if (!studentsData[studentId]) {
         studentsData[studentId] = {
             name: studentName,
+            academicYear: scannedQRData?.academicYear || '',
+            team: scannedQRData?.team || '',
             scores: {},
             scans: {}, // Track scans by type and date
             lastUpdated: new Date().toISOString(),
             lastUpdatedBy: currentAdmin
         };
+    } else {
+        // Update academic year and team if they were scanned and are currently empty
+        if (scannedQRData) {
+            if (!studentsData[studentId].academicYear && scannedQRData.academicYear) {
+                studentsData[studentId].academicYear = scannedQRData.academicYear;
+            }
+            if (!studentsData[studentId].team && scannedQRData.team) {
+                studentsData[studentId].team = scannedQRData.team;
+            }
+        }
     }
 
     // Initialize scans tracking if not exists
@@ -690,6 +707,9 @@ function cancelScoring() {
     document.getElementById('studentName').value = '';
     document.getElementById('scoreType').value = '';
     document.getElementById('score').value = '1'; // Reset to default
+
+    // Clear scanned QR data
+    scannedQRData = null;
 
     // Resume scanning
     if (html5QrcodeScanner) {
@@ -2183,7 +2203,8 @@ function renderQRCodesTable(filteredData = null) {
                 <td>
                     <div class="action-buttons">
                         <button onclick="editQRCode('${qrId}')" class="action-btn edit-btn" title="تعديل">✏️</button>
-                        <button onclick="downloadQRCode('${qrId}')" class="action-btn download-btn" title="تحميل">⬇️</button>
+                        <button onclick="downloadQRCode('${qrId}')" class="action-btn download-btn" title="تحميل QR">⬇️</button>
+                        <button onclick="downloadBookmark('${qrId}')" class="action-btn bookmark-btn" title="تحميل علامة">🔖</button>
                         <button onclick="deleteQRCode('${qrId}')" class="action-btn delete-btn" title="حذف">🗑️</button>
                     </div>
                 </td>
@@ -2393,6 +2414,105 @@ function downloadQRCode(qrId) {
         console.error('Error generating QR code:', error);
         document.body.removeChild(tempContainer);
         showNotification('البيانات كبيرة جداً لإنشاء رمز QR', 'error');
+    }
+}
+
+// Download Bookmark with QR Code
+function downloadBookmark(qrId) {
+    const qr = qrCodesData[qrId];
+    if (!qr) {
+        showNotification('رمز QR غير موجود', 'error');
+        return;
+    }
+
+    // Create compact QR data string (pipe-delimited format)
+    const qrDataString = [
+        qr.name || '',
+        qr.academicYear || '',
+        qr.phone || '',
+        qr.team || ''
+    ].join('|');
+
+    // Create a temporary container for QR code generation
+    const tempContainer = document.createElement('div');
+    tempContainer.style.position = 'absolute';
+    tempContainer.style.left = '-9999px';
+    document.body.appendChild(tempContainer);
+
+    try {
+        // Generate QR code
+        const qrcode = new QRCode(tempContainer, {
+            text: qrDataString,
+            width: 256,
+            height: 256,
+            colorDark: '#000000',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.M
+        });
+
+        // Wait for QR code generation
+        setTimeout(() => {
+            const qrCanvas = tempContainer.querySelector('canvas');
+            if (!qrCanvas) {
+                document.body.removeChild(tempContainer);
+                showNotification('حدث خطأ في إنشاء رمز QR', 'error');
+                return;
+            }
+
+            // Load bookmark template image
+            const bookmarkImg = new Image();
+            bookmarkImg.crossOrigin = 'anonymous';
+
+            bookmarkImg.onload = function() {
+                // Create final canvas with bookmark dimensions
+                const finalCanvas = document.createElement('canvas');
+                finalCanvas.width = bookmarkImg.width;
+                finalCanvas.height = bookmarkImg.height;
+                const ctx = finalCanvas.getContext('2d');
+
+                // Draw bookmark template
+                ctx.drawImage(bookmarkImg, 0, 0);
+
+                // Calculate QR position (bottom left corner)
+                // Adjust these values based on your template's QR location
+                const qrX = 20; // Left margin
+                const qrY = bookmarkImg.height - 256 - 20; // Bottom margin
+                const qrWidth = 230; // Slightly smaller to fit in the template
+                const qrHeight = 230;
+
+                // Draw white background for QR (optional, for better visibility)
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(qrX - 5, qrY - 5, qrWidth + 10, qrHeight + 10);
+
+                // Draw QR code on bookmark
+                ctx.drawImage(qrCanvas, qrX, qrY, qrWidth, qrHeight);
+
+                // Convert to blob and download
+                finalCanvas.toBlob((blob) => {
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `Bookmark_${qr.name.replace(/\s+/g, '_')}.png`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    document.body.removeChild(tempContainer);
+                    showNotification('تم تحميل علامة الكتاب بنجاح', 'success');
+                });
+            };
+
+            bookmarkImg.onerror = function() {
+                document.body.removeChild(tempContainer);
+                showNotification('تعذر تحميل قالب علامة الكتاب. تأكد من وجود ملف bookmark-template.png', 'error');
+            };
+
+            // Load the bookmark template (you need to add this image to your project)
+            bookmarkImg.src = 'bookmark-template.png';
+
+        }, 500);
+    } catch (error) {
+        console.error('Error generating bookmark:', error);
+        document.body.removeChild(tempContainer);
+        showNotification('حدث خطأ في إنشاء علامة الكتاب', 'error');
     }
 }
 

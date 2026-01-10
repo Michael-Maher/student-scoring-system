@@ -1900,6 +1900,10 @@ header h1 {
     background: linear-gradient(135deg, #20bf6b 0%, #26d67c 100%);
 }
 
+.bookmark-btn {
+    background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+}
+
 .delete-btn {
     background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
 }
@@ -1914,6 +1918,10 @@ header h1 {
 
 .download-btn:hover {
     box-shadow: 0 4px 12px rgba(32, 191, 107, 0.4);
+}
+
+.bookmark-btn:hover {
+    box-shadow: 0 4px 12px rgba(243, 156, 18, 0.4);
 }
 
 .delete-btn:hover {
