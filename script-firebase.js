@@ -2010,6 +2010,9 @@ function showQRGenerator() {
 
     setActiveNav('qrGeneratorNavBtn');
 
+    // Populate dropdown lists with unique values from existing data
+    populateQRDropdowns();
+
     // Load and render QR codes
     try {
         loadQRCodes().then(() => {
@@ -2152,11 +2155,73 @@ async function generateQRCode() {
     // Reset form
     resetQRForm();
 
+    // Update dropdowns with new values
+    populateQRDropdowns();
+
     // Render table
     renderQRCodesTable();
 }
 
 // Reset QR form
+// Populate QR form dropdowns with unique values from existing data
+function populateQRDropdowns() {
+    // Get unique academic years from both students and QR codes
+    const academicYears = new Set();
+    const teams = new Set();
+
+    // Collect from students data
+    Object.values(studentsData).forEach(student => {
+        if (student.academicYear && student.academicYear.trim()) {
+            academicYears.add(student.academicYear.trim());
+        }
+        if (student.team && student.team.trim()) {
+            teams.add(student.team.trim());
+        }
+    });
+
+    // Collect from QR codes data
+    Object.values(qrCodesData).forEach(qr => {
+        if (qr.academicYear && qr.academicYear.trim()) {
+            academicYears.add(qr.academicYear.trim());
+        }
+        if (qr.team && qr.team.trim()) {
+            teams.add(qr.team.trim());
+        }
+    });
+
+    // Populate Academic Year dropdown
+    const academicYearSelect = document.getElementById('qrAcademicYear');
+    const currentAcademicYear = academicYearSelect.value; // Preserve current selection
+    academicYearSelect.innerHTML = '<option value="">اختر السنة الدراسية...</option>';
+
+    Array.from(academicYears).sort().forEach(year => {
+        const option = document.createElement('option');
+        option.value = year;
+        option.textContent = year;
+        academicYearSelect.appendChild(option);
+    });
+
+    if (currentAcademicYear) {
+        academicYearSelect.value = currentAcademicYear;
+    }
+
+    // Populate Team dropdown
+    const teamSelect = document.getElementById('qrTeam');
+    const currentTeam = teamSelect.value; // Preserve current selection
+    teamSelect.innerHTML = '<option value="">اختر الفريق...</option>';
+
+    Array.from(teams).sort().forEach(team => {
+        const option = document.createElement('option');
+        option.value = team;
+        option.textContent = team;
+        teamSelect.appendChild(option);
+    });
+
+    if (currentTeam) {
+        teamSelect.value = currentTeam;
+    }
+}
+
 function resetQRForm() {
     document.getElementById('qrStudentName').value = '';
     document.getElementById('qrAcademicYear').value = '';
@@ -2299,6 +2364,9 @@ async function saveQREdit(qrId) {
 
     // Save to Firebase
     await saveQRCodesToFirebase(qrId, qrCodesData[qrId]);
+
+    // Update dropdowns with new values
+    populateQRDropdowns();
 
     closeEditDialog();
     renderQRCodesTable();
@@ -2473,24 +2541,24 @@ function downloadBookmark(qrId) {
                 // Draw bookmark template
                 ctx.drawImage(bookmarkImg, 0, 0);
 
-                // Calculate QR position - much larger size to fill white box
-                const qrSize = 105; // Much larger QR code
-                const qrX = 33; // Moved slightly to trailing (right) side
-                const qrY = bookmarkImg.height - 145; // Vertical position in white box
+                // Calculate QR position - VERY LARGE to fill white box completely
+                const qrSize = 120; // VERY LARGE QR code
+                const qrX = 25; // Positioned to fill white box
+                const qrY = bookmarkImg.height - 155; // Vertical position in white box
 
                 // Draw QR code on bookmark (replacing the existing one)
                 ctx.drawImage(qrCanvas, qrX, qrY, qrSize, qrSize);
 
                 // Add student name below QR code with minimal spacing
                 ctx.fillStyle = '#000000';
-                ctx.font = 'bold 15px Arial, sans-serif';
+                ctx.font = 'bold 18px Arial, sans-serif'; // Larger font
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'top';
 
                 // Draw name centered below QR, with word wrap if needed
                 const nameX = qrX + (qrSize / 2);
-                const nameY = qrY + qrSize + 2; // Minimal gap (2px) between QR and name
-                const maxWidth = 105; // Match QR width
+                const nameY = qrY + qrSize + 1; // Minimal gap (1px) between QR and name
+                const maxWidth = 120; // Match QR width
 
                 // Simple word wrap
                 const words = qr.name.split(' ');
@@ -2512,7 +2580,7 @@ function downloadBookmark(qrId) {
 
                 // Draw each line with minimal line spacing
                 lines.forEach((textLine, index) => {
-                    ctx.fillText(textLine, nameX, nameY + (index * 16));
+                    ctx.fillText(textLine, nameX, nameY + (index * 19));
                 });
 
                 // Convert to blob and download

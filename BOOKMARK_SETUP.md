@@ -20,22 +20,21 @@ You need to save your bookmark image to the project directory:
 
 ### 2. Adjust QR Position (If Needed)
 
-The QR code is positioned in the **bottom left corner** by default. If you need to adjust the position:
+The QR code is positioned in the **white rounded rectangle at bottom left corner** by default. If you need to adjust the position:
 
-**Edit `script-firebase.js` around line 2478:**
+**Edit `script-firebase.js` around line 2477:**
 
 ```javascript
-// Calculate QR position (bottom left corner)
-const qrX = 20;        // Distance from left edge (pixels)
-const qrY = bookmarkImg.height - 256 - 20; // Distance from bottom (pixels)
-const qrWidth = 230;   // QR code width
-const qrHeight = 230;  // QR code height
+// Calculate QR position - VERY LARGE to fill white box completely
+const qrSize = 120;    // QR code size (width and height)
+const qrX = 25;        // Distance from left edge (pixels)
+const qrY = bookmarkImg.height - 155; // Distance from bottom (pixels)
 ```
 
 **Adjust these values:**
+- `qrSize`: Resize QR code (current: 120px)
 - `qrX`: Move QR left/right
 - `qrY`: Move QR up/down (smaller = higher, larger = lower)
-- `qrWidth` / `qrHeight`: Resize QR code
 
 ## How It Works
 
