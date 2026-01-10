@@ -2473,19 +2473,48 @@ function downloadBookmark(qrId) {
                 // Draw bookmark template
                 ctx.drawImage(bookmarkImg, 0, 0);
 
-                // Calculate QR position (bottom left corner)
-                // Adjust these values based on your template's QR location
-                const qrX = 20; // Left margin
-                const qrY = bookmarkImg.height - 256 - 20; // Bottom margin
-                const qrWidth = 230; // Slightly smaller to fit in the template
-                const qrHeight = 230;
-
-                // Draw white background for QR (optional, for better visibility)
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(qrX - 5, qrY - 5, qrWidth + 10, qrHeight + 10);
+                // Calculate QR position (inside white rounded rectangle at bottom left)
+                // Adjust these values to position QR inside the white area
+                const qrSize = 140; // Smaller QR code
+                const qrX = 35; // Position inside white rounded rectangle
+                const qrY = bookmarkImg.height - 200; // Position from bottom
 
                 // Draw QR code on bookmark
-                ctx.drawImage(qrCanvas, qrX, qrY, qrWidth, qrHeight);
+                ctx.drawImage(qrCanvas, qrX, qrY, qrSize, qrSize);
+
+                // Add student name below QR code
+                ctx.fillStyle = '#000000';
+                ctx.font = 'bold 18px Arial, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'top';
+
+                // Draw name centered below QR, with word wrap if needed
+                const nameX = qrX + (qrSize / 2);
+                const nameY = qrY + qrSize + 10;
+                const maxWidth = 160; // Max width for text
+
+                // Simple word wrap
+                const words = qr.name.split(' ');
+                let line = '';
+                let lines = [];
+
+                for (let i = 0; i < words.length; i++) {
+                    const testLine = line + words[i] + ' ';
+                    const metrics = ctx.measureText(testLine);
+
+                    if (metrics.width > maxWidth && i > 0) {
+                        lines.push(line.trim());
+                        line = words[i] + ' ';
+                    } else {
+                        line = testLine;
+                    }
+                }
+                lines.push(line.trim());
+
+                // Draw each line
+                lines.forEach((textLine, index) => {
+                    ctx.fillText(textLine, nameX, nameY + (index * 22));
+                });
 
                 // Convert to blob and download
                 finalCanvas.toBlob((blob) => {
