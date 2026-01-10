@@ -1536,3 +1536,444 @@ header h1 {
     transform: scale(1.1);
     box-shadow: 0 4px 10px rgba(102, 126, 234, 0.4);
 }
+
+/* ============================================
+   MODERN FILTERS STYLING
+   ============================================ */
+
+.modern-filters {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 249, 250, 0.95) 100%);
+    border-radius: 15px;
+    padding: 25px;
+    margin-bottom: 25px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(102, 126, 234, 0.1);
+}
+
+.filter-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid rgba(102, 126, 234, 0.15);
+}
+
+.filter-header h3,
+.filter-header h4 {
+    margin: 0;
+    font-size: 20px;
+    color: #667eea;
+    font-weight: 700;
+}
+
+.modern-clear-btn {
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(255, 107, 107, 0.3);
+}
+
+.modern-clear-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(255, 107, 107, 0.4);
+}
+
+.modern-clear-btn:active {
+    transform: translateY(0);
+}
+
+.filter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+}
+
+.modern-filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.modern-filter-group label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 14px;
+}
+
+.filter-icon {
+    font-size: 18px;
+    filter: grayscale(0.3);
+}
+
+.modern-filter-group input,
+.modern-filter-group select {
+    width: 100%;
+    padding: 12px 15px;
+    border: 2px solid #e1e5e9;
+    border-radius: 10px;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    background: white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.modern-filter-group input:focus,
+.modern-filter-group select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    transform: translateY(-1px);
+}
+
+.modern-filter-group input::placeholder {
+    color: #bbb;
+}
+
+/* ============================================
+   QR GENERATOR SECTION
+   ============================================ */
+
+.qr-form-container {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+    border-radius: 15px;
+    padding: 30px;
+    margin-bottom: 30px;
+    border: 2px solid rgba(102, 126, 234, 0.1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.qr-form-container h3 {
+    margin: 0 0 25px 0;
+    color: #667eea;
+    font-size: 22px;
+    font-weight: 700;
+    text-align: center;
+}
+
+.qr-generation-form {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.form-group.required label::after {
+    content: '';
+}
+
+.form-group label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 15px;
+}
+
+.label-icon {
+    font-size: 18px;
+}
+
+.required-mark {
+    color: #e74c3c;
+    font-weight: bold;
+    margin-right: 4px;
+}
+
+.form-group input {
+    padding: 12px 15px;
+    border: 2px solid #e1e5e9;
+    border-radius: 10px;
+    font-size: 15px;
+    transition: all 0.3s ease;
+    background: white;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.form-group input::placeholder {
+    color: #bbb;
+}
+
+.form-actions-modern {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 30px;
+}
+
+.generate-qr-btn,
+.reset-form-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 30px;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+}
+
+.generate-qr-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.generate-qr-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.reset-form-btn {
+    background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
+    color: white;
+}
+
+.reset-form-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(127, 140, 141, 0.4);
+}
+
+.btn-icon {
+    font-size: 20px;
+}
+
+/* ============================================
+   QR MANAGEMENT SECTION
+   ============================================ */
+
+.qr-management-container {
+    background: white;
+    border-radius: 15px;
+    padding: 25px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.qr-management-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid rgba(102, 126, 234, 0.1);
+}
+
+.qr-management-header h3 {
+    margin: 0;
+    color: #2c3e50;
+    font-size: 22px;
+    font-weight: 700;
+}
+
+.qr-actions-header {
+    display: flex;
+    gap: 10px;
+}
+
+.export-qr-btn {
+    background: linear-gradient(135deg, #20bf6b 0%, #26d67c 100%);
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+    box-shadow: 0 3px 10px rgba(32, 191, 107, 0.3);
+}
+
+.export-qr-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(32, 191, 107, 0.4);
+}
+
+/* ============================================
+   MODERN TABLE STYLING
+   ============================================ */
+
+.modern-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+}
+
+.modern-table thead {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.modern-table thead th {
+    padding: 16px;
+    text-align: right;
+    color: white;
+    font-weight: 700;
+    font-size: 15px;
+    border-bottom: none;
+}
+
+.modern-table tbody tr {
+    background: white;
+    transition: all 0.3s ease;
+}
+
+.modern-table tbody tr:nth-child(even) {
+    background: #f8f9fa;
+}
+
+.modern-table tbody tr:hover {
+    background: rgba(102, 126, 234, 0.08);
+    transform: scale(1.005);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.modern-table tbody td {
+    padding: 14px;
+    border-bottom: 1px solid #e1e5e9;
+    color: #2c3e50;
+    font-size: 14px;
+}
+
+.modern-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* ============================================
+   ACTION BUTTONS
+   ============================================ */
+
+.action-buttons {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+}
+
+.action-btn {
+    padding: 8px 12px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.edit-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.download-btn {
+    background: linear-gradient(135deg, #20bf6b 0%, #26d67c 100%);
+}
+
+.delete-btn {
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+}
+
+.action-btn:hover {
+    transform: translateY(-2px) scale(1.1);
+}
+
+.edit-btn:hover {
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.download-btn:hover {
+    box-shadow: 0 4px 12px rgba(32, 191, 107, 0.4);
+}
+
+.delete-btn:hover {
+    box-shadow: 0 4px 12px rgba(255, 107, 107, 0.4);
+}
+
+.action-btn:active {
+    transform: translateY(0) scale(1.05);
+}
+
+/* ============================================
+   RESPONSIVE DESIGN
+   ============================================ */
+
+@media (max-width: 768px) {
+    .filter-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+
+    .filter-header,
+    .qr-management-header {
+        flex-direction: column;
+        gap: 15px;
+        align-items: flex-start;
+    }
+
+    .qr-actions-header {
+        width: 100%;
+    }
+
+    .export-qr-btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .form-actions-modern {
+        flex-direction: column;
+    }
+
+    .generate-qr-btn,
+    .reset-form-btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .modern-table {
+        font-size: 13px;
+    }
+
+    .modern-table thead th,
+    .modern-table tbody td {
+        padding: 10px 8px;
+    }
+
+    .action-buttons {
+        flex-direction: column;
+        gap: 5px;
+    }
+}

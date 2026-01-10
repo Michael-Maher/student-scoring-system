@@ -871,16 +871,22 @@ async function saveStudentEdit(studentId) {
         }
     });
 
+    // Get the sanitized version of the new name for Firebase
+    const newStudentKey = sanitizeFirebaseKey(newName);
+
     // If student name changed, we need to delete old entry and create new one
-    if (newName !== studentId) {
-        // Delete old entry
+    if (newStudentKey !== studentId) {
+        // Store the old student data BEFORE deleting
+        const oldStudentData = { ...studentsData[studentId] };
+
+        // Delete old entry from local data
         delete studentsData[studentId];
 
-        // Create new entry with new name
-        studentsData[newName] = {
+        // Create new entry with new name, preserving scans data
+        studentsData[newStudentKey] = {
             name: newName,
             scores: newScores,
-            scans: studentsData[studentId]?.scans || {},
+            scans: oldStudentData.scans || {},
             lastUpdated: new Date().toISOString(),
             lastUpdatedBy: currentAdmin
         };
@@ -892,10 +898,13 @@ async function saveStudentEdit(studentId) {
             await window.firebase.set(oldRef, null);
 
             // Save new entry
-            await saveToFirebase(newName, studentsData[newName]);
+            await saveToFirebase(newStudentKey, studentsData[newStudentKey]);
         }
+
+        // Save to localStorage
+        saveData();
     } else {
-        // Just update scores
+        // Just update scores - name unchanged
         studentsData[studentId].scores = newScores;
         studentsData[studentId].lastUpdated = new Date().toISOString();
         studentsData[studentId].lastUpdatedBy = currentAdmin;
@@ -1201,6 +1210,7 @@ function showProfile() {
     // Hide all sections
     document.getElementById('scannerSection').classList.add('hidden');
     document.getElementById('dashboardSection').classList.add('hidden');
+    document.getElementById('qrGeneratorSection').classList.add('hidden');
     document.getElementById('profileSection').classList.remove('hidden');
     document.getElementById('manageAdminsSection').classList.add('hidden');
     document.getElementById('manageScoreTypesSection').classList.add('hidden');
@@ -1296,6 +1306,7 @@ function showManageAdmins() {
     // Hide all sections
     document.getElementById('scannerSection').classList.add('hidden');
     document.getElementById('dashboardSection').classList.add('hidden');
+    document.getElementById('qrGeneratorSection').classList.add('hidden');
     document.getElementById('profileSection').classList.add('hidden');
     document.getElementById('manageAdminsSection').classList.remove('hidden');
     document.getElementById('manageScoreTypesSection').classList.add('hidden');
@@ -1604,6 +1615,7 @@ function showManageScoreTypes() {
 
     document.getElementById('scannerSection').classList.add('hidden');
     document.getElementById('dashboardSection').classList.add('hidden');
+    document.getElementById('qrGeneratorSection').classList.add('hidden');
     document.getElementById('profileSection').classList.add('hidden');
     document.getElementById('manageAdminsSection').classList.add('hidden');
     document.getElementById('manageScoreTypesSection').classList.remove('hidden');
@@ -1828,6 +1840,7 @@ function showScanner() {
     // Show scanner section and hide others
     document.getElementById('scannerSection').classList.remove('hidden');
     document.getElementById('dashboardSection').classList.add('hidden');
+    document.getElementById('qrGeneratorSection').classList.add('hidden');
     document.getElementById('profileSection').classList.add('hidden');
     document.getElementById('manageAdminsSection').classList.add('hidden');
     document.getElementById('manageScoreTypesSection').classList.add('hidden');
@@ -1882,6 +1895,7 @@ function showDashboard() {
 
     document.getElementById('scannerSection').classList.add('hidden');
     document.getElementById('dashboardSection').classList.remove('hidden');
+    document.getElementById('qrGeneratorSection').classList.add('hidden');
     document.getElementById('profileSection').classList.add('hidden');
     document.getElementById('manageAdminsSection').classList.add('hidden');
     document.getElementById('manageScoreTypesSection').classList.add('hidden');
@@ -1890,6 +1904,464 @@ function showDashboard() {
 
     renderScoresTable();
 }
+
+// Show QR Generator section
+function showQRGenerator() {
+    // Hide scoring form if it's visible
+    document.getElementById('scoringForm').classList.add('hidden');
+
+    // Pause scanner (don't clear DOM)
+    if (html5QrcodeScanner) {
+        try {
+            html5QrcodeScanner.pause(false);
+        } catch (error) {
+            console.log('Error pausing scanner:', error);
+        }
+    }
+
+    document.getElementById('scannerSection').classList.add('hidden');
+    document.getElementById('dashboardSection').classList.add('hidden');
+    document.getElementById('qrGeneratorSection').classList.remove('hidden');
+    document.getElementById('profileSection').classList.add('hidden');
+    document.getElementById('manageAdminsSection').classList.add('hidden');
+    document.getElementById('manageScoreTypesSection').classList.add('hidden');
+
+    setActiveNav('qrGeneratorNavBtn');
+
+    // Load and render QR codes
+    loadQRCodes();
+    renderQRCodesTable();
+}
+
+// ============================================
+// QR CODE GENERATION AND MANAGEMENT SYSTEM
+// ============================================
+
+// QR Codes data storage
+let qrCodesData = {};
+
+// Load QR codes from Firebase and localStorage
+async function loadQRCodes() {
+    // Load from localStorage first
+    const stored = localStorage.getItem('qrCodesData');
+    if (stored) {
+        try {
+            qrCodesData = JSON.parse(stored);
+        } catch (error) {
+            console.error('Error parsing QR codes from localStorage:', error);
+            qrCodesData = {};
+        }
+    }
+
+    // Load from Firebase
+    if (window.firebase && window.firebase.database) {
+        try {
+            const qrRef = window.firebase.ref(window.firebase.database, 'qrcodes');
+            const snapshot = await window.firebase.get(qrRef);
+            if (snapshot.exists()) {
+                qrCodesData = snapshot.val();
+                // Save to localStorage
+                localStorage.setItem('qrCodesData', JSON.stringify(qrCodesData));
+            }
+        } catch (error) {
+            console.error('Error loading QR codes from Firebase:', error);
+        }
+    }
+}
+
+// Save QR codes to Firebase and localStorage
+async function saveQRCodesToFirebase(qrId, qrData) {
+    // Save to localStorage
+    localStorage.setItem('qrCodesData', JSON.stringify(qrCodesData));
+
+    // Save to Firebase
+    if (window.firebase && window.firebase.database) {
+        try {
+            const qrRef = window.firebase.ref(window.firebase.database, `qrcodes/${qrId}`);
+            await window.firebase.set(qrRef, qrData);
+        } catch (error) {
+            console.error('Error saving QR code to Firebase:', error);
+            showNotification('حدث خطأ في حفظ QR للخادم', 'error');
+        }
+    }
+}
+
+// Generate QR Code
+async function generateQRCode() {
+    const name = document.getElementById('qrStudentName').value.trim();
+    const academicYear = document.getElementById('qrAcademicYear').value.trim();
+    const phone = document.getElementById('qrPhone').value.trim();
+    const team = document.getElementById('qrTeam').value.trim();
+
+    // Validation
+    if (!name) {
+        showNotification('الرجاء إدخال اسم المخدوم', 'error');
+        return;
+    }
+
+    // Phone validation (if provided)
+    if (phone && (phone.length !== 11 || !/^[0-9]{11}$/.test(phone))) {
+        showNotification('رقم الهاتف يجب أن يكون 11 رقم', 'error');
+        return;
+    }
+
+    // Check for duplicates
+    const isDuplicate = Object.values(qrCodesData).some(qr =>
+        qr.name.toLowerCase() === name.toLowerCase() &&
+        qr.academicYear === academicYear &&
+        qr.phone === phone &&
+        qr.team === team
+    );
+
+    if (isDuplicate) {
+        showNotification('هذا الرمز موجود بالفعل بنفس البيانات', 'error');
+        return;
+    }
+
+    // Create QR data object
+    const qrData = {
+        name,
+        academicYear: academicYear || '',
+        phone: phone || '',
+        team: team || '',
+        createdAt: new Date().toISOString(),
+        createdBy: currentAdmin
+    };
+
+    // Generate unique ID
+    const qrId = sanitizeFirebaseKey(name) + '_' + Date.now();
+
+    // Add to qrCodesData
+    qrCodesData[qrId] = qrData;
+
+    // Save to Firebase
+    await saveQRCodesToFirebase(qrId, qrData);
+
+    // Show success notification
+    showNotification('تم إنشاء رمز QR بنجاح', 'success');
+
+    // Reset form
+    resetQRForm();
+
+    // Render table
+    renderQRCodesTable();
+}
+
+// Reset QR form
+function resetQRForm() {
+    document.getElementById('qrStudentName').value = '';
+    document.getElementById('qrAcademicYear').value = '';
+    document.getElementById('qrPhone').value = '';
+    document.getElementById('qrTeam').value = '';
+}
+
+// Render QR Codes Table
+function renderQRCodesTable(filteredData = null) {
+    const tableContainer = document.getElementById('qrCodesTable');
+    const dataToRender = filteredData || qrCodesData;
+
+    if (Object.keys(dataToRender).length === 0) {
+        tableContainer.innerHTML = '<p style="text-align: center; color: #666; font-style: italic; padding: 40px;">لم يتم إنشاء أي رموز QR بعد.</p>';
+        return;
+    }
+
+    let tableHTML = `
+        <table class="modern-table">
+            <thead>
+                <tr>
+                    <th>الاسم</th>
+                    <th>السنة الدراسية</th>
+                    <th>رقم الهاتف</th>
+                    <th>الفريق</th>
+                    <th>تاريخ الإنشاء</th>
+                    <th>الخادم</th>
+                    <th>الإجراءات</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    Object.entries(dataToRender).forEach(([qrId, qr]) => {
+        const createdDate = formatDateTwoLines(qr.createdAt);
+        tableHTML += `
+            <tr>
+                <td><strong>${qr.name}</strong></td>
+                <td>${qr.academicYear || '-'}</td>
+                <td>${qr.phone || '-'}</td>
+                <td>${qr.team || '-'}</td>
+                <td>${createdDate}</td>
+                <td>${qr.createdBy || 'غير معروف'}</td>
+                <td>
+                    <div class="action-buttons">
+                        <button onclick="editQRCode('${qrId}')" class="action-btn edit-btn" title="تعديل">✏️</button>
+                        <button onclick="downloadQRCode('${qrId}')" class="action-btn download-btn" title="تحميل">⬇️</button>
+                        <button onclick="deleteQRCode('${qrId}')" class="action-btn delete-btn" title="حذف">🗑️</button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+
+    tableHTML += `
+            </tbody>
+        </table>
+    `;
+
+    tableContainer.innerHTML = tableHTML;
+}
+
+// Edit QR Code
+async function editQRCode(qrId) {
+    const qr = qrCodesData[qrId];
+    if (!qr) {
+        showNotification('رمز QR غير موجود', 'error');
+        return;
+    }
+
+    let dialogHTML = `
+        <div style="max-width: 600px;">
+            <h3 style="margin-bottom: 20px;">✏️ تعديل رمز QR</h3>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">اسم المخدوم: <span style="color: red;">*</span></label>
+                <input type="text" id="editQRName" value="${qr.name}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">السنة الدراسية:</label>
+                <input type="text" id="editQRAcademicYear" value="${qr.academicYear || ''}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">رقم الهاتف:</label>
+                <input type="tel" id="editQRPhone" value="${qr.phone || ''}" maxlength="11" pattern="[0-9]{11}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">الفريق:</label>
+                <input type="text" id="editQRTeam" value="${qr.team || ''}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end;">
+                <button onclick="saveQREdit('${qrId}')" style="padding: 10px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 5px; font-weight: 600; cursor: pointer;">💾 حفظ</button>
+                <button onclick="closeEditDialog()" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 5px; font-weight: 600; cursor: pointer;">إلغاء</button>
+            </div>
+        </div>
+    `;
+
+    showEditDialog(dialogHTML);
+}
+
+// Save QR Edit
+async function saveQREdit(qrId) {
+    const newName = document.getElementById('editQRName').value.trim();
+    const newAcademicYear = document.getElementById('editQRAcademicYear').value.trim();
+    const newPhone = document.getElementById('editQRPhone').value.trim();
+    const newTeam = document.getElementById('editQRTeam').value.trim();
+
+    if (!newName) {
+        showNotification('الرجاء إدخال اسم المخدوم', 'error');
+        return;
+    }
+
+    // Phone validation (if provided)
+    if (newPhone && (newPhone.length !== 11 || !/^[0-9]{11}$/.test(newPhone))) {
+        showNotification('رقم الهاتف يجب أن يكون 11 رقم', 'error');
+        return;
+    }
+
+    // Check for duplicates (excluding current QR)
+    const isDuplicate = Object.entries(qrCodesData).some(([id, qr]) =>
+        id !== qrId &&
+        qr.name.toLowerCase() === newName.toLowerCase() &&
+        qr.academicYear === newAcademicYear &&
+        qr.phone === newPhone &&
+        qr.team === newTeam
+    );
+
+    if (isDuplicate) {
+        showNotification('يوجد رمز QR آخر بنفس هذه البيانات', 'error');
+        return;
+    }
+
+    // Update QR data
+    qrCodesData[qrId].name = newName;
+    qrCodesData[qrId].academicYear = newAcademicYear;
+    qrCodesData[qrId].phone = newPhone;
+    qrCodesData[qrId].team = newTeam;
+    qrCodesData[qrId].lastUpdated = new Date().toISOString();
+    qrCodesData[qrId].lastUpdatedBy = currentAdmin;
+
+    // Save to Firebase
+    await saveQRCodesToFirebase(qrId, qrCodesData[qrId]);
+
+    closeEditDialog();
+    renderQRCodesTable();
+    showNotification('تم تحديث رمز QR بنجاح', 'success');
+}
+
+// Download QR Code
+function downloadQRCode(qrId) {
+    const qr = qrCodesData[qrId];
+    if (!qr) {
+        showNotification('رمز QR غير موجود', 'error');
+        return;
+    }
+
+    // Create QR data string
+    const qrDataString = JSON.stringify({
+        name: qr.name,
+        academicYear: qr.academicYear || '',
+        phone: qr.phone || '',
+        team: qr.team || ''
+    });
+
+    // Create a temporary container for QR code
+    const tempContainer = document.createElement('div');
+    tempContainer.style.position = 'absolute';
+    tempContainer.style.left = '-9999px';
+    document.body.appendChild(tempContainer);
+
+    // Generate QR code
+    const qrcode = new QRCode(tempContainer, {
+        text: qrDataString,
+        width: 512,
+        height: 512,
+        colorDark: '#000000',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.H
+    });
+
+    // Wait for QR code to be generated, then download
+    setTimeout(() => {
+        const canvas = tempContainer.querySelector('canvas');
+        if (canvas) {
+            canvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `QR_${qr.name.replace(/\s+/g, '_')}.png`;
+                link.click();
+                URL.revokeObjectURL(url);
+                document.body.removeChild(tempContainer);
+                showNotification('تم تحميل رمز QR بنجاح', 'success');
+            });
+        } else {
+            document.body.removeChild(tempContainer);
+            showNotification('حدث خطأ في إنشاء رمز QR', 'error');
+        }
+    }, 500);
+}
+
+// Delete QR Code
+async function deleteQRCode(qrId) {
+    const qr = qrCodesData[qrId];
+    if (!qr) {
+        showNotification('رمز QR غير موجود', 'error');
+        return;
+    }
+
+    if (!confirm(`هل أنت متأكد من حذف رمز QR الخاص بـ "${qr.name}"؟`)) {
+        return;
+    }
+
+    // Delete from local data
+    delete qrCodesData[qrId];
+
+    // Delete from Firebase
+    if (window.firebase && window.firebase.database) {
+        try {
+            const qrRef = window.firebase.ref(window.firebase.database, `qrcodes/${qrId}`);
+            await window.firebase.set(qrRef, null);
+        } catch (error) {
+            console.error('Error deleting QR code from Firebase:', error);
+        }
+    }
+
+    // Save to localStorage
+    localStorage.setItem('qrCodesData', JSON.stringify(qrCodesData));
+
+    renderQRCodesTable();
+    showNotification('تم حذف رمز QR بنجاح', 'success');
+}
+
+// Apply QR Filters
+function applyQRFilters() {
+    const nameFilter = document.getElementById('qrFilterName').value.trim().toLowerCase();
+    const yearFilter = document.getElementById('qrFilterYear').value.trim().toLowerCase();
+    const phoneFilter = document.getElementById('qrFilterPhone').value.trim();
+    const teamFilter = document.getElementById('qrFilterTeam').value.trim().toLowerCase();
+
+    let filteredData = { ...qrCodesData };
+
+    if (nameFilter) {
+        filteredData = Object.fromEntries(
+            Object.entries(filteredData).filter(([id, qr]) =>
+                qr.name.toLowerCase().includes(nameFilter)
+            )
+        );
+    }
+
+    if (yearFilter) {
+        filteredData = Object.fromEntries(
+            Object.entries(filteredData).filter(([id, qr]) =>
+                qr.academicYear && qr.academicYear.toLowerCase().includes(yearFilter)
+            )
+        );
+    }
+
+    if (phoneFilter) {
+        filteredData = Object.fromEntries(
+            Object.entries(filteredData).filter(([id, qr]) =>
+                qr.phone && qr.phone.includes(phoneFilter)
+            )
+        );
+    }
+
+    if (teamFilter) {
+        filteredData = Object.fromEntries(
+            Object.entries(filteredData).filter(([id, qr]) =>
+                qr.team && qr.team.toLowerCase().includes(teamFilter)
+            )
+        );
+    }
+
+    renderQRCodesTable(filteredData);
+}
+
+// Clear QR Filters
+function clearQRFilters() {
+    document.getElementById('qrFilterName').value = '';
+    document.getElementById('qrFilterYear').value = '';
+    document.getElementById('qrFilterPhone').value = '';
+    document.getElementById('qrFilterTeam').value = '';
+    renderQRCodesTable();
+}
+
+// Export QR Data to Excel
+function exportQRDataToExcel() {
+    if (Object.keys(qrCodesData).length === 0) {
+        showNotification('لا توجد بيانات لتصديرها', 'error');
+        return;
+    }
+
+    const exportData = Object.values(qrCodesData).map(qr => ({
+        'الاسم': qr.name,
+        'السنة الدراسية': qr.academicYear || '-',
+        'رقم الهاتف': qr.phone || '-',
+        'الفريق': qr.team || '-',
+        'تاريخ الإنشاء': new Date(qr.createdAt).toLocaleString('ar-EG'),
+        'الخادم': qr.createdBy || 'غير معروف'
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'QR Codes');
+
+    const timestamp = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(wb, `QR_Codes_${timestamp}.xlsx`);
+
+    showNotification('تم تصدير البيانات بنجاح', 'success');
+}
+
+// ============================================
+// END QR CODE SYSTEM
+// ============================================
 
 // Utility functions
 function showNotification(message, type = 'info') {

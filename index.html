@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="styles.css">
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
     <!-- Firebase SDK -->
     <script type="module">
@@ -75,6 +76,10 @@
                 <span class="nav-icon">📊</span>
                 <span class="nav-text">اللوحة الرئيسية</span>
             </button>
+            <button onclick="showQRGenerator()" class="nav-btn" id="qrGeneratorNavBtn">
+                <span class="nav-icon">🎫</span>
+                <span class="nav-text">إنشاء QR</span>
+            </button>
             <button onclick="showProfile()" class="nav-btn" id="profileNavBtn">
                 <span class="nav-icon">👤</span>
                 <span class="nav-text">الملف الشخصي</span>
@@ -121,26 +126,45 @@
 
         <div id="dashboardSection" class="section hidden">
             <h2>📊 لوحة النقاط</h2>
-            <div class="filter-controls">
-                <div class="filter-group">
-                    <label>فلترة حسب الاسم:</label>
-                    <input type="text" id="filterName" placeholder="ابحث عن مخدوم..." oninput="applyFilters()">
+            <div class="modern-filters">
+                <div class="filter-header">
+                    <h3>🔍 البحث والفلترة</h3>
+                    <button onclick="clearFilters()" class="modern-clear-btn">
+                        <span>✖</span> مسح الفلاتر
+                    </button>
                 </div>
-                <div class="filter-group">
-                    <label>فلترة حسب الخادم:</label>
-                    <input type="text" id="filterAdmin" placeholder="اسم الخادم..." oninput="applyFilters()">
+                <div class="filter-grid">
+                    <div class="modern-filter-group">
+                        <label>
+                            <span class="filter-icon">👤</span>
+                            <span>اسم المخدوم</span>
+                        </label>
+                        <input type="text" id="filterName" placeholder="ابحث عن مخدوم..." oninput="applyFilters()">
+                    </div>
+                    <div class="modern-filter-group">
+                        <label>
+                            <span class="filter-icon">⚙️</span>
+                            <span>نوع النقاط</span>
+                        </label>
+                        <select id="filterScoreType" onchange="applyFilters()">
+                            <option value="">جميع الأنواع</option>
+                        </select>
+                    </div>
+                    <div class="modern-filter-group">
+                        <label>
+                            <span class="filter-icon">👨‍💼</span>
+                            <span>الخادم</span>
+                        </label>
+                        <input type="text" id="filterAdmin" placeholder="اسم الخادم..." oninput="applyFilters()">
+                    </div>
+                    <div class="modern-filter-group">
+                        <label>
+                            <span class="filter-icon">📅</span>
+                            <span>التاريخ</span>
+                        </label>
+                        <input type="date" id="filterDate" onchange="applyFilters()">
+                    </div>
                 </div>
-                <div class="filter-group">
-                    <label>فلترة حسب التاريخ:</label>
-                    <input type="date" id="filterDate" onchange="applyFilters()">
-                </div>
-                <div class="filter-group">
-                    <label>فلترة حسب النوع:</label>
-                    <select id="filterScoreType" onchange="applyFilters()">
-                        <option value="">الكل</option>
-                    </select>
-                </div>
-                <button onclick="clearFilters()" class="clear-filter-btn">مسح الفلاتر</button>
             </div>
             <div class="dashboard-actions">
                 <button onclick="toggleLeaderboard()" class="leaderboard-btn" id="leaderboardBtn">🏆 عرض الترتيب</button>
@@ -149,6 +173,111 @@
                 <button onclick="showScanner()" class="back-btn">🔙 العودة للمسح</button>
             </div>
             <div id="scoresTable" class="scores-table"></div>
+        </div>
+
+        <div id="qrGeneratorSection" class="section hidden">
+            <h2>🎫 إنشاء وإدارة رموز QR</h2>
+
+            <div class="qr-form-container">
+                <h3>إنشاء رمز QR جديد</h3>
+                <form id="qrGenerationForm" class="qr-generation-form">
+                    <div class="form-row">
+                        <div class="form-group required">
+                            <label>
+                                <span class="label-icon">👤</span>
+                                اسم المخدوم
+                                <span class="required-mark">*</span>
+                            </label>
+                            <input type="text" id="qrStudentName" placeholder="أدخل اسم المخدوم" required>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <span class="label-icon">📚</span>
+                                السنة الدراسية
+                            </label>
+                            <input type="text" id="qrAcademicYear" placeholder="مثال: 2024-2025">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>
+                                <span class="label-icon">📱</span>
+                                رقم الهاتف
+                            </label>
+                            <input type="tel" id="qrPhone" placeholder="01xxxxxxxxx" maxlength="11" pattern="[0-9]{11}">
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <span class="label-icon">⚽</span>
+                                الفريق
+                            </label>
+                            <input type="text" id="qrTeam" placeholder="مثال: الفريق الأحمر">
+                        </div>
+                    </div>
+                    <div class="form-actions-modern">
+                        <button type="button" onclick="generateQRCode()" class="generate-qr-btn">
+                            <span class="btn-icon">✨</span>
+                            <span>إنشاء رمز QR</span>
+                        </button>
+                        <button type="button" onclick="resetQRForm()" class="reset-form-btn">
+                            <span class="btn-icon">🔄</span>
+                            <span>إعادة تعيين</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="qr-management-container">
+                <div class="qr-management-header">
+                    <h3>📋 إدارة رموز QR المنشأة</h3>
+                    <div class="qr-actions-header">
+                        <button onclick="exportQRDataToExcel()" class="export-qr-btn">
+                            <span>📊</span> تصدير Excel
+                        </button>
+                    </div>
+                </div>
+
+                <div class="modern-filters">
+                    <div class="filter-header">
+                        <h4>🔍 بحث وتصفية</h4>
+                        <button onclick="clearQRFilters()" class="modern-clear-btn">
+                            <span>✖</span> مسح
+                        </button>
+                    </div>
+                    <div class="filter-grid">
+                        <div class="modern-filter-group">
+                            <label>
+                                <span class="filter-icon">👤</span>
+                                <span>الاسم</span>
+                            </label>
+                            <input type="text" id="qrFilterName" placeholder="بحث..." oninput="applyQRFilters()">
+                        </div>
+                        <div class="modern-filter-group">
+                            <label>
+                                <span class="filter-icon">📚</span>
+                                <span>السنة الدراسية</span>
+                            </label>
+                            <input type="text" id="qrFilterYear" placeholder="السنة..." oninput="applyQRFilters()">
+                        </div>
+                        <div class="modern-filter-group">
+                            <label>
+                                <span class="filter-icon">📱</span>
+                                <span>الهاتف</span>
+                            </label>
+                            <input type="tel" id="qrFilterPhone" placeholder="رقم الهاتف..." oninput="applyQRFilters()">
+                        </div>
+                        <div class="modern-filter-group">
+                            <label>
+                                <span class="filter-icon">⚽</span>
+                                <span>الفريق</span>
+                            </label>
+                            <input type="text" id="qrFilterTeam" placeholder="الفريق..." oninput="applyQRFilters()">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="qrCodesTable" class="qr-codes-table"></div>
+            </div>
         </div>
 
         <div id="profileSection" class="section hidden">
