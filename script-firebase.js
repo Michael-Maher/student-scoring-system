@@ -561,8 +561,23 @@ function onScanSuccess(decodedText, decodedResult) {
         }
     }
 
-    // The QR code now contains the student name directly
-    const studentName = decodedText.trim();
+    // Check if this is a new format QR (pipe-delimited) or old format (just name)
+    let studentName = decodedText.trim();
+    let additionalInfo = '';
+
+    if (decodedText.includes('|')) {
+        // New format: name|year|phone|team
+        const qrData = decodeQRData(decodedText);
+        if (qrData && qrData.name) {
+            studentName = qrData.name;
+            // Build additional info string
+            const infoParts = [];
+            if (qrData.academicYear) infoParts.push(`السنة: ${qrData.academicYear}`);
+            if (qrData.phone) infoParts.push(`الهاتف: ${qrData.phone}`);
+            if (qrData.team) infoParts.push(`الفريق: ${qrData.team}`);
+            additionalInfo = infoParts.length > 0 ? ` (${infoParts.join(', ')})` : '';
+        }
+    }
 
     // Show scoring form with the scanned name
     document.getElementById('studentName').value = studentName;
@@ -570,7 +585,7 @@ function onScanSuccess(decodedText, decodedResult) {
     document.getElementById('score').value = '1'; // Default 1 point
     document.getElementById('scoringForm').classList.remove('hidden');
 
-    showNotification(`اسم المخدوم: ${studentName}`, 'success');
+    showNotification(`اسم المخدوم: ${studentName}${additionalInfo}`, 'success');
 }
 
 function onScanFailure(error) {
@@ -1952,6 +1967,23 @@ function showQRGenerator() {
 // QR Codes data storage
 let qrCodesData = {};
 
+// Helper function to decode QR data (pipe-delimited format)
+// Format: name|academicYear|phone|team
+function decodeQRData(qrString) {
+    try {
+        const parts = qrString.split('|');
+        return {
+            name: parts[0] || '',
+            academicYear: parts[1] || '',
+            phone: parts[2] || '',
+            team: parts[3] || ''
+        };
+    } catch (error) {
+        console.error('Error decoding QR data:', error);
+        return null;
+    }
+}
+
 // Load QR codes from Firebase and localStorage
 async function loadQRCodes() {
     // Load from localStorage first
@@ -2207,7 +2239,7 @@ async function saveQREdit(qrId) {
     showNotification('تم تحديث رمز QR بنجاح', 'success');
 }
 
-// Download QR Code
+// Download QR Code with student name underneath
 function downloadQRCode(qrId) {
     const qr = qrCodesData[qrId];
     if (!qr) {
@@ -2215,13 +2247,14 @@ function downloadQRCode(qrId) {
         return;
     }
 
-    // Create QR data string
-    const qrDataString = JSON.stringify({
-        name: qr.name,
-        academicYear: qr.academicYear || '',
-        phone: qr.phone || '',
-        team: qr.team || ''
-    });
+    // Create compact QR data string (pipe-delimited format: name|year|phone|team)
+    // This reduces data size significantly compared to JSON
+    const qrDataString = [
+        qr.name || '',
+        qr.academicYear || '',
+        qr.phone || '',
+        qr.team || ''
+    ].join('|');
 
     // Create a temporary container for QR code
     const tempContainer = document.createElement('div');
@@ -2229,35 +2262,93 @@ function downloadQRCode(qrId) {
     tempContainer.style.left = '-9999px';
     document.body.appendChild(tempContainer);
 
-    // Generate QR code
-    const qrcode = new QRCode(tempContainer, {
-        text: qrDataString,
-        width: 512,
-        height: 512,
-        colorDark: '#000000',
-        colorLight: '#ffffff',
-        correctLevel: QRCode.CorrectLevel.H
-    });
+    try {
+        // Generate QR code with medium error correction
+        const qrcode = new QRCode(tempContainer, {
+            text: qrDataString,
+            width: 512,
+            height: 512,
+            colorDark: '#000000',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.M
+        });
 
-    // Wait for QR code to be generated, then download
-    setTimeout(() => {
-        const canvas = tempContainer.querySelector('canvas');
-        if (canvas) {
-            canvas.toBlob((blob) => {
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = `QR_${qr.name.replace(/\s+/g, '_')}.png`;
-                link.click();
-                URL.revokeObjectURL(url);
+        // Wait for QR code to be generated, then create final image with name
+        setTimeout(() => {
+            const qrCanvas = tempContainer.querySelector('canvas');
+            if (qrCanvas) {
+                // Create a new canvas with extra height for the name
+                const finalCanvas = document.createElement('canvas');
+                const qrSize = 512;
+                const textHeight = 80; // Height for text area
+                const padding = 20; // Padding around text
+
+                finalCanvas.width = qrSize;
+                finalCanvas.height = qrSize + textHeight;
+
+                const ctx = finalCanvas.getContext('2d');
+
+                // Fill white background
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
+
+                // Draw QR code
+                ctx.drawImage(qrCanvas, 0, 0);
+
+                // Draw student name below QR code
+                ctx.fillStyle = '#000000';
+                ctx.font = 'bold 32px Arial, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+
+                // Draw name (split into multiple lines if too long)
+                const maxWidth = qrSize - (padding * 2);
+                const words = qr.name.split(' ');
+                let line = '';
+                let lines = [];
+
+                for (let i = 0; i < words.length; i++) {
+                    const testLine = line + words[i] + ' ';
+                    const metrics = ctx.measureText(testLine);
+
+                    if (metrics.width > maxWidth && i > 0) {
+                        lines.push(line);
+                        line = words[i] + ' ';
+                    } else {
+                        line = testLine;
+                    }
+                }
+                lines.push(line);
+
+                // Draw lines centered
+                const lineHeight = 36;
+                const startY = qrSize + (textHeight / 2) - ((lines.length - 1) * lineHeight / 2);
+
+                lines.forEach((line, index) => {
+                    ctx.fillText(line.trim(), qrSize / 2, startY + (index * lineHeight));
+                });
+
+                // Convert to blob and download
+                finalCanvas.toBlob((blob) => {
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `QR_${qr.name.replace(/\s+/g, '_')}.png`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    document.body.removeChild(tempContainer);
+                    showNotification('تم تحميل رمز QR بنجاح', 'success');
+                });
+            } else {
                 document.body.removeChild(tempContainer);
-                showNotification('تم تحميل رمز QR بنجاح', 'success');
-            });
-        } else {
-            document.body.removeChild(tempContainer);
-            showNotification('حدث خطأ في إنشاء رمز QR', 'error');
-        }
-    }, 500);
+                showNotification('حدث خطأ في إنشاء رمز QR', 'error');
+            }
+        }, 500);
+    } catch (error) {
+        console.error('Error generating QR code:', error);
+        document.body.removeChild(tempContainer);
+        showNotification('البيانات كبيرة جداً لإنشاء رمز QR', 'error');
+    }
 }
 
 // Delete QR Code

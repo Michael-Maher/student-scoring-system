@@ -1,0 +1,23 @@
+{
+  "rules": {
+    "students": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "qrcodes": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$qrId": {
+        ".validate": "newData.hasChildren(['name', 'createdAt', 'createdBy'])"
+      }
+    },
+    "admins": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "scoreTypes": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    }
+  }
+}
