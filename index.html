@@ -133,11 +133,15 @@
                 </div>
                 <div class="filter-group">
                     <label>فلترة حسب السنة الدراسية:</label>
-                    <input type="text" id="filterAcademicYear" placeholder="السنة الدراسية..." oninput="applyFilters()">
+                    <select id="filterAcademicYear" onchange="applyFilters()">
+                        <option value="">الكل</option>
+                    </select>
                 </div>
                 <div class="filter-group">
                     <label>فلترة حسب الفريق:</label>
-                    <input type="text" id="filterTeam" placeholder="الفريق..." oninput="applyFilters()">
+                    <select id="filterTeam" onchange="applyFilters()">
+                        <option value="">الكل</option>
+                    </select>
                 </div>
                 <div class="filter-group">
                     <label>فلترة حسب الخادم:</label>
@@ -184,9 +188,7 @@
                                 <span class="label-icon">📚</span>
                                 السنة الدراسية
                             </label>
-                            <select id="qrAcademicYear">
-                                <option value="">اختر السنة الدراسية...</option>
-                            </select>
+                            <input type="text" id="qrAcademicYear" placeholder="مثال: 2024-2025">
                         </div>
                     </div>
                     <div class="form-row">
@@ -202,9 +204,7 @@
                                 <span class="label-icon">⚽</span>
                                 الفريق
                             </label>
-                            <select id="qrTeam">
-                                <option value="">اختر الفريق...</option>
-                            </select>
+                            <input type="text" id="qrTeam" placeholder="مثال: الفريق الأحمر">
                         </div>
                     </div>
                     <div class="form-actions-modern">
@@ -237,11 +237,15 @@
                     </div>
                     <div class="filter-group">
                         <label>فلترة حسب السنة الدراسية:</label>
-                        <input type="text" id="qrFilterYear" placeholder="السنة الدراسية..." oninput="applyQRFilters()">
+                        <select id="qrFilterYear" onchange="applyQRFilters()">
+                            <option value="">الكل</option>
+                        </select>
                     </div>
                     <div class="filter-group">
                         <label>فلترة حسب الفريق:</label>
-                        <input type="text" id="qrFilterTeam" placeholder="الفريق..." oninput="applyQRFilters()">
+                        <select id="qrFilterTeam" onchange="applyQRFilters()">
+                            <option value="">الكل</option>
+                        </select>
                     </div>
                     <div class="filter-group">
                         <label>فلترة حسب الهاتف:</label>

@@ -696,6 +696,9 @@ async function submitScore() {
         showNotification(`⚠️ تم حفظ النقاط محلياً فقط (لم يتم المزامنة): ${studentName} - ${typeLabel}: ${score}`, 'error');
     }
 
+    // Update filter dropdowns (in case new team/year was added from QR scan)
+    populateFilterDropdowns();
+
     // Reset form and resume scanning
     cancelScoring();
 }
@@ -1982,6 +1985,9 @@ function showDashboard() {
 
     setActiveNav('dashboardNavBtn');
 
+    // Populate filter dropdowns with unique values
+    populateFilterDropdowns();
+
     renderScoresTable();
 }
 
@@ -2010,8 +2016,8 @@ function showQRGenerator() {
 
     setActiveNav('qrGeneratorNavBtn');
 
-    // Populate dropdown lists with unique values from existing data
-    populateQRDropdowns();
+    // Populate filter dropdowns with unique values from existing data
+    populateFilterDropdowns();
 
     // Load and render QR codes
     try {
@@ -2155,17 +2161,16 @@ async function generateQRCode() {
     // Reset form
     resetQRForm();
 
-    // Update dropdowns with new values
-    populateQRDropdowns();
+    // Update filter dropdowns with new values
+    populateFilterDropdowns();
 
     // Render table
     renderQRCodesTable();
 }
 
-// Reset QR form
-// Populate QR form dropdowns with unique values from existing data
-function populateQRDropdowns() {
-    // Get unique academic years from both students and QR codes
+// Populate filter dropdowns with unique values from existing data
+function populateFilterDropdowns() {
+    // Get unique academic years and teams from both students and QR codes
     const academicYears = new Set();
     const teams = new Set();
 
@@ -2189,38 +2194,64 @@ function populateQRDropdowns() {
         }
     });
 
-    // Populate Academic Year dropdown
-    const academicYearSelect = document.getElementById('qrAcademicYear');
-    const currentAcademicYear = academicYearSelect.value; // Preserve current selection
-    academicYearSelect.innerHTML = '<option value="">اختر السنة الدراسية...</option>';
-
-    Array.from(academicYears).sort().forEach(year => {
-        const option = document.createElement('option');
-        option.value = year;
-        option.textContent = year;
-        academicYearSelect.appendChild(option);
-    });
-
-    if (currentAcademicYear) {
-        academicYearSelect.value = currentAcademicYear;
+    // Populate Dashboard Academic Year filter
+    const dashboardAcademicYearFilter = document.getElementById('filterAcademicYear');
+    if (dashboardAcademicYearFilter) {
+        const currentValue = dashboardAcademicYearFilter.value;
+        dashboardAcademicYearFilter.innerHTML = '<option value="">الكل</option>';
+        Array.from(academicYears).sort().forEach(year => {
+            const option = document.createElement('option');
+            option.value = year;
+            option.textContent = year;
+            dashboardAcademicYearFilter.appendChild(option);
+        });
+        if (currentValue) dashboardAcademicYearFilter.value = currentValue;
     }
 
-    // Populate Team dropdown
-    const teamSelect = document.getElementById('qrTeam');
-    const currentTeam = teamSelect.value; // Preserve current selection
-    teamSelect.innerHTML = '<option value="">اختر الفريق...</option>';
+    // Populate Dashboard Team filter
+    const dashboardTeamFilter = document.getElementById('filterTeam');
+    if (dashboardTeamFilter) {
+        const currentValue = dashboardTeamFilter.value;
+        dashboardTeamFilter.innerHTML = '<option value="">الكل</option>';
+        Array.from(teams).sort().forEach(team => {
+            const option = document.createElement('option');
+            option.value = team;
+            option.textContent = team;
+            dashboardTeamFilter.appendChild(option);
+        });
+        if (currentValue) dashboardTeamFilter.value = currentValue;
+    }
 
-    Array.from(teams).sort().forEach(team => {
-        const option = document.createElement('option');
-        option.value = team;
-        option.textContent = team;
-        teamSelect.appendChild(option);
-    });
+    // Populate QR Generator Academic Year filter
+    const qrAcademicYearFilter = document.getElementById('qrFilterYear');
+    if (qrAcademicYearFilter) {
+        const currentValue = qrAcademicYearFilter.value;
+        qrAcademicYearFilter.innerHTML = '<option value="">الكل</option>';
+        Array.from(academicYears).sort().forEach(year => {
+            const option = document.createElement('option');
+            option.value = year;
+            option.textContent = year;
+            qrAcademicYearFilter.appendChild(option);
+        });
+        if (currentValue) qrAcademicYearFilter.value = currentValue;
+    }
 
-    if (currentTeam) {
-        teamSelect.value = currentTeam;
+    // Populate QR Generator Team filter
+    const qrTeamFilter = document.getElementById('qrFilterTeam');
+    if (qrTeamFilter) {
+        const currentValue = qrTeamFilter.value;
+        qrTeamFilter.innerHTML = '<option value="">الكل</option>';
+        Array.from(teams).sort().forEach(team => {
+            const option = document.createElement('option');
+            option.value = team;
+            option.textContent = team;
+            qrTeamFilter.appendChild(option);
+        });
+        if (currentValue) qrTeamFilter.value = currentValue;
     }
 }
+
+// Reset QR form
 
 function resetQRForm() {
     document.getElementById('qrStudentName').value = '';
@@ -2365,8 +2396,8 @@ async function saveQREdit(qrId) {
     // Save to Firebase
     await saveQRCodesToFirebase(qrId, qrCodesData[qrId]);
 
-    // Update dropdowns with new values
-    populateQRDropdowns();
+    // Update filter dropdowns with new values
+    populateFilterDropdowns();
 
     closeEditDialog();
     renderQRCodesTable();
@@ -2541,24 +2572,24 @@ function downloadBookmark(qrId) {
                 // Draw bookmark template
                 ctx.drawImage(bookmarkImg, 0, 0);
 
-                // Calculate QR position - VERY LARGE to fill white box completely
-                const qrSize = 120; // VERY LARGE QR code
-                const qrX = 25; // Positioned to fill white box
-                const qrY = bookmarkImg.height - 155; // Vertical position in white box
+                // Calculate QR position - DOUBLE SIZE (240px) moved to trailing
+                const qrSize = 240; // DOUBLE SIZE QR code (was 120px)
+                const qrX = 50; // Moved more to trailing (right) side
+                const qrY = bookmarkImg.height - 280; // Adjusted vertical position for larger QR
 
                 // Draw QR code on bookmark (replacing the existing one)
                 ctx.drawImage(qrCanvas, qrX, qrY, qrSize, qrSize);
 
                 // Add student name below QR code with minimal spacing
                 ctx.fillStyle = '#000000';
-                ctx.font = 'bold 18px Arial, sans-serif'; // Larger font
+                ctx.font = 'bold 28px Arial, sans-serif'; // Larger font for bigger QR
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'top';
 
                 // Draw name centered below QR, with word wrap if needed
                 const nameX = qrX + (qrSize / 2);
                 const nameY = qrY + qrSize + 1; // Minimal gap (1px) between QR and name
-                const maxWidth = 120; // Match QR width
+                const maxWidth = 240; // Match QR width
 
                 // Simple word wrap
                 const words = qr.name.split(' ');
@@ -2580,7 +2611,7 @@ function downloadBookmark(qrId) {
 
                 // Draw each line with minimal line spacing
                 lines.forEach((textLine, index) => {
-                    ctx.fillText(textLine, nameX, nameY + (index * 19));
+                    ctx.fillText(textLine, nameX, nameY + (index * 30));
                 });
 
                 // Convert to blob and download
