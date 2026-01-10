@@ -126,45 +126,26 @@
 
         <div id="dashboardSection" class="section hidden">
             <h2>📊 لوحة النقاط</h2>
-            <div class="modern-filters">
-                <div class="filter-header">
-                    <h3>🔍 البحث والفلترة</h3>
-                    <button onclick="clearFilters()" class="modern-clear-btn">
-                        <span>✖</span> مسح الفلاتر
-                    </button>
+            <div class="filter-controls">
+                <div class="filter-group">
+                    <label>فلترة حسب الاسم:</label>
+                    <input type="text" id="filterName" placeholder="ابحث عن مخدوم..." oninput="applyFilters()">
                 </div>
-                <div class="filter-grid">
-                    <div class="modern-filter-group">
-                        <label>
-                            <span class="filter-icon">👤</span>
-                            <span>اسم المخدوم</span>
-                        </label>
-                        <input type="text" id="filterName" placeholder="ابحث عن مخدوم..." oninput="applyFilters()">
-                    </div>
-                    <div class="modern-filter-group">
-                        <label>
-                            <span class="filter-icon">⚙️</span>
-                            <span>نوع النقاط</span>
-                        </label>
-                        <select id="filterScoreType" onchange="applyFilters()">
-                            <option value="">جميع الأنواع</option>
-                        </select>
-                    </div>
-                    <div class="modern-filter-group">
-                        <label>
-                            <span class="filter-icon">👨‍💼</span>
-                            <span>الخادم</span>
-                        </label>
-                        <input type="text" id="filterAdmin" placeholder="اسم الخادم..." oninput="applyFilters()">
-                    </div>
-                    <div class="modern-filter-group">
-                        <label>
-                            <span class="filter-icon">📅</span>
-                            <span>التاريخ</span>
-                        </label>
-                        <input type="date" id="filterDate" onchange="applyFilters()">
-                    </div>
+                <div class="filter-group">
+                    <label>فلترة حسب الخادم:</label>
+                    <input type="text" id="filterAdmin" placeholder="اسم الخادم..." oninput="applyFilters()">
                 </div>
+                <div class="filter-group">
+                    <label>فلترة حسب التاريخ:</label>
+                    <input type="date" id="filterDate" onchange="applyFilters()">
+                </div>
+                <div class="filter-group">
+                    <label>فلترة حسب النوع:</label>
+                    <select id="filterScoreType" onchange="applyFilters()">
+                        <option value="">الكل</option>
+                    </select>
+                </div>
+                <button onclick="clearFilters()" class="clear-filter-btn">مسح الفلاتر</button>
             </div>
             <div class="dashboard-actions">
                 <button onclick="toggleLeaderboard()" class="leaderboard-btn" id="leaderboardBtn">🏆 عرض الترتيب</button>

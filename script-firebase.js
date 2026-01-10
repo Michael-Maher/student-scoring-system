@@ -1907,6 +1907,8 @@ function showDashboard() {
 
 // Show QR Generator section
 function showQRGenerator() {
+    console.log('🎫 showQRGenerator called');
+
     // Hide scoring form if it's visible
     document.getElementById('scoringForm').classList.add('hidden');
 
@@ -1929,8 +1931,18 @@ function showQRGenerator() {
     setActiveNav('qrGeneratorNavBtn');
 
     // Load and render QR codes
-    loadQRCodes();
-    renderQRCodesTable();
+    try {
+        loadQRCodes().then(() => {
+            renderQRCodesTable();
+            console.log('✅ QR Generator section loaded successfully');
+        }).catch(error => {
+            console.error('Error loading QR codes:', error);
+            renderQRCodesTable(); // Render empty table even if load fails
+        });
+    } catch (error) {
+        console.error('Error in showQRGenerator:', error);
+        renderQRCodesTable(); // Render empty table even if load fails
+    }
 }
 
 // ============================================
