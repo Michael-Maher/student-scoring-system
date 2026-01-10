@@ -2473,25 +2473,25 @@ function downloadBookmark(qrId) {
                 // Draw bookmark template
                 ctx.drawImage(bookmarkImg, 0, 0);
 
-                // Calculate QR position (inside white rounded rectangle at bottom left)
-                // Adjust these values to position QR inside the white area
-                const qrSize = 140; // Smaller QR code
-                const qrX = 35; // Position inside white rounded rectangle
-                const qrY = bookmarkImg.height - 200; // Position from bottom
+                // Calculate QR position (replace existing QR in white rounded rectangle)
+                // Matching the exact position of the existing QR in the template
+                const qrSize = 85; // Match existing QR size in template
+                const qrX = 18; // Left position to match existing QR
+                const qrY = bookmarkImg.height - 135; // Vertical position to match existing QR
 
-                // Draw QR code on bookmark
+                // Draw QR code on bookmark (replacing the existing one)
                 ctx.drawImage(qrCanvas, qrX, qrY, qrSize, qrSize);
 
                 // Add student name below QR code
                 ctx.fillStyle = '#000000';
-                ctx.font = 'bold 18px Arial, sans-serif';
+                ctx.font = 'bold 14px Arial, sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'top';
 
                 // Draw name centered below QR, with word wrap if needed
                 const nameX = qrX + (qrSize / 2);
-                const nameY = qrY + qrSize + 10;
-                const maxWidth = 160; // Max width for text
+                const nameY = qrY + qrSize + 5;
+                const maxWidth = 95; // Max width to fit in white box
 
                 // Simple word wrap
                 const words = qr.name.split(' ');
@@ -2513,7 +2513,7 @@ function downloadBookmark(qrId) {
 
                 // Draw each line
                 lines.forEach((textLine, index) => {
-                    ctx.fillText(textLine, nameX, nameY + (index * 22));
+                    ctx.fillText(textLine, nameX, nameY + (index * 18));
                 });
 
                 // Convert to blob and download
