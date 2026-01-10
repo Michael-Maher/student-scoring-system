@@ -2473,11 +2473,11 @@ function downloadBookmark(qrId) {
                 // Draw bookmark template
                 ctx.drawImage(bookmarkImg, 0, 0);
 
-                // Calculate QR position (replace existing QR in white rounded rectangle)
-                // Matching the exact position of the existing QR in the template
-                const qrSize = 85; // Match existing QR size in template
-                const qrX = 18; // Left position to match existing QR
-                const qrY = bookmarkImg.height - 135; // Vertical position to match existing QR
+                // Calculate QR position (centered in white rounded rectangle at bottom left)
+                // QR is larger and centered both horizontally and vertically
+                const qrSize = 95; // Larger QR code
+                const qrX = 28; // Moved right to center horizontally in white box
+                const qrY = bookmarkImg.height - 140; // Adjusted vertically to center in white box
 
                 // Draw QR code on bookmark (replacing the existing one)
                 ctx.drawImage(qrCanvas, qrX, qrY, qrSize, qrSize);
@@ -2491,7 +2491,7 @@ function downloadBookmark(qrId) {
                 // Draw name centered below QR, with word wrap if needed
                 const nameX = qrX + (qrSize / 2);
                 const nameY = qrY + qrSize + 5;
-                const maxWidth = 95; // Max width to fit in white box
+                const maxWidth = 105; // Max width to fit in white box
 
                 // Simple word wrap
                 const words = qr.name.split(' ');
