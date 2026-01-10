@@ -2473,25 +2473,26 @@ function downloadBookmark(qrId) {
                 // Draw bookmark template
                 ctx.drawImage(bookmarkImg, 0, 0);
 
-                // Calculate QR position (centered in white rounded rectangle at bottom left)
-                // QR is larger and centered both horizontally and vertically
-                const qrSize = 95; // Larger QR code
-                const qrX = 28; // Moved right to center horizontally in white box
-                const qrY = bookmarkImg.height - 140; // Adjusted vertically to center in white box
+                // Calculate QR position (1.9cm size, moved slightly to trailing/right)
+                // 1.9 cm = 71.81 pixels at 96 DPI (standard screen DPI)
+                const cmToPixels = 96 / 2.54; // Convert cm to pixels
+                const qrSize = Math.round(1.9 * cmToPixels); // 1.9cm = ~72 pixels
+                const qrX = 35; // Moved slightly more to trailing (right) side
+                const qrY = bookmarkImg.height - 135; // Vertical position in white box
 
                 // Draw QR code on bookmark (replacing the existing one)
                 ctx.drawImage(qrCanvas, qrX, qrY, qrSize, qrSize);
 
                 // Add student name below QR code
                 ctx.fillStyle = '#000000';
-                ctx.font = 'bold 14px Arial, sans-serif';
+                ctx.font = 'bold 12px Arial, sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'top';
 
                 // Draw name centered below QR, with word wrap if needed
                 const nameX = qrX + (qrSize / 2);
-                const nameY = qrY + qrSize + 5;
-                const maxWidth = 105; // Max width to fit in white box
+                const nameY = qrY + qrSize + 4;
+                const maxWidth = 72; // Match QR width (1.9cm)
 
                 // Simple word wrap
                 const words = qr.name.split(' ');
