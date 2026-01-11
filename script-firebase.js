@@ -2595,7 +2595,7 @@ function downloadBookmark(qrId) {
 
                 // Calculate QR position - slightly moved to trailing (right)
                 const qrSize = 200; // Smaller QR code
-                const qrX = 45; // Slightly to trailing (right) side
+                const qrX = 47; // Slightly to trailing (right) side
                 const qrY = bookmarkImg.height - 240; // Adjusted vertical position
 
                 // Draw QR code on bookmark (replacing the existing one)
@@ -2603,7 +2603,7 @@ function downloadBookmark(qrId) {
 
                 // Add student name below QR code with minimal spacing
                 ctx.fillStyle = '#000000';
-                ctx.font = 'bold 24px Arial, sans-serif'; // Font proportional to QR size
+                ctx.font = 'bold 26px Arial, sans-serif'; // Font proportional to QR size
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'top';
 
