@@ -1527,7 +1527,7 @@ function renderAdminsList() {
         console.log('Processing admin:', phone, admin);
         const isHeadAdmin = admin.isHeadAdmin;
         const roleClass = isHeadAdmin ? 'head-admin-badge' : 'admin-badge';
-        const roleText = isHeadAdmin ? '👑 رئيس الخدام' : '👤 خادم';
+        const roleText = isHeadAdmin ? '👑 امين الخدمه' : '👤 خادم';
 
         // Get permissions (with defaults for backwards compatibility)
         const permissions = admin.permissions || {
