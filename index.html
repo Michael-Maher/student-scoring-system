@@ -38,7 +38,12 @@
                 <p class="church-name">تطوير كنيسة الشهيدة رفقة وأولادها الخمسة بالعمرانية</p>
                 <p class="service-name">خدمة إعدادي أولاد</p>
             </div>
-            <div class="login-form">
+            <div class="auth-tabs">
+                <button class="auth-tab active" onclick="switchAuthTab('login')">تسجيل الدخول</button>
+                <button class="auth-tab" onclick="switchAuthTab('signup')">إنشاء حساب</button>
+            </div>
+
+            <div id="loginForm" class="login-form">
                 <input type="tel" id="adminPhone" placeholder="رقم الهاتف" required autocomplete="tel" maxlength="11" pattern="[0-9]{11}">
                 <input type="password" id="adminPassword" placeholder="كلمة المرور" required autocomplete="current-password">
                 <div class="checkbox-group">
@@ -47,6 +52,16 @@
                 </div>
                 <button onclick="login()" class="vip-button">دخول</button>
                 <div id="loginError" class="login-error hidden"></div>
+            </div>
+
+            <div id="signupForm" class="login-form hidden">
+                <input type="text" id="signupName" placeholder="الاسم الكامل" required>
+                <input type="tel" id="signupPhone" placeholder="رقم الهاتف" required maxlength="11" pattern="[0-9]{11}">
+                <input type="password" id="signupPassword" placeholder="كلمة المرور" required minlength="6">
+                <input type="password" id="signupConfirmPassword" placeholder="تأكيد كلمة المرور" required minlength="6">
+                <button onclick="submitSignupRequest()" class="vip-button">إرسال طلب الانضمام</button>
+                <div id="signupError" class="login-error hidden"></div>
+                <div id="signupSuccess" class="signup-success hidden">تم إرسال طلبك بنجاح! سيتم مراجعته من قبل أمين الخدمة.</div>
             </div>
         </div>
     </div>
@@ -351,6 +366,11 @@
                         <button onclick="saveAdmin()" class="vip-button">حفظ</button>
                         <button onclick="hideAddAdminForm()" class="cancel-btn">إلغاء</button>
                     </div>
+                </div>
+
+                <div class="pending-requests-section">
+                    <h3>📋 طلبات الانضمام المعلقة</h3>
+                    <div id="pendingRequestsList" class="pending-requests-list"></div>
                 </div>
 
                 <div id="adminsList" class="admins-list"></div>

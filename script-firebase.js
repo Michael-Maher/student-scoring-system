@@ -267,6 +267,140 @@ function showLoginScreen() {
     }
 }
 
+// Switch between login and signup tabs
+function switchAuthTab(tab) {
+    const loginForm = document.getElementById('loginForm');
+    const signupForm = document.getElementById('signupForm');
+    const tabs = document.querySelectorAll('.auth-tab');
+
+    // Update tabs
+    tabs.forEach(t => t.classList.remove('active'));
+    event.target.classList.add('active');
+
+    if (tab === 'login') {
+        loginForm.classList.remove('hidden');
+        signupForm.classList.add('hidden');
+    } else {
+        loginForm.classList.add('hidden');
+        signupForm.classList.remove('hidden');
+    }
+}
+
+// Submit signup request
+async function submitSignupRequest() {
+    const name = document.getElementById('signupName').value.trim();
+    const phone = document.getElementById('signupPhone').value.trim();
+    const password = document.getElementById('signupPassword').value;
+    const confirmPassword = document.getElementById('signupConfirmPassword').value;
+    const signupError = document.getElementById('signupError');
+    const signupSuccess = document.getElementById('signupSuccess');
+
+    // Hide previous messages
+    signupError.classList.add('hidden');
+    signupSuccess.classList.add('hidden');
+
+    // Validation
+    if (!name) {
+        signupError.textContent = 'الرجاء إدخال الاسم';
+        signupError.classList.remove('hidden');
+        return;
+    }
+
+    if (!phone || phone.length !== 11) {
+        signupError.textContent = 'رقم الهاتف يجب أن يكون 11 رقماً';
+        signupError.classList.remove('hidden');
+        return;
+    }
+
+    if (!password || password.length < 6) {
+        signupError.textContent = 'كلمة المرور يجب أن تكون 6 أحرف على الأقل';
+        signupError.classList.remove('hidden');
+        return;
+    }
+
+    if (password !== confirmPassword) {
+        signupError.textContent = 'كلمات المرور غير متطابقة';
+        signupError.classList.remove('hidden');
+        return;
+    }
+
+    // Check if phone already exists in admins
+    if (adminsData[phone]) {
+        signupError.textContent = 'رقم الهاتف مسجل مسبقاً';
+        signupError.classList.remove('hidden');
+        return;
+    }
+
+    // Check if already has pending request
+    if (!window.firebase || !window.firebase.database) {
+        signupError.textContent = 'غير متصل بقاعدة البيانات';
+        signupError.classList.remove('hidden');
+        return;
+    }
+
+    try {
+        const requestsRef = window.firebase.ref(window.firebase.database, 'signupRequests');
+        const snapshot = await window.firebase.get(requestsRef);
+
+        if (snapshot.exists()) {
+            const requests = snapshot.val();
+            if (requests[phone] && requests[phone].status === 'pending') {
+                signupError.textContent = 'لديك طلب معلق بالفعل';
+                signupError.classList.remove('hidden');
+                return;
+            }
+        }
+
+        // Create signup request
+        const requestData = {
+            name,
+            phone,
+            password,
+            status: 'pending',
+            requestedAt: new Date().toISOString()
+        };
+
+        const requestRef = window.firebase.ref(window.firebase.database, `signupRequests/${phone}`);
+        await window.firebase.set(requestRef, requestData);
+
+        // Send SMS notification to head admins
+        await notifyHeadAdmins(name, phone);
+
+        // Show success message
+        signupSuccess.classList.remove('hidden');
+
+        // Clear form
+        document.getElementById('signupName').value = '';
+        document.getElementById('signupPhone').value = '';
+        document.getElementById('signupPassword').value = '';
+        document.getElementById('signupConfirmPassword').value = '';
+
+    } catch (error) {
+        console.error('Error submitting signup request:', error);
+        signupError.textContent = 'حدث خطأ، الرجاء المحاولة مرة أخرى';
+        signupError.classList.remove('hidden');
+    }
+}
+
+// Notify head admins about new signup request
+async function notifyHeadAdmins(name, phone) {
+    // Get all head admins
+    const headAdmins = Object.values(adminsData).filter(admin => admin.isHeadAdmin);
+
+    // Create notification message
+    const message = `طلب انضمام جديد!\n\nالاسم: ${name}\nرقم الهاتف: ${phone}\n\nللمراجعة والموافقة، يرجى تسجيل الدخول إلى نظام تسجيل النقاط.`;
+
+    // In a real implementation, you would integrate with an SMS service like Twilio
+    // For now, we'll just log it
+    console.log('📱 SMS Notification to head admins:');
+    headAdmins.forEach(admin => {
+        console.log(`  To: ${admin.phone} (${admin.name})`);
+        console.log(`  Message: ${message}`);
+        // TODO: Integrate with SMS service
+        // await sendSMS(admin.phone, message);
+    });
+}
+
 // Firebase synchronization functions
 function initializeFirebaseSync() {
     console.log('🔄 initializeFirebaseSync called');
@@ -1506,8 +1640,9 @@ function showManageAdmins() {
         }
     }
 
-    // Load admins list
+    // Load admins list and pending requests
     renderAdminsList();
+    renderPendingRequests();
 }
 
 function renderAdminsList() {
@@ -1573,6 +1708,244 @@ function renderAdminsList() {
 
     console.log('Generated HTML length:', html.length);
     container.innerHTML = html;
+}
+
+// Render pending signup requests
+async function renderPendingRequests() {
+    if (!isHeadAdmin()) return;
+
+    const container = document.getElementById('pendingRequestsList');
+    if (!container) return;
+
+    if (!window.firebase || !window.firebase.database) {
+        container.innerHTML = '<p style="text-align: center; color: #666;">غير متصل بقاعدة البيانات</p>';
+        return;
+    }
+
+    try {
+        const requestsRef = window.firebase.ref(window.firebase.database, 'signupRequests');
+        const snapshot = await window.firebase.get(requestsRef);
+
+        if (!snapshot.exists()) {
+            container.innerHTML = '<p style="text-align: center; color: #666; font-style: italic;">لا توجد طلبات معلقة</p>';
+            return;
+        }
+
+        const requests = snapshot.val();
+        const pendingRequests = Object.entries(requests).filter(([_, req]) => req.status === 'pending');
+
+        if (pendingRequests.length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: #666; font-style: italic;">لا توجد طلبات معلقة</p>';
+            return;
+        }
+
+        let html = '';
+        pendingRequests.forEach(([phone, request]) => {
+            const requestDate = new Date(request.requestedAt).toLocaleDateString('ar-EG');
+            html += `
+                <div class="request-card">
+                    <div class="request-header">
+                        <div class="request-avatar">${request.name.charAt(0).toUpperCase()}</div>
+                        <div class="request-info">
+                            <h4>${request.name}</h4>
+                            <p class="request-phone">${request.phone}</p>
+                            <p class="request-date">تاريخ الطلب: ${requestDate}</p>
+                        </div>
+                    </div>
+                    <div class="request-actions">
+                        <button onclick="approveSignupRequest('${phone}')" class="approve-btn">✓ قبول</button>
+                        <button onclick="rejectSignupRequest('${phone}')" class="reject-btn">✗ رفض</button>
+                    </div>
+                </div>
+            `;
+        });
+
+        container.innerHTML = html;
+    } catch (error) {
+        console.error('Error loading pending requests:', error);
+        container.innerHTML = '<p style="text-align: center; color: #f44336;">حدث خطأ في تحميل الطلبات</p>';
+    }
+}
+
+// Approve signup request
+async function approveSignupRequest(phone) {
+    if (!isHeadAdmin()) {
+        showNotification('ليس لديك صلاحية للموافقة على الطلبات', 'error');
+        return;
+    }
+
+    try {
+        const requestRef = window.firebase.ref(window.firebase.database, `signupRequests/${phone}`);
+        const snapshot = await window.firebase.get(requestRef);
+
+        if (!snapshot.exists()) {
+            showNotification('الطلب غير موجود', 'error');
+            return;
+        }
+
+        const request = snapshot.val();
+
+        // Show permissions dialog
+        showPermissionsDialog(request, async (permissions, isHeadAdmin) => {
+            // Create new admin
+            const newAdmin = {
+                name: request.name,
+                phone: request.phone,
+                password: request.password,
+                isHeadAdmin: isHeadAdmin,
+                permissions: permissions,
+                createdAt: new Date().toISOString(),
+                approvedBy: currentAdmin,
+                approvedAt: new Date().toISOString()
+            };
+
+            // Save to admins
+            const adminRef = window.firebase.ref(window.firebase.database, `admins/${phone}`);
+            await window.firebase.set(adminRef, newAdmin);
+
+            // Update request status
+            await window.firebase.set(requestRef, {
+                ...request,
+                status: 'approved',
+                approvedBy: currentAdmin,
+                approvedAt: new Date().toISOString()
+            });
+
+            // Update local data
+            adminsData[phone] = newAdmin;
+
+            // Refresh displays
+            renderAdminsList();
+            renderPendingRequests();
+
+            showNotification(`تم قبول طلب ${request.name}`, 'success');
+        });
+
+    } catch (error) {
+        console.error('Error approving request:', error);
+        showNotification('حدث خطأ أثناء قبول الطلب', 'error');
+    }
+}
+
+// Reject signup request
+async function rejectSignupRequest(phone) {
+    if (!isHeadAdmin()) {
+        showNotification('ليس لديك صلاحية لرفض الطلبات', 'error');
+        return;
+    }
+
+    if (!confirm('هل أنت متأكد من رفض هذا الطلب؟')) {
+        return;
+    }
+
+    try {
+        const requestRef = window.firebase.ref(window.firebase.database, `signupRequests/${phone}`);
+        const snapshot = await window.firebase.get(requestRef);
+
+        if (!snapshot.exists()) {
+            showNotification('الطلب غير موجود', 'error');
+            return;
+        }
+
+        const request = snapshot.val();
+
+        // Update request status
+        await window.firebase.set(requestRef, {
+            ...request,
+            status: 'rejected',
+            rejectedBy: currentAdmin,
+            rejectedAt: new Date().toISOString()
+        });
+
+        // Refresh pending requests
+        renderPendingRequests();
+
+        showNotification(`تم رفض طلب ${request.name}`, 'info');
+
+    } catch (error) {
+        console.error('Error rejecting request:', error);
+        showNotification('حدث خطأ أثناء رفض الطلب', 'error');
+    }
+}
+
+// Show permissions dialog for approval
+function showPermissionsDialog(request, callback) {
+    const dialog = document.createElement('div');
+    dialog.className = 'permissions-dialog-overlay';
+    dialog.innerHTML = `
+        <div class="permissions-dialog">
+            <h3>تعيين صلاحيات لـ ${request.name}</h3>
+            <div class="permissions-section">
+                <div class="permission-item">
+                    <input type="checkbox" id="dialogPermHeadAdmin" onchange="toggleDialogPermissions()">
+                    <label for="dialogPermHeadAdmin">👑 امين الخدمه (صلاحيات كاملة)</label>
+                </div>
+                <div class="permission-item">
+                    <input type="checkbox" id="dialogPermAddQR" class="dialog-sub-permission">
+                    <label for="dialogPermAddQR">➕ إضافة رموز QR</label>
+                </div>
+                <div class="permission-item">
+                    <input type="checkbox" id="dialogPermEditQR" class="dialog-sub-permission">
+                    <label for="dialogPermEditQR">✏️ تعديل رموز QR</label>
+                </div>
+                <div class="permission-item">
+                    <input type="checkbox" id="dialogPermDeleteQR" class="dialog-sub-permission">
+                    <label for="dialogPermDeleteQR">🗑️ حذف رموز QR</label>
+                </div>
+                <div class="permission-item">
+                    <input type="checkbox" id="dialogPermModifyDashboard" class="dialog-sub-permission">
+                    <label for="dialogPermModifyDashboard">📊 تعديل لوحة التحكم</label>
+                </div>
+            </div>
+            <div class="dialog-actions">
+                <button onclick="confirmPermissions()" class="vip-button">تأكيد الموافقة</button>
+                <button onclick="closePermissionsDialog()" class="cancel-btn">إلغاء</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(dialog);
+
+    // Store callback
+    window.permissionsDialogCallback = callback;
+}
+
+function toggleDialogPermissions() {
+    const isHeadAdmin = document.getElementById('dialogPermHeadAdmin').checked;
+    const subPermissions = document.querySelectorAll('.dialog-sub-permission');
+
+    subPermissions.forEach(checkbox => {
+        if (isHeadAdmin) {
+            checkbox.checked = true;
+            checkbox.disabled = true;
+        } else {
+            checkbox.disabled = false;
+        }
+    });
+}
+
+function confirmPermissions() {
+    const isHeadAdmin = document.getElementById('dialogPermHeadAdmin').checked;
+    const permissions = {
+        canAddQR: document.getElementById('dialogPermAddQR').checked,
+        canEditQR: document.getElementById('dialogPermEditQR').checked,
+        canDeleteQR: document.getElementById('dialogPermDeleteQR').checked,
+        canModifyDashboard: document.getElementById('dialogPermModifyDashboard').checked
+    };
+
+    if (window.permissionsDialogCallback) {
+        window.permissionsDialogCallback(permissions, isHeadAdmin);
+    }
+
+    closePermissionsDialog();
+}
+
+function closePermissionsDialog() {
+    const dialog = document.querySelector('.permissions-dialog-overlay');
+    if (dialog) {
+        document.body.removeChild(dialog);
+    }
+    window.permissionsDialogCallback = null;
 }
 
 function showAddAdminForm() {
