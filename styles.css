@@ -1925,6 +1925,23 @@ header h1 {
    MODERN TABLE STYLING
    ============================================ */
 
+.qr-codes-table {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(15px);
+    border-radius: 20px;
+    padding: 25px;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.15);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    overflow-x: auto;
+    transition: all 0.3s ease;
+    margin-top: 20px;
+}
+
+.qr-codes-table:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 20px 45px rgba(0,0,0,0.2);
+}
+
 .modern-table {
     width: 100%;
     border-collapse: separate;
@@ -1932,6 +1949,7 @@ header h1 {
     border-radius: 10px;
     overflow: hidden;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+    min-width: 900px;
 }
 
 .modern-table thead {
