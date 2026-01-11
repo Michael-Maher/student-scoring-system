@@ -2560,14 +2560,14 @@ function downloadBookmark(qrId) {
     document.body.appendChild(tempContainer);
 
     try {
-        // Generate QR code
+        // Generate QR code with Low error correction to support more data
         const qrcode = new QRCode(tempContainer, {
             text: qrDataString,
-            width: 256,
-            height: 256,
+            width: 512,
+            height: 512,
             colorDark: '#000000',
             colorLight: '#ffffff',
-            correctLevel: QRCode.CorrectLevel.M
+            correctLevel: QRCode.CorrectLevel.L
         });
 
         // Wait for QR code generation
