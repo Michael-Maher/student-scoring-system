@@ -308,7 +308,8 @@
                 </div>
 
                 <div id="addAdminForm" class="admin-form hidden">
-                    <h3>➕ إضافة خادم جديد</h3>
+                    <h3 id="adminFormTitle">➕ إضافة خادم جديد</h3>
+                    <input type="hidden" id="editAdminPhone" value="">
                     <div class="form-group">
                         <label>الاسم:</label>
                         <input type="text" id="newAdminName" placeholder="اسم الخادم">
@@ -321,8 +322,33 @@
                         <label>كلمة المرور:</label>
                         <input type="password" id="newAdminPassword" placeholder="كلمة المرور">
                     </div>
+
+                    <div class="permissions-section">
+                        <h4>🔐 الصلاحيات</h4>
+                        <div class="permission-item">
+                            <input type="checkbox" id="permHeadAdmin" onchange="toggleHeadAdminPermissions()">
+                            <label for="permHeadAdmin">👑 رئيس الخدام (صلاحيات كاملة)</label>
+                        </div>
+                        <div class="permission-item">
+                            <input type="checkbox" id="permAddQR" class="sub-permission">
+                            <label for="permAddQR">➕ إضافة رموز QR</label>
+                        </div>
+                        <div class="permission-item">
+                            <input type="checkbox" id="permEditQR" class="sub-permission">
+                            <label for="permEditQR">✏️ تعديل رموز QR</label>
+                        </div>
+                        <div class="permission-item">
+                            <input type="checkbox" id="permDeleteQR" class="sub-permission">
+                            <label for="permDeleteQR">🗑️ حذف رموز QR</label>
+                        </div>
+                        <div class="permission-item">
+                            <input type="checkbox" id="permModifyDashboard" class="sub-permission">
+                            <label for="permModifyDashboard">📊 تعديل لوحة التحكم</label>
+                        </div>
+                    </div>
+
                     <div class="form-actions">
-                        <button onclick="addAdmin()" class="vip-button">إضافة</button>
+                        <button onclick="saveAdmin()" class="vip-button">حفظ</button>
                         <button onclick="hideAddAdminForm()" class="cancel-btn">إلغاء</button>
                     </div>
                 </div>

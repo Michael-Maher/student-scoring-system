@@ -1161,6 +1161,69 @@ header h1 {
     font-size: 20px;
 }
 
+.permissions-section {
+    background: #f9f9f7;
+    border-radius: 12px;
+    padding: 20px;
+    margin: 20px 0;
+    border: 2px solid #e1e5e9;
+}
+
+.permissions-section h4 {
+    margin: 0 0 15px 0;
+    color: #667eea;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.permission-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    margin-bottom: 8px;
+    background: white;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+.permission-item:hover {
+    background: #f0f4ff;
+}
+
+.permission-item input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    accent-color: #667eea;
+}
+
+.permission-item label {
+    cursor: pointer;
+    flex: 1;
+    margin: 0;
+    font-size: 15px;
+    color: #333;
+}
+
+.permission-item input[type="checkbox"]:checked + label {
+    color: #667eea;
+    font-weight: 600;
+}
+
+.sub-permission:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.permission-item:has(.sub-permission:disabled) {
+    opacity: 0.6;
+}
+
+.permission-item:has(.sub-permission:disabled):hover {
+    background: white;
+}
+
 .admins-list {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -1265,6 +1328,38 @@ header h1 {
 .delete-btn:hover {
     transform: translateY(-2px);
     box-shadow: 0 6px 15px rgba(220, 53, 69, 0.4);
+}
+
+.admin-permissions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 12px 0;
+    padding: 12px;
+    background: #f9f9f7;
+    border-radius: 8px;
+}
+
+.permission-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    box-shadow: 0 2px 5px rgba(102, 126, 234, 0.3);
+}
+
+.permission-badge.full-access {
+    background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+    color: #000;
+    font-weight: 700;
+}
+
+.permission-badge.no-permissions {
+    background: #e0e0e0;
+    color: #666;
 }
 
 .protected-badge {
@@ -1710,13 +1805,14 @@ header h1 {
     border-radius: 10px;
     font-size: 15px;
     transition: all 0.3s ease;
-    background: white;
+    background: #f9f9f7;
 }
 
 .form-group input:focus {
     outline: none;
     border-color: #667eea;
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    background: #ffffff;
 }
 
 .form-group input::placeholder {

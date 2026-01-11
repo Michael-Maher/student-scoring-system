@@ -39,6 +39,71 @@ function sanitizeFirebaseKey(key) {
         .trim();
 }
 
+// Permission helper functions
+function hasPermission(permission) {
+    if (!currentAdminData) return false;
+
+    // Head admins have all permissions
+    if (currentAdminData.isHeadAdmin) return true;
+
+    // Check specific permission
+    if (!currentAdminData.permissions) return false;
+    return currentAdminData.permissions[permission] === true;
+}
+
+function canAddQR() {
+    return hasPermission('canAddQR');
+}
+
+function canEditQR() {
+    return hasPermission('canEditQR');
+}
+
+function canDeleteQR() {
+    return hasPermission('canDeleteQR');
+}
+
+function canModifyDashboard() {
+    return hasPermission('canModifyDashboard');
+}
+
+function isHeadAdmin() {
+    return currentAdminData && currentAdminData.isHeadAdmin === true;
+}
+
+function updateUIBasedOnPermissions() {
+    // Show/hide QR Generator section in navigation
+    const qrGeneratorBtn = document.getElementById('qrGeneratorNavBtn');
+    if (qrGeneratorBtn) {
+        // Only show QR Generator if user can add, edit, or delete QR codes
+        if (canAddQR() || canEditQR() || canDeleteQR()) {
+            qrGeneratorBtn.classList.remove('hidden');
+        } else {
+            qrGeneratorBtn.classList.add('hidden');
+        }
+    }
+
+    // Show/hide Scanner section based on dashboard modification permission
+    const scannerBtn = document.getElementById('scannerNavBtn');
+    if (scannerBtn) {
+        if (canModifyDashboard()) {
+            scannerBtn.classList.remove('hidden');
+        } else {
+            scannerBtn.classList.add('hidden');
+        }
+    }
+
+    // Show/hide Scores section based on dashboard modification permission
+    const scoresBtn = document.getElementById('scoresNavBtn');
+    if (scoresBtn) {
+        if (canModifyDashboard()) {
+            scoresBtn.classList.remove('hidden');
+        } else {
+            scoresBtn.classList.add('hidden');
+        }
+    }
+}
+
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
     initializeApp();
@@ -113,6 +178,12 @@ async function initializeAdminsData() {
                     phone: '01207714622',
                     password: '123456789mI#',
                     isHeadAdmin: true,
+                    permissions: {
+                        canEditQR: true,
+                        canAddQR: true,
+                        canDeleteQR: true,
+                        canModifyDashboard: true
+                    },
                     createdAt: new Date().toISOString()
                 },
                 '01283469752': {
@@ -120,6 +191,12 @@ async function initializeAdminsData() {
                     phone: '01283469752',
                     password: '01283469752',
                     isHeadAdmin: false,
+                    permissions: {
+                        canEditQR: false,
+                        canAddQR: false,
+                        canDeleteQR: false,
+                        canModifyDashboard: false
+                    },
                     createdAt: new Date().toISOString()
                 },
                 '01207320088': {
@@ -127,6 +204,12 @@ async function initializeAdminsData() {
                     phone: '01207320088',
                     password: '01207320088',
                     isHeadAdmin: false,
+                    permissions: {
+                        canEditQR: false,
+                        canAddQR: false,
+                        canDeleteQR: false,
+                        canModifyDashboard: false
+                    },
                     createdAt: new Date().toISOString()
                 },
                 '01282201313': {
@@ -134,6 +217,12 @@ async function initializeAdminsData() {
                     phone: '01282201313',
                     password: '01282201313',
                     isHeadAdmin: false,
+                    permissions: {
+                        canEditQR: false,
+                        canAddQR: false,
+                        canDeleteQR: false,
+                        canModifyDashboard: false
+                    },
                     createdAt: new Date().toISOString()
                 }
             };
@@ -407,6 +496,9 @@ async function login() {
         document.getElementById('manageScoreTypesNavBtn').classList.remove('hidden');
     }
 
+    // Update UI based on permissions
+    updateUIBasedOnPermissions();
+
     // Initialize score types from Firebase
     await initializeScoreTypes();
 
@@ -472,6 +564,9 @@ async function checkLoginStatus() {
                 document.getElementById('manageAdminsNavBtn').classList.remove('hidden');
                 document.getElementById('manageScoreTypesNavBtn').classList.remove('hidden');
             }
+
+            // Update UI based on permissions
+            updateUIBasedOnPermissions();
 
             await initializeScoreTypes();
             initializeFirebaseSync();
@@ -554,6 +649,12 @@ let scannedQRData = null;
 
 function onScanSuccess(decodedText, decodedResult) {
     console.log(`QR Code detected: ${decodedText}`);
+
+    // Check permission
+    if (!canModifyDashboard()) {
+        showNotification('ليس لديك صلاحية لإضافة نقاط', 'error');
+        return;
+    }
 
     // Stop scanning temporarily (don't clear DOM)
     if (html5QrcodeScanner) {
@@ -1426,7 +1527,30 @@ function renderAdminsList() {
         console.log('Processing admin:', phone, admin);
         const isHeadAdmin = admin.isHeadAdmin;
         const roleClass = isHeadAdmin ? 'head-admin-badge' : 'admin-badge';
-        const roleText = isHeadAdmin ? 'امين الخدمه' : 'خادم';
+        const roleText = isHeadAdmin ? '👑 رئيس الخدام' : '👤 خادم';
+
+        // Get permissions (with defaults for backwards compatibility)
+        const permissions = admin.permissions || {
+            canAddQR: false,
+            canEditQR: false,
+            canDeleteQR: false,
+            canModifyDashboard: false
+        };
+
+        // Build permissions display
+        let permissionsHtml = '<div class="admin-permissions">';
+        if (isHeadAdmin) {
+            permissionsHtml += '<span class="permission-badge full-access">✨ صلاحيات كاملة</span>';
+        } else {
+            if (permissions.canAddQR) permissionsHtml += '<span class="permission-badge">➕ إضافة QR</span>';
+            if (permissions.canEditQR) permissionsHtml += '<span class="permission-badge">✏️ تعديل QR</span>';
+            if (permissions.canDeleteQR) permissionsHtml += '<span class="permission-badge">🗑️ حذف QR</span>';
+            if (permissions.canModifyDashboard) permissionsHtml += '<span class="permission-badge">📊 لوحة التحكم</span>';
+            if (!permissions.canAddQR && !permissions.canEditQR && !permissions.canDeleteQR && !permissions.canModifyDashboard) {
+                permissionsHtml += '<span class="permission-badge no-permissions">❌ لا توجد صلاحيات</span>';
+            }
+        }
+        permissionsHtml += '</div>';
 
         html += `
             <div class="admin-card">
@@ -1438,11 +1562,10 @@ function renderAdminsList() {
                         <span class="${roleClass}">${roleText}</span>
                     </div>
                 </div>
+                ${permissionsHtml}
                 <div class="admin-card-actions">
-                    ${!isHeadAdmin ? `
-                        <button onclick="editAdmin('${phone}')" class="edit-btn">✏️ تعديل</button>
-                        <button onclick="deleteAdmin('${phone}')" class="delete-btn">🗑️ حذف</button>
-                    ` : '<span class="protected-badge">محمي</span>'}
+                    <button onclick="editAdmin('${phone}')" class="edit-btn">✏️ تعديل</button>
+                    <button onclick="deleteAdmin('${phone}')" class="delete-btn">🗑️ حذف</button>
                 </div>
             </div>
         `;
@@ -1453,20 +1576,48 @@ function renderAdminsList() {
 }
 
 function showAddAdminForm() {
+    document.getElementById('adminFormTitle').textContent = '➕ إضافة خادم جديد';
+    document.getElementById('editAdminPhone').value = '';
     document.getElementById('addAdminForm').classList.remove('hidden');
     document.getElementById('newAdminName').value = '';
     document.getElementById('newAdminPhone').value = '';
     document.getElementById('newAdminPassword').value = '';
+    document.getElementById('newAdminPhone').disabled = false;
+
+    // Reset all permissions
+    document.getElementById('permHeadAdmin').checked = false;
+    document.getElementById('permAddQR').checked = false;
+    document.getElementById('permEditQR').checked = false;
+    document.getElementById('permDeleteQR').checked = false;
+    document.getElementById('permModifyDashboard').checked = false;
+
+    // Enable sub-permissions
+    document.querySelectorAll('.sub-permission').forEach(cb => cb.disabled = false);
 }
 
 function hideAddAdminForm() {
     document.getElementById('addAdminForm').classList.add('hidden');
 }
 
-async function addAdmin() {
+function toggleHeadAdminPermissions() {
+    const isHeadAdmin = document.getElementById('permHeadAdmin').checked;
+    const subPermissions = document.querySelectorAll('.sub-permission');
+
+    subPermissions.forEach(checkbox => {
+        if (isHeadAdmin) {
+            checkbox.checked = true;
+            checkbox.disabled = true;
+        } else {
+            checkbox.disabled = false;
+        }
+    });
+}
+
+async function saveAdmin() {
     const name = document.getElementById('newAdminName').value.trim();
     const phone = document.getElementById('newAdminPhone').value.trim();
     const password = document.getElementById('newAdminPassword').value;
+    const editingPhone = document.getElementById('editAdminPhone').value;
 
     if (!name) {
         showNotification('الرجاء إدخال الاسم', 'error');
@@ -1478,65 +1629,98 @@ async function addAdmin() {
         return;
     }
 
-    if (!password) {
+    // Check password requirement
+    const isEditing = editingPhone !== '';
+    if (!isEditing && !password) {
         showNotification('الرجاء إدخال كلمة المرور', 'error');
         return;
     }
 
-    // Check if phone already exists
-    if (adminsData[phone]) {
+    // Check if phone already exists (only for new admins)
+    if (!isEditing && adminsData[phone]) {
         showNotification('رقم الهاتف مسجل مسبقاً', 'error');
         return;
     }
 
-    const newAdmin = {
+    // Get permissions
+    const isHeadAdmin = document.getElementById('permHeadAdmin').checked;
+    const permissions = {
+        canAddQR: document.getElementById('permAddQR').checked,
+        canEditQR: document.getElementById('permEditQR').checked,
+        canDeleteQR: document.getElementById('permDeleteQR').checked,
+        canModifyDashboard: document.getElementById('permModifyDashboard').checked
+    };
+
+    const adminData = {
         name,
         phone,
-        password,
-        isHeadAdmin: false,
-        createdAt: new Date().toISOString()
+        isHeadAdmin,
+        permissions,
+        createdAt: isEditing ? adminsData[editingPhone || phone].createdAt : new Date().toISOString()
     };
+
+    // Only update password if provided
+    if (password) {
+        adminData.password = password;
+    } else if (isEditing) {
+        adminData.password = adminsData[editingPhone || phone].password;
+    }
+
+    // If editing and phone changed, delete old entry
+    if (isEditing && editingPhone !== phone && adminsData[editingPhone]) {
+        if (window.firebase && window.firebase.database) {
+            const oldAdminRef = window.firebase.ref(window.firebase.database, `admins/${editingPhone}`);
+            await window.firebase.set(oldAdminRef, null);
+        }
+        delete adminsData[editingPhone];
+    }
 
     // Save to Firebase
     if (window.firebase && window.firebase.database) {
         const adminRef = window.firebase.ref(window.firebase.database, `admins/${phone}`);
-        await window.firebase.set(adminRef, newAdmin);
+        await window.firebase.set(adminRef, adminData);
     }
 
-    adminsData[phone] = newAdmin;
+    adminsData[phone] = adminData;
 
     hideAddAdminForm();
     renderAdminsList();
-    showNotification('تم إضافة الخادم بنجاح', 'success');
+    showNotification(isEditing ? 'تم تحديث بيانات الخادم بنجاح' : 'تم إضافة الخادم بنجاح', 'success');
 }
 
 function editAdmin(phone) {
     const admin = adminsData[phone];
     if (!admin) return;
 
-    const newName = prompt('اسم الخادم الجديد:', admin.name);
-    if (!newName) return;
+    // Populate form with admin data
+    document.getElementById('adminFormTitle').textContent = '✏️ تعديل بيانات الخادم';
+    document.getElementById('editAdminPhone').value = phone;
+    document.getElementById('newAdminName').value = admin.name;
+    document.getElementById('newAdminPhone').value = admin.phone;
+    document.getElementById('newAdminPassword').value = '';
+    document.getElementById('newAdminPassword').placeholder = 'اتركها فارغة للإبقاء على القديمة';
 
-    const newPassword = prompt('كلمة المرور الجديدة (اتركها فارغة للإبقاء على القديمة):');
+    // Set permissions
+    document.getElementById('permHeadAdmin').checked = admin.isHeadAdmin || false;
 
-    const updatedAdmin = {
-        ...admin,
-        name: newName.trim()
+    // Ensure permissions object exists
+    const permissions = admin.permissions || {
+        canAddQR: false,
+        canEditQR: false,
+        canDeleteQR: false,
+        canModifyDashboard: false
     };
 
-    if (newPassword && newPassword.trim()) {
-        updatedAdmin.password = newPassword.trim();
-    }
+    document.getElementById('permAddQR').checked = permissions.canAddQR;
+    document.getElementById('permEditQR').checked = permissions.canEditQR;
+    document.getElementById('permDeleteQR').checked = permissions.canDeleteQR;
+    document.getElementById('permModifyDashboard').checked = permissions.canModifyDashboard;
 
-    // Save to Firebase
-    if (window.firebase && window.firebase.database) {
-        const adminRef = window.firebase.ref(window.firebase.database, `admins/${phone}`);
-        window.firebase.set(adminRef, updatedAdmin);
-    }
+    // Apply head admin toggle effect
+    toggleHeadAdminPermissions();
 
-    adminsData[phone] = updatedAdmin;
-    renderAdminsList();
-    showNotification('تم تحديث بيانات الخادم', 'success');
+    // Show form
+    document.getElementById('addAdminForm').classList.remove('hidden');
 }
 
 async function deleteAdmin(phone) {
@@ -2106,6 +2290,12 @@ async function saveQRCodesToFirebase(qrId, qrData) {
 
 // Generate QR Code
 async function generateQRCode() {
+    // Check permission
+    if (!canAddQR()) {
+        showNotification('ليس لديك صلاحية لإضافة رموز QR', 'error');
+        return;
+    }
+
     const name = document.getElementById('qrStudentName').value.trim();
     const academicYear = document.getElementById('qrAcademicYear').value.trim();
     const phone = document.getElementById('qrPhone').value.trim();
@@ -2309,6 +2499,18 @@ function renderQRCodesTable(filteredData = null) {
 
     Object.entries(dataToRender).forEach(([qrId, qr]) => {
         const createdDate = formatDateTwoLines(qr.createdAt);
+
+        // Build action buttons based on permissions
+        let actionButtons = '';
+        if (canEditQR()) {
+            actionButtons += `<button onclick="editQRCode('${qrId}')" class="action-btn edit-btn" title="تعديل">✏️</button>`;
+        }
+        actionButtons += `<button onclick="downloadQRCode('${qrId}')" class="action-btn download-btn" title="تحميل QR">⬇️</button>`;
+        actionButtons += `<button onclick="downloadBookmark('${qrId}')" class="action-btn bookmark-btn" title="تحميل علامة">🔖</button>`;
+        if (canDeleteQR()) {
+            actionButtons += `<button onclick="deleteQRCode('${qrId}')" class="action-btn delete-btn" title="حذف">🗑️</button>`;
+        }
+
         tableHTML += `
             <tr>
                 <td><strong>${qr.name}</strong></td>
@@ -2319,10 +2521,7 @@ function renderQRCodesTable(filteredData = null) {
                 <td>${qr.createdBy || 'غير معروف'}</td>
                 <td>
                     <div class="action-buttons">
-                        <button onclick="editQRCode('${qrId}')" class="action-btn edit-btn" title="تعديل">✏️</button>
-                        <button onclick="downloadQRCode('${qrId}')" class="action-btn download-btn" title="تحميل QR">⬇️</button>
-                        <button onclick="downloadBookmark('${qrId}')" class="action-btn bookmark-btn" title="تحميل علامة">🔖</button>
-                        <button onclick="deleteQRCode('${qrId}')" class="action-btn delete-btn" title="حذف">🗑️</button>
+                        ${actionButtons}
                     </div>
                 </td>
             </tr>
@@ -2339,6 +2538,12 @@ function renderQRCodesTable(filteredData = null) {
 
 // Edit QR Code
 async function editQRCode(qrId) {
+    // Check permission
+    if (!canEditQR()) {
+        showNotification('ليس لديك صلاحية لتعديل رموز QR', 'error');
+        return;
+    }
+
     const qr = qrCodesData[qrId];
     if (!qr) {
         showNotification('رمز QR غير موجود', 'error');
@@ -2666,6 +2871,12 @@ function downloadBookmark(qrId) {
 
 // Delete QR Code
 async function deleteQRCode(qrId) {
+    // Check permission
+    if (!canDeleteQR()) {
+        showNotification('ليس لديك صلاحية لحذف رموز QR', 'error');
+        return;
+    }
+
     const qr = qrCodesData[qrId];
     if (!qr) {
         showNotification('رمز QR غير موجود', 'error');
