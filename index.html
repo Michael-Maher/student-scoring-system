@@ -99,6 +99,11 @@
                 <span class="nav-icon">👤</span>
                 <span class="nav-text">الملف الشخصي</span>
             </button>
+            <button onclick="showSignupRequests()" class="nav-btn hidden" id="signupRequestsNavBtn">
+                <span class="nav-icon">📋</span>
+                <span class="nav-text">طلبات الانضمام</span>
+                <span class="badge hidden" id="requestsBadge">0</span>
+            </button>
             <button onclick="showManageAdmins()" class="nav-btn hidden" id="manageAdminsNavBtn">
                 <span class="nav-icon">👥</span>
                 <span class="nav-text">إدارة الخدام</span>
@@ -315,6 +320,16 @@
             </div>
         </div>
 
+        <div id="signupRequestsSection" class="section hidden">
+            <h2>📋 طلبات الانضمام</h2>
+            <div class="signup-requests-container">
+                <div class="requests-header">
+                    <p class="requests-description">مراجعة وقبول طلبات الخدام الجدد للانضمام إلى النظام</p>
+                </div>
+                <div id="pendingRequestsList" class="pending-requests-list"></div>
+            </div>
+        </div>
+
         <div id="manageAdminsSection" class="section hidden">
             <h2>👥 إدارة الخدام</h2>
             <div class="manage-admins-container">
@@ -366,11 +381,6 @@
                         <button onclick="saveAdmin()" class="vip-button">حفظ</button>
                         <button onclick="hideAddAdminForm()" class="cancel-btn">إلغاء</button>
                     </div>
-                </div>
-
-                <div class="pending-requests-section">
-                    <h3>📋 طلبات الانضمام المعلقة</h3>
-                    <div id="pendingRequestsList" class="pending-requests-list"></div>
                 </div>
 
                 <div id="adminsList" class="admins-list"></div>

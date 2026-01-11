@@ -642,10 +642,13 @@ async function login() {
     // Update UI
     document.getElementById('adminNameDisplay').textContent = `${currentAdmin}`;
 
-    // Show "Manage Admins" and "Manage Score Types" tabs for head admin
+    // Show "Signup Requests", "Manage Admins" and "Manage Score Types" tabs for head admin
     if (admin.isHeadAdmin) {
+        document.getElementById('signupRequestsNavBtn').classList.remove('hidden');
         document.getElementById('manageAdminsNavBtn').classList.remove('hidden');
         document.getElementById('manageScoreTypesNavBtn').classList.remove('hidden');
+        // Update badge count
+        updateRequestsBadge();
     }
 
     // Update UI based on permissions
@@ -1658,8 +1661,37 @@ function showManageAdmins() {
         }
     }
 
-    // Load admins list and pending requests
+    // Load admins list
     renderAdminsList();
+}
+
+function showSignupRequests() {
+    if (!currentAdminData || !currentAdminData.isHeadAdmin) {
+        showNotification('غير مصرح لك بالوصول إلى هذه الصفحة', 'error');
+        return;
+    }
+
+    // Hide all sections
+    document.getElementById('scannerSection').classList.add('hidden');
+    document.getElementById('dashboardSection').classList.add('hidden');
+    document.getElementById('qrGeneratorSection').classList.add('hidden');
+    document.getElementById('profileSection').classList.add('hidden');
+    document.getElementById('manageAdminsSection').classList.add('hidden');
+    document.getElementById('manageScoreTypesSection').classList.add('hidden');
+    document.getElementById('signupRequestsSection').classList.remove('hidden');
+
+    setActiveNav('signupRequestsNavBtn');
+
+    // Pause scanner (don't clear DOM)
+    if (html5QrcodeScanner) {
+        try {
+            html5QrcodeScanner.pause(false);
+        } catch (error) {
+            console.log('Error pausing scanner:', error);
+        }
+    }
+
+    // Load pending requests
     renderPendingRequests();
 }
 
@@ -1728,6 +1760,42 @@ function renderAdminsList() {
     container.innerHTML = html;
 }
 
+// Update requests badge count
+async function updateRequestsBadge() {
+    if (!isHeadAdmin()) return;
+
+    const badge = document.getElementById('requestsBadge');
+    if (!badge) return;
+
+    if (!window.firebase || !window.firebase.database) {
+        badge.classList.add('hidden');
+        return;
+    }
+
+    try {
+        const requestsRef = window.firebase.ref(window.firebase.database, 'signupRequests');
+        const snapshot = await window.firebase.get(requestsRef);
+
+        if (!snapshot.exists()) {
+            badge.classList.add('hidden');
+            return;
+        }
+
+        const requests = snapshot.val();
+        const pendingCount = Object.values(requests).filter(req => req.status === 'pending').length;
+
+        if (pendingCount > 0) {
+            badge.textContent = pendingCount;
+            badge.classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
+        }
+    } catch (error) {
+        console.error('Error updating requests badge:', error);
+        badge.classList.add('hidden');
+    }
+}
+
 // Render pending signup requests
 async function renderPendingRequests() {
     if (!isHeadAdmin()) return;
@@ -1746,6 +1814,8 @@ async function renderPendingRequests() {
 
         if (!snapshot.exists()) {
             container.innerHTML = '<p style="text-align: center; color: #666; font-style: italic;">لا توجد طلبات معلقة</p>';
+            // Update badge
+            updateRequestsBadge();
             return;
         }
 
@@ -1754,6 +1824,8 @@ async function renderPendingRequests() {
 
         if (pendingRequests.length === 0) {
             container.innerHTML = '<p style="text-align: center; color: #666; font-style: italic;">لا توجد طلبات معلقة</p>';
+            // Update badge
+            updateRequestsBadge();
             return;
         }
 
@@ -1779,6 +1851,8 @@ async function renderPendingRequests() {
         });
 
         container.innerHTML = html;
+        // Update badge
+        updateRequestsBadge();
     } catch (error) {
         console.error('Error loading pending requests:', error);
         container.innerHTML = '<p style="text-align: center; color: #f44336;">حدث خطأ في تحميل الطلبات</p>';
