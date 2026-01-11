@@ -324,14 +324,7 @@ async function submitSignupRequest() {
         return;
     }
 
-    // Check if phone already exists in admins
-    if (adminsData[phone]) {
-        signupError.textContent = 'رقم الهاتف مسجل مسبقاً';
-        signupError.classList.remove('hidden');
-        return;
-    }
-
-    // Check if already has pending request
+    // Check if Firebase is available
     if (!window.firebase || !window.firebase.database) {
         signupError.textContent = 'غير متصل بقاعدة البيانات';
         signupError.classList.remove('hidden');
@@ -339,6 +332,31 @@ async function submitSignupRequest() {
     }
 
     try {
+        // Ensure user is authenticated anonymously
+        if (window.firebase.auth && !window.firebase.auth.currentUser) {
+            console.log('📝 Authenticating anonymously for signup...');
+            try {
+                await window.firebase.signInAnonymously(window.firebase.auth);
+                console.log('✅ Anonymous authentication successful');
+            } catch (authError) {
+                console.error('❌ Anonymous authentication failed:', authError);
+                signupError.textContent = 'خطأ في الاتصال بالخادم. تأكد من تفعيل Anonymous Authentication في Firebase';
+                signupError.classList.remove('hidden');
+                return;
+            }
+        }
+
+        // Check if phone already exists in admins (from Firebase)
+        const adminsRef = window.firebase.ref(window.firebase.database, `admins/${phone}`);
+        const adminSnapshot = await window.firebase.get(adminsRef);
+
+        if (adminSnapshot.exists()) {
+            signupError.textContent = 'رقم الهاتف مسجل مسبقاً كخادم';
+            signupError.classList.remove('hidden');
+            return;
+        }
+
+        // Check if already has pending request
         const requestsRef = window.firebase.ref(window.firebase.database, 'signupRequests');
         const snapshot = await window.firebase.get(requestsRef);
 
