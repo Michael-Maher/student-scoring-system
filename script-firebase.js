@@ -954,7 +954,9 @@ function initializeQRScanner() {
 let scannedQRData = null;
 
 async function onScanSuccess(decodedText, decodedResult) {
-    console.log(`QR Code detected: ${decodedText}`);
+    console.log(`QR Code detected (raw): "${decodedText}"`);
+    console.log('Decoded text length:', decodedText.length);
+    console.log('Character codes:', Array.from(decodedText).map(c => c.charCodeAt(0)));
 
     // Check permission
     if (!canModifyDashboard()) {
@@ -981,16 +983,39 @@ async function onScanSuccess(decodedText, decodedResult) {
         studentName = parts[0] || decodedText.trim();
     }
 
-    console.log('Scanned student name:', studentName);
+    // Clean the scanned name: remove special characters
+    const cleanedScannedName = studentName
+        .replace(/\?/g, ' ')           // Replace ? with space
+        .replace(/[^\u0600-\u06FF\s\w]/g, ' ')  // Remove non-Arabic, non-alphanumeric except spaces
+        .replace(/\s+/g, ' ')          // Replace multiple spaces with single space
+        .trim();
 
-    // Look up student data in qrCodesData
+    console.log('Scanned student name (original):', studentName);
+    console.log('Scanned student name (cleaned):', cleanedScannedName);
+
+    // Validate that we have a name
+    if (!cleanedScannedName || cleanedScannedName.length === 0) {
+        console.error('Empty or invalid name after cleaning');
+        showNotification('⚠️ رمز QR غير صالح - الاسم فارغ أو يحتوي على أحرف خاصة فقط', 'error');
+        // Resume scanner
+        if (html5QrcodeScanner) {
+            try {
+                html5QrcodeScanner.resume();
+            } catch (error) {
+                console.log('Error resuming scanner:', error);
+            }
+        }
+        return;
+    }
+
+    // Look up student data in qrCodesData (use cleaned name for matching)
     let qrRecord = Object.values(qrCodesData).find(qr =>
-        qr.name.toLowerCase().trim() === studentName.toLowerCase().trim()
+        qr.name && qr.name.toLowerCase().trim() === cleanedScannedName.toLowerCase().trim()
     );
 
     let additionalInfo = '';
     let isNewRecord = false;
-    let displayName = studentName; // Default to scanned name
+    let displayName = cleanedScannedName; // Default to cleaned scanned name
 
     if (qrRecord) {
         // Existing record - use data from database
@@ -998,7 +1023,7 @@ async function onScanSuccess(decodedText, decodedResult) {
         scannedQRData = qrRecord;
 
         // Use the name from database record (clean, no encoding issues)
-        displayName = qrRecord.name;
+        displayName = qrRecord.name || cleanedScannedName;
 
         // Build info string from database record
         const infoParts = [];
@@ -1008,16 +1033,12 @@ async function onScanSuccess(decodedText, decodedResult) {
         additionalInfo = infoParts.length > 0 ? ` (${infoParts.join(', ')})` : '';
     } else {
         // New QR code not in system - create record automatically
-        console.log('QR not found in system, creating new record');
+        console.log('QR not found in system, creating new record with cleaned name:', cleanedScannedName);
         isNewRecord = true;
 
-        // Clean the student name before saving
-        const cleanedName = studentName.replace(/\?/g, ' ').replace(/\s+/g, ' ').trim();
-        displayName = cleanedName;
-
-        const qrId = sanitizeFirebaseKey(cleanedName) + '_' + Date.now();
+        const qrId = sanitizeFirebaseKey(cleanedScannedName) + '_' + Date.now();
         const newQRData = {
-            name: cleanedName,
+            name: cleanedScannedName,
             academicYear: '',
             phone: '',
             team: '',
@@ -3771,6 +3792,90 @@ async function deleteQRCode(qrId) {
 
     renderQRCodesTable();
     showNotification('تم حذف رمز QR بنجاح', 'success');
+}
+
+// Clean up invalid QR records (empty names or special characters only)
+async function cleanupInvalidQRRecords() {
+    console.log('🧹 Starting QR records cleanup...');
+
+    let invalidRecords = [];
+    let fixedRecords = [];
+
+    // Find all invalid records
+    Object.entries(qrCodesData).forEach(([qrId, qr]) => {
+        const originalName = qr.name || '';
+
+        // Clean the name
+        const cleanedName = originalName
+            .replace(/\?/g, ' ')           // Replace ? with space
+            .replace(/[^\u0600-\u06FF\s\w]/g, ' ')  // Remove non-Arabic, non-alphanumeric except spaces
+            .replace(/\s+/g, ' ')          // Replace multiple spaces with single space
+            .trim();
+
+        // Check if name is empty or invalid
+        if (!cleanedName || cleanedName.length === 0) {
+            invalidRecords.push({ qrId, originalName });
+        } else if (originalName !== cleanedName) {
+            // Name needs cleaning
+            fixedRecords.push({ qrId, originalName, cleanedName });
+        }
+    });
+
+    console.log(`Found ${invalidRecords.length} invalid records (empty names)`);
+    console.log(`Found ${fixedRecords.length} records that need cleaning`);
+
+    if (invalidRecords.length === 0 && fixedRecords.length === 0) {
+        showNotification('✅ جميع السجلات صحيحة - لا حاجة للتنظيف', 'success');
+        return;
+    }
+
+    // Ask for confirmation
+    const confirmMessage = `تم العثور على:\n- ${invalidRecords.length} سجلات بأسماء فارغة (سيتم حذفها)\n- ${fixedRecords.length} سجلات تحتاج تنظيف\n\nهل تريد المتابعة؟`;
+
+    if (!confirm(confirmMessage)) {
+        return;
+    }
+
+    // Delete invalid records (empty names)
+    for (const { qrId, originalName } of invalidRecords) {
+        console.log(`Deleting invalid record: "${originalName}" (${qrId})`);
+        delete qrCodesData[qrId];
+
+        // Delete from Firebase
+        if (window.firebase && window.firebase.database) {
+            try {
+                const qrRef = window.firebase.ref(window.firebase.database, `qrcodes/${qrId}`);
+                await window.firebase.set(qrRef, null);
+            } catch (error) {
+                console.error('Error deleting invalid QR from Firebase:', error);
+            }
+        }
+    }
+
+    // Fix records with cleanable names
+    for (const { qrId, originalName, cleanedName } of fixedRecords) {
+        console.log(`Fixing record: "${originalName}" → "${cleanedName}" (${qrId})`);
+        qrCodesData[qrId].name = cleanedName;
+
+        // Update in Firebase
+        if (window.firebase && window.firebase.database) {
+            try {
+                await saveQRCodesToFirebase(qrId, qrCodesData[qrId]);
+            } catch (error) {
+                console.error('Error updating cleaned QR in Firebase:', error);
+            }
+        }
+    }
+
+    // Save to localStorage
+    localStorage.setItem('qrCodesData', JSON.stringify(qrCodesData));
+
+    // Update UI
+    renderQRCodesTable();
+    populateFilterDropdowns();
+
+    showNotification(`✅ تم التنظيف بنجاح:\n- حذف ${invalidRecords.length} سجلات فارغة\n- تنظيف ${fixedRecords.length} سجلات`, 'success');
+    console.log('✅ Cleanup complete');
 }
 
 // Apply QR Filters
