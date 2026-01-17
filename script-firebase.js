@@ -2757,12 +2757,12 @@ async function addScoreType() {
     showNotification('✅ تم إضافة نوع النقاط بنجاح وتم مزامنته مع جميع المستخدمين', 'success');
 }
 
-// Show edit form
+// Show edit form (as modal popup)
 function editScoreType(typeId) {
     const scoreType = SCORE_TYPES[typeId];
     if (!scoreType) return;
 
-    console.log('✏️ Opening edit form for score type:', typeId, scoreType);
+    console.log('✏️ Opening edit modal for score type:', typeId, scoreType);
 
     // Hide add form if visible
     hideAddScoreTypeForm();
@@ -2776,17 +2776,27 @@ function editScoreType(typeId) {
     // Update indicator
     updateMultipleIndicator('Edit');
 
-    // Show form
-    document.getElementById('editScoreTypeForm').classList.remove('hidden');
-
-    // Scroll to form
-    document.getElementById('editScoreTypeForm').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    // Show modal
+    document.getElementById('editScoreTypeModal').classList.remove('hidden');
 }
 
-// Hide edit form
+// Hide edit form modal
 function hideEditScoreTypeForm() {
-    document.getElementById('editScoreTypeForm').classList.add('hidden');
+    document.getElementById('editScoreTypeModal').classList.add('hidden');
 }
+
+// Close modal when clicking on backdrop
+document.addEventListener('DOMContentLoaded', function() {
+    const modalOverlay = document.getElementById('editScoreTypeModal');
+    if (modalOverlay) {
+        modalOverlay.addEventListener('click', function(e) {
+            // Only close if clicking the overlay itself, not the modal container
+            if (e.target === modalOverlay) {
+                hideEditScoreTypeForm();
+            }
+        });
+    }
+});
 
 // Save edited score type
 async function saveScoreTypeEdit() {

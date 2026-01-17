@@ -417,31 +417,46 @@
                     </div>
                 </div>
 
-                <div id="editScoreTypeForm" class="score-type-form hidden">
-                    <h3>✏️ تعديل نوع النقاط</h3>
-                    <input type="hidden" id="editScoreTypeId">
-                    <div class="form-group">
-                        <label>الاسم العربي: <span class="required">*</span></label>
-                        <input type="text" id="editScoreTypeLabel" placeholder="الاسم العربي" required>
-                    </div>
-                    <div class="form-group">
-                        <label>المعرف (ID):</label>
-                        <input type="text" id="editScoreTypeIdDisplay" disabled class="disabled-input">
-                        <small class="hint">🔒 لا يمكن تعديل المعرف بعد الإنشاء</small>
-                    </div>
-                    <div class="form-group">
-                        <label>تسجيل متعدد: <span id="multipleIndicatorEdit" class="selection-indicator"></span></label>
-                        <select id="editScoreTypeMultiple" onchange="updateMultipleIndicator('Edit')">
-                            <option value="false">❌ لا (مرة واحدة فقط)</option>
-                            <option value="true">✅ نعم (عدة مرات)</option>
-                        </select>
-                    </div>
-                    <div class="form-actions">
-                        <button onclick="saveScoreTypeEdit()" class="vip-button">💾 حفظ التغييرات</button>
-                        <button onclick="hideEditScoreTypeForm()" class="cancel-btn">✖️ إلغاء</button>
-                    </div>
-                </div>
+                <div id="scoreTypesList" class="score-types-list"></div>
+            </div>
+        </div>
+    </div>
 
+    <!-- Edit Score Type Modal -->
+    <div id="editScoreTypeModal" class="modal-overlay hidden">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3>✏️ تعديل نوع النقاط</h3>
+                <button onclick="hideEditScoreTypeForm()" class="modal-close-btn">✖️</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editScoreTypeId">
+                <div class="form-group">
+                    <label>الاسم العربي: <span class="required">*</span></label>
+                    <input type="text" id="editScoreTypeLabel" placeholder="الاسم العربي" required>
+                </div>
+                <div class="form-group">
+                    <label>المعرف (ID):</label>
+                    <input type="text" id="editScoreTypeIdDisplay" disabled class="disabled-input">
+                    <small class="hint">🔒 لا يمكن تعديل المعرف بعد الإنشاء</small>
+                </div>
+                <div class="form-group">
+                    <label>تسجيل متعدد: <span id="multipleIndicatorEdit" class="selection-indicator"></span></label>
+                    <select id="editScoreTypeMultiple" onchange="updateMultipleIndicator('Edit')">
+                        <option value="false">❌ لا (مرة واحدة فقط)</option>
+                        <option value="true">✅ نعم (عدة مرات)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="saveScoreTypeEdit()" class="vip-button">💾 حفظ التغييرات</button>
+                <button onclick="hideEditScoreTypeForm()" class="cancel-btn">✖️ إلغاء</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- End of Main App -->
+    <div id="hiddenScoreTypesListWrapper">
                 <div id="scoreTypesList" class="score-types-list"></div>
             </div>
         </div>
