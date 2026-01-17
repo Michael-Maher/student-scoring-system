@@ -1685,6 +1685,163 @@ function renderLeaderboard() {
     tableContainer.innerHTML = tableHTML;
 }
 
+// ============================================
+// SECTION MANAGEMENT SYSTEM - Design Pattern
+// ============================================
+
+// Section Registry - Single Source of Truth (Registry Pattern)
+const SECTIONS = {
+    scanner: {
+        id: 'scannerSection',
+        navId: 'scannerNavBtn',
+        onShow: () => initializeScannerIfNeeded(),
+        onHide: () => pauseScanner()
+    },
+    dashboard: {
+        id: 'dashboardSection',
+        navId: 'dashboardNavBtn',
+        onShow: () => {
+            hideScoringForm();
+            populateFilterDropdowns();
+            renderScoresTable();
+        },
+        onHide: () => {}
+    },
+    qrGenerator: {
+        id: 'qrGeneratorSection',
+        navId: 'qrGeneratorNavBtn',
+        onShow: () => {
+            hideScoringForm();
+            populateFilterDropdowns();
+            loadQRCodes().then(() => {
+                renderQRCodesTable();
+            }).catch(error => {
+                console.error('Error loading QR codes:', error);
+                renderQRCodesTable();
+            });
+        },
+        onHide: () => {}
+    },
+    profile: {
+        id: 'profileSection',
+        navId: 'profileNavBtn',
+        onShow: () => loadProfileData(),
+        onHide: () => {}
+    },
+    manageAdmins: {
+        id: 'manageAdminsSection',
+        navId: 'manageAdminsNavBtn',
+        onShow: () => renderAdminsList(),
+        onHide: () => {},
+        permissionCheck: () => isHeadAdmin()
+    },
+    manageScoreTypes: {
+        id: 'manageScoreTypesSection',
+        navId: 'manageScoreTypesNavBtn',
+        onShow: () => renderScoreTypesList(),
+        onHide: () => {},
+        permissionCheck: () => isHeadAdmin()
+    },
+    signupRequests: {
+        id: 'signupRequestsSection',
+        navId: 'signupRequestsNavBtn',
+        onShow: () => renderPendingRequests(),
+        onHide: () => {},
+        permissionCheck: () => isHeadAdmin()
+    }
+};
+
+// Helper functions for section lifecycle
+function pauseScanner() {
+    if (html5QrcodeScanner) {
+        try {
+            html5QrcodeScanner.pause(false);
+        } catch (error) {
+            console.log('Error pausing scanner:', error);
+        }
+    }
+}
+
+function hideScoringForm() {
+    const form = document.getElementById('scoringForm');
+    if (form) form.classList.add('hidden');
+}
+
+function initializeScannerIfNeeded() {
+    console.log('📱 initializeScannerIfNeeded called');
+
+    const scannerContainer = document.getElementById('qr-reader');
+    if (!scannerContainer) {
+        console.error('❌ Scanner container (#qr-reader) not found!');
+        return;
+    }
+
+    const hasContent = scannerContainer.children.length > 0;
+
+    console.log('📊 Scanner state:');
+    console.log('  - Container found: ✅');
+    console.log('  - Has content:', hasContent ? '✅' : '❌');
+    console.log('  - Scanner instance exists:', html5QrcodeScanner ? '✅' : '❌');
+
+    // Only initialize if scanner doesn't exist yet
+    if (!html5QrcodeScanner || !hasContent) {
+        console.log('🔧 Initializing scanner for the first time');
+        setTimeout(() => {
+            initializeQRScanner();
+        }, 200);
+    } else {
+        // Scanner already exists, just resume it
+        console.log('▶️ Resuming existing scanner');
+        try {
+            html5QrcodeScanner.resume();
+            console.log('✅ Scanner resumed successfully');
+        } catch (error) {
+            console.log('⚠️ Error resuming scanner:', error);
+        }
+    }
+}
+
+// Central Section Manager (Strategy Pattern + Command Pattern)
+function showSection(sectionKey) {
+    const section = SECTIONS[sectionKey];
+
+    if (!section) {
+        console.error(`Section '${sectionKey}' not found in registry`);
+        return;
+    }
+
+    // Permission check
+    if (section.permissionCheck && !section.permissionCheck()) {
+        showNotification('غير مصرح لك بالوصول إلى هذه الصفحة', 'error');
+        return;
+    }
+
+    // Hide all sections and call their onHide hooks
+    Object.values(SECTIONS).forEach(s => {
+        const element = document.getElementById(s.id);
+        if (element) {
+            element.classList.add('hidden');
+            if (s.onHide) s.onHide();
+        }
+    });
+
+    // Show target section
+    const targetElement = document.getElementById(section.id);
+    if (targetElement) {
+        targetElement.classList.remove('hidden');
+    }
+
+    // Set active navigation
+    setActiveNav(section.navId);
+
+    // Call onShow hook
+    if (section.onShow) {
+        section.onShow();
+    }
+
+    console.log(`✅ Switched to section: ${sectionKey}`);
+}
+
 // Navigation functions
 function setActiveNav(navId) {
     // Remove active class from all nav buttons
@@ -1695,28 +1852,9 @@ function setActiveNav(navId) {
     }
 }
 
+// Refactored navigation functions using centralized section manager
 function showProfile() {
-    // Hide all sections
-    document.getElementById('scannerSection').classList.add('hidden');
-    document.getElementById('dashboardSection').classList.add('hidden');
-    document.getElementById('qrGeneratorSection').classList.add('hidden');
-    document.getElementById('profileSection').classList.remove('hidden');
-    document.getElementById('manageAdminsSection').classList.add('hidden');
-    document.getElementById('manageScoreTypesSection').classList.add('hidden');
-
-    setActiveNav('profileNavBtn');
-
-    // Pause scanner (don't clear DOM)
-    if (html5QrcodeScanner) {
-        try {
-            html5QrcodeScanner.pause(false);
-        } catch (error) {
-            console.log('Error pausing scanner:', error);
-        }
-    }
-
-    // Load profile data
-    loadProfileData();
+    showSection('profile');
 }
 
 function loadProfileData() {
@@ -1787,62 +1925,11 @@ async function updateProfile() {
 }
 
 function showManageAdmins() {
-    if (!currentAdminData || !currentAdminData.isHeadAdmin) {
-        showNotification('غير مصرح لك بالوصول إلى هذه الصفحة', 'error');
-        return;
-    }
-
-    // Hide all sections
-    document.getElementById('scannerSection').classList.add('hidden');
-    document.getElementById('dashboardSection').classList.add('hidden');
-    document.getElementById('qrGeneratorSection').classList.add('hidden');
-    document.getElementById('profileSection').classList.add('hidden');
-    document.getElementById('manageAdminsSection').classList.remove('hidden');
-    document.getElementById('manageScoreTypesSection').classList.add('hidden');
-
-    setActiveNav('manageAdminsNavBtn');
-
-    // Pause scanner (don't clear DOM)
-    if (html5QrcodeScanner) {
-        try {
-            html5QrcodeScanner.pause(false);
-        } catch (error) {
-            console.log('Error pausing scanner:', error);
-        }
-    }
-
-    // Load admins list
-    renderAdminsList();
+    showSection('manageAdmins');
 }
 
 function showSignupRequests() {
-    if (!currentAdminData || !currentAdminData.isHeadAdmin) {
-        showNotification('غير مصرح لك بالوصول إلى هذه الصفحة', 'error');
-        return;
-    }
-
-    // Hide all sections
-    document.getElementById('scannerSection').classList.add('hidden');
-    document.getElementById('dashboardSection').classList.add('hidden');
-    document.getElementById('qrGeneratorSection').classList.add('hidden');
-    document.getElementById('profileSection').classList.add('hidden');
-    document.getElementById('manageAdminsSection').classList.add('hidden');
-    document.getElementById('manageScoreTypesSection').classList.add('hidden');
-    document.getElementById('signupRequestsSection').classList.remove('hidden');
-
-    setActiveNav('signupRequestsNavBtn');
-
-    // Pause scanner (don't clear DOM)
-    if (html5QrcodeScanner) {
-        try {
-            html5QrcodeScanner.pause(false);
-        } catch (error) {
-            console.log('Error pausing scanner:', error);
-        }
-    }
-
-    // Load pending requests
-    renderPendingRequests();
+    showSection('signupRequests');
 }
 
 function renderAdminsList() {
@@ -2491,30 +2578,7 @@ function updateScoreTypeSelects() {
 }
 
 function showManageScoreTypes() {
-    if (!currentAdminData || !currentAdminData.isHeadAdmin) {
-        showNotification('غير مصرح لك بالوصول إلى هذه الصفحة', 'error');
-        return;
-    }
-
-    document.getElementById('scannerSection').classList.add('hidden');
-    document.getElementById('dashboardSection').classList.add('hidden');
-    document.getElementById('qrGeneratorSection').classList.add('hidden');
-    document.getElementById('profileSection').classList.add('hidden');
-    document.getElementById('manageAdminsSection').classList.add('hidden');
-    document.getElementById('manageScoreTypesSection').classList.remove('hidden');
-
-    setActiveNav('manageScoreTypesNavBtn');
-
-    // Pause scanner (don't clear DOM)
-    if (html5QrcodeScanner) {
-        try {
-            html5QrcodeScanner.pause(false);
-        } catch (error) {
-            console.log('Error pausing scanner:', error);
-        }
-    }
-
-    renderScoreTypesList();
+    showSection('manageScoreTypes');
 }
 
 function renderScoreTypesList() {
@@ -2718,120 +2782,15 @@ async function deleteScoreType(typeId) {
 
 // Update existing showScanner function
 function showScanner() {
-    console.log('📱 showScanner called');
-
-    // Show scanner section and hide others
-    document.getElementById('scannerSection').classList.remove('hidden');
-    document.getElementById('dashboardSection').classList.add('hidden');
-    document.getElementById('qrGeneratorSection').classList.add('hidden');
-    document.getElementById('profileSection').classList.add('hidden');
-    document.getElementById('manageAdminsSection').classList.add('hidden');
-    document.getElementById('manageScoreTypesSection').classList.add('hidden');
-
-    setActiveNav('scannerNavBtn');
-
-    // Check if scanner container exists
-    const scannerContainer = document.getElementById('qr-reader');
-    if (!scannerContainer) {
-        console.error('❌ Scanner container (#qr-reader) not found!');
-        return;
-    }
-
-    const hasContent = scannerContainer.children.length > 0;
-
-    console.log('📊 Scanner state:');
-    console.log('  - Container found: ✅');
-    console.log('  - Has content:', hasContent ? '✅' : '❌');
-    console.log('  - Scanner instance exists:', html5QrcodeScanner ? '✅' : '❌');
-
-    // Only initialize if scanner doesn't exist yet
-    if (!html5QrcodeScanner || !hasContent) {
-        console.log('🔧 Initializing scanner for the first time');
-        setTimeout(() => {
-            initializeQRScanner();
-        }, 200);
-    } else {
-        // Scanner already exists, just resume it
-        console.log('▶️ Resuming existing scanner');
-        try {
-            html5QrcodeScanner.resume();
-            console.log('✅ Scanner resumed successfully');
-        } catch (error) {
-            console.log('⚠️ Error resuming scanner:', error);
-        }
-    }
+    showSection('scanner');
 }
 
-// Update existing showDashboard function
 function showDashboard() {
-    // Hide scoring form if it's visible
-    document.getElementById('scoringForm').classList.add('hidden');
-
-    // Pause scanner (don't clear DOM)
-    if (html5QrcodeScanner) {
-        try {
-            html5QrcodeScanner.pause(false);
-        } catch (error) {
-            console.log('Error pausing scanner:', error);
-        }
-    }
-
-    document.getElementById('scannerSection').classList.add('hidden');
-    document.getElementById('dashboardSection').classList.remove('hidden');
-    document.getElementById('qrGeneratorSection').classList.add('hidden');
-    document.getElementById('profileSection').classList.add('hidden');
-    document.getElementById('manageAdminsSection').classList.add('hidden');
-    document.getElementById('manageScoreTypesSection').classList.add('hidden');
-
-    setActiveNav('dashboardNavBtn');
-
-    // Populate filter dropdowns with unique values
-    populateFilterDropdowns();
-
-    renderScoresTable();
+    showSection('dashboard');
 }
 
-// Show QR Generator section
 function showQRGenerator() {
-    console.log('🎫 showQRGenerator called');
-
-    // Hide scoring form if it's visible
-    document.getElementById('scoringForm').classList.add('hidden');
-
-    // Pause scanner (don't clear DOM)
-    if (html5QrcodeScanner) {
-        try {
-            html5QrcodeScanner.pause(false);
-        } catch (error) {
-            console.log('Error pausing scanner:', error);
-        }
-    }
-
-    document.getElementById('scannerSection').classList.add('hidden');
-    document.getElementById('dashboardSection').classList.add('hidden');
-    document.getElementById('qrGeneratorSection').classList.remove('hidden');
-    document.getElementById('profileSection').classList.add('hidden');
-    document.getElementById('manageAdminsSection').classList.add('hidden');
-    document.getElementById('manageScoreTypesSection').classList.add('hidden');
-
-    setActiveNav('qrGeneratorNavBtn');
-
-    // Populate filter dropdowns with unique values from existing data
-    populateFilterDropdowns();
-
-    // Load and render QR codes
-    try {
-        loadQRCodes().then(() => {
-            renderQRCodesTable();
-            console.log('✅ QR Generator section loaded successfully');
-        }).catch(error => {
-            console.error('Error loading QR codes:', error);
-            renderQRCodesTable(); // Render empty table even if load fails
-        });
-    } catch (error) {
-        console.error('Error in showQRGenerator:', error);
-        renderQRCodesTable(); // Render empty table even if load fails
-    }
+    showSection('qrGenerator');
 }
 
 // ============================================
