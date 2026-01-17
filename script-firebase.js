@@ -1046,10 +1046,33 @@ async function onScanSuccess(decodedText, decodedResult) {
         return;
     }
 
-    // Look up student data in qrCodesData (use cleaned name for matching)
+    // Look up student data in qrCodesData (exact match required after cleaning)
+    // First try exact match
     let qrRecord = Object.values(qrCodesData).find(qr =>
-        qr.name && qr.name.toLowerCase().trim() === cleanedScannedName.toLowerCase().trim()
+        qr.name && qr.name === cleanedScannedName
     );
+
+    // If no exact match found, try case-insensitive match as fallback
+    if (!qrRecord) {
+        qrRecord = Object.values(qrCodesData).find(qr =>
+            qr.name && qr.name.toLowerCase().trim() === cleanedScannedName.toLowerCase().trim()
+        );
+
+        // If found via case-insensitive match, warn that it doesn't match exactly
+        if (qrRecord) {
+            console.warn(`⚠️ QR scanned name "${cleanedScannedName}" doesn't exactly match database name "${qrRecord.name}"`);
+            showNotification(`⚠️ تحذير: الاسم الممسوح "${cleanedScannedName}" لا يطابق تماماً الاسم المسجل "${qrRecord.name}". يرجى استخدام QR صحيح.`, 'warning');
+            // Resume scanner
+            if (html5QrcodeScanner) {
+                try {
+                    html5QrcodeScanner.resume();
+                } catch (error) {
+                    console.log('Error resuming scanner:', error);
+                }
+            }
+            return;
+        }
+    }
 
     let additionalInfo = '';
     let isNewRecord = false;
@@ -2306,9 +2329,8 @@ async function approveSignupRequest(phone) {
             // Update local data
             adminsData[phone] = newAdmin;
 
-            // Refresh displays
+            // Refresh admins list (real-time listener will update requests automatically)
             renderAdminsList();
-            renderPendingRequests();
 
             showNotification(`تم قبول طلب ${request.name}`, 'success');
         });
@@ -2349,9 +2371,7 @@ async function rejectSignupRequest(phone) {
             rejectedAt: new Date().toISOString()
         });
 
-        // Refresh pending requests
-        renderPendingRequests();
-
+        // Real-time listener will automatically update the UI
         showNotification(`تم رفض طلب ${request.name}`, 'info');
 
     } catch (error) {
@@ -3515,14 +3535,10 @@ async function saveQREdit(qrId) {
     qrCodesData[qrId].lastUpdated = new Date().toISOString();
     qrCodesData[qrId].lastUpdatedBy = currentAdmin;
 
-    // Save to Firebase
+    // Save to Firebase (real-time listener will update the UI automatically)
     await saveQRCodesToFirebase(qrId, qrCodesData[qrId]);
 
-    // Update filter dropdowns with new values
-    populateFilterDropdowns();
-
     closeEditDialog();
-    renderQRCodesTable();
     showNotification('تم تحديث رمز QR بنجاح', 'success');
 }
 
