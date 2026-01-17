@@ -3376,13 +3376,8 @@ function downloadBookmark(qrId) {
         return;
     }
 
-    // Create compact QR data string (pipe-delimited format)
-    const qrDataString = [
-        qr.name || '',
-        qr.academicYear || '',
-        qr.phone || '',
-        qr.team || ''
-    ].join('|');
+    // QR code contains only the student name (consistent with downloadQRCode)
+    const qrDataString = qr.name;
 
     // Create a temporary container for QR code generation
     const tempContainer = document.createElement('div');
@@ -3391,14 +3386,14 @@ function downloadBookmark(qrId) {
     document.body.appendChild(tempContainer);
 
     try {
-        // Generate QR code with Low error correction to support more data
+        // Generate QR code with same settings as downloadQRCode
         const qrcode = new QRCode(tempContainer, {
             text: qrDataString,
-            width: 512,
-            height: 512,
+            width: 700,
+            height: 700,
             colorDark: '#000000',
             colorLight: '#ffffff',
-            correctLevel: QRCode.CorrectLevel.L
+            correctLevel: QRCode.CorrectLevel.M
         });
 
         // Wait for QR code generation
@@ -3415,6 +3410,41 @@ function downloadBookmark(qrId) {
             bookmarkImg.crossOrigin = 'anonymous';
 
             bookmarkImg.onload = function() {
+                // First, apply purple-black gradient to QR code (same as downloadQRCode)
+                const gradientCanvas = document.createElement('canvas');
+                gradientCanvas.width = 700;
+                gradientCanvas.height = 700;
+                const gradientCtx = gradientCanvas.getContext('2d');
+
+                // Draw original QR
+                gradientCtx.drawImage(qrCanvas, 0, 0);
+
+                // Get image data to manipulate pixels
+                const imageData = gradientCtx.getImageData(0, 0, 700, 700);
+                const data = imageData.data;
+
+                // Apply gradient to dark pixels
+                for (let y = 0; y < 700; y++) {
+                    const gradientRatio = y / 700;
+                    // Purple: #8B5CF6 -> RGB(139, 92, 246)
+                    // Black: #000000 -> RGB(0, 0, 0)
+                    const r = Math.round(139 * (1 - gradientRatio));
+                    const g = Math.round(92 * (1 - gradientRatio));
+                    const b = Math.round(246 * (1 - gradientRatio));
+
+                    for (let x = 0; x < 700; x++) {
+                        const index = (y * 700 + x) * 4;
+                        // If pixel is dark (QR code dark part)
+                        if (data[index] < 128) {
+                            data[index] = r;     // R
+                            data[index + 1] = g; // G
+                            data[index + 2] = b; // B
+                        }
+                    }
+                }
+
+                gradientCtx.putImageData(imageData, 0, 0);
+
                 // Create final canvas with bookmark dimensions
                 const finalCanvas = document.createElement('canvas');
                 finalCanvas.width = bookmarkImg.width;
@@ -3425,12 +3455,12 @@ function downloadBookmark(qrId) {
                 ctx.drawImage(bookmarkImg, 0, 0);
 
                 // Calculate QR position - slightly moved to trailing (right)
-                const qrSize = 200; // Smaller QR code
+                const qrSize = 200; // Smaller QR code for bookmark
                 const qrX = 47; // Slightly to trailing (right) side
                 const qrY = bookmarkImg.height - 240; // Adjusted vertical position
 
-                // Draw QR code on bookmark (replacing the existing one)
-                ctx.drawImage(qrCanvas, qrX, qrY, qrSize, qrSize);
+                // Draw gradient QR code on bookmark (replacing the existing one)
+                ctx.drawImage(gradientCanvas, qrX, qrY, qrSize, qrSize);
 
                 // Add student name below QR code with minimal spacing
                 ctx.fillStyle = '#000000';
