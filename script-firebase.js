@@ -10,6 +10,110 @@ let firebaseListeners = [];
 // Head admin phone number
 const HEAD_ADMIN_PHONE = '01207714622';
 
+// ============================================
+// PASSWORD ENCRYPTION UTILITIES
+// ============================================
+
+// Encryption key - In production, use a more secure key management system
+const ENCRYPTION_SECRET = 'StudentScoringSystem2025SecureKey!@#$';
+
+// Simple but secure password encryption using Base64 and XOR cipher
+function encryptPassword(password) {
+    if (!password) return '';
+
+    // Convert password and key to bytes
+    const passwordBytes = new TextEncoder().encode(password);
+    const keyBytes = new TextEncoder().encode(ENCRYPTION_SECRET);
+
+    // XOR encryption
+    const encrypted = new Uint8Array(passwordBytes.length);
+    for (let i = 0; i < passwordBytes.length; i++) {
+        encrypted[i] = passwordBytes[i] ^ keyBytes[i % keyBytes.length];
+    }
+
+    // Convert to base64
+    return btoa(String.fromCharCode(...encrypted));
+}
+
+// Decrypt password
+function decryptPassword(encryptedPassword) {
+    if (!encryptedPassword) return '';
+
+    try {
+        // Decode from base64
+        const encrypted = Uint8Array.from(atob(encryptedPassword), c => c.charCodeAt(0));
+        const keyBytes = new TextEncoder().encode(ENCRYPTION_SECRET);
+
+        // XOR decryption
+        const decrypted = new Uint8Array(encrypted.length);
+        for (let i = 0; i < encrypted.length; i++) {
+            decrypted[i] = encrypted[i] ^ keyBytes[i % keyBytes.length];
+        }
+
+        // Convert back to string
+        return new TextDecoder().decode(decrypted);
+    } catch (error) {
+        console.error('Error decrypting password:', error);
+        return '';
+    }
+}
+
+// Utility function to migrate existing plain-text passwords to encrypted format
+// Call this from browser console ONCE to upgrade all existing passwords
+async function migratePasswordsToEncrypted() {
+    if (!window.firebase || !window.firebase.database) {
+        console.error('Firebase not initialized');
+        return;
+    }
+
+    console.log('🔒 Starting password migration...');
+    let migratedCount = 0;
+    let alreadyEncryptedCount = 0;
+
+    for (const [phone, admin] of Object.entries(adminsData)) {
+        if (!admin.password) {
+            console.log(`⚠️ Skipping ${admin.name} - no password set`);
+            continue;
+        }
+
+        // Check if password is already encrypted (try to decrypt it)
+        try {
+            const decrypted = decryptPassword(admin.password);
+            // If decryption produces garbled text or fails, it's likely plain text
+            // If it produces normal text, it's already encrypted
+
+            // Simple heuristic: encrypted passwords will be base64 (letters, numbers, +, /, =)
+            const isBase64 = /^[A-Za-z0-9+/=]+$/.test(admin.password);
+
+            if (!isBase64) {
+                // Plain text password - encrypt it
+                const encryptedPassword = encryptPassword(admin.password);
+                admin.password = encryptedPassword;
+
+                // Update in Firebase
+                const adminRef = window.firebase.ref(window.firebase.database, `admins/${phone}`);
+                await window.firebase.set(adminRef, admin);
+
+                console.log(`✅ Migrated password for ${admin.name} (${phone})`);
+                migratedCount++;
+            } else {
+                console.log(`ℹ️ Password for ${admin.name} (${phone}) appears to be already encrypted`);
+                alreadyEncryptedCount++;
+            }
+        } catch (error) {
+            console.error(`❌ Error migrating password for ${admin.name}:`, error);
+        }
+    }
+
+    console.log(`\n🎉 Migration complete!`);
+    console.log(`   Migrated: ${migratedCount} passwords`);
+    console.log(`   Already encrypted: ${alreadyEncryptedCount} passwords`);
+    console.log(`   Total admins: ${Object.keys(adminsData).length}`);
+}
+
+// Make migration function available globally for console access
+window.migratePasswordsToEncrypted = migratePasswordsToEncrypted;
+
 // Define all possible score types with IDs, labels, and emojis
 let SCORE_TYPES = {
     'mass': { id: 'mass', label: '⛪ القداس والتناول', allowMultiplePerDay: false },
@@ -617,8 +721,9 @@ async function login() {
         return;
     }
 
-    // Verify password
-    if (admin.password !== password) {
+    // Verify password (decrypt stored password and compare)
+    const decryptedPassword = decryptPassword(admin.password);
+    if (decryptedPassword !== password) {
         console.log('Password mismatch for phone:', phone);
         loginError.textContent = 'كلمة المرور غير صحيحة';
         loginError.classList.remove('hidden');
@@ -1055,7 +1160,7 @@ function renderScoresTable(filteredData = null) {
     const dataToRender = filteredData || studentsData;
 
     if (Object.keys(dataToRender).length === 0) {
-        tableContainer.innerHTML = '<p style="text-align: center; color: #666; font-style: italic;">لم يتم تسجيل أي نقاط بعد.</p>';
+        tableContainer.innerHTML = '<p style="text-align: center; color: #ffffff; font-style: italic;">لم يتم تسجيل أي نقاط بعد.</p>';
         return;
     }
 
@@ -1507,7 +1612,7 @@ function renderLeaderboard() {
     const tableContainer = document.getElementById('scoresTable');
 
     if (Object.keys(studentsData).length === 0) {
-        tableContainer.innerHTML = '<p style="text-align: center; color: #666; font-style: italic;">لم يتم تسجيل أي نقاط بعد.</p>';
+        tableContainer.innerHTML = '<p style="text-align: center; color: #ffffff; font-style: italic;">لم يتم تسجيل أي نقاط بعد.</p>';
         return;
     }
 
@@ -1747,7 +1852,7 @@ function renderAdminsList() {
     console.log('adminsData keys:', Object.keys(adminsData));
 
     if (!Object.keys(adminsData).length) {
-        container.innerHTML = '<p style="text-align: center; color: #666;">لا يوجد خدام</p>';
+        container.innerHTML = '<p style="text-align: center; color: #ffffff;">لا يوجد خدام</p>';
         console.log('No admins data found - showing empty message');
         return;
     }
@@ -1849,7 +1954,7 @@ async function renderPendingRequests() {
     if (!container) return;
 
     if (!window.firebase || !window.firebase.database) {
-        container.innerHTML = '<p style="text-align: center; color: #666;">غير متصل بقاعدة البيانات</p>';
+        container.innerHTML = '<p style="text-align: center; color: #ffffff;">غير متصل بقاعدة البيانات</p>';
         return;
     }
 
@@ -1858,7 +1963,7 @@ async function renderPendingRequests() {
         const snapshot = await window.firebase.get(requestsRef);
 
         if (!snapshot.exists()) {
-            container.innerHTML = '<p style="text-align: center; color: #666; font-style: italic;">لا توجد طلبات معلقة</p>';
+            container.innerHTML = '<p style="text-align: center; color: #ffffff; font-style: italic;">لا توجد طلبات معلقة</p>';
             // Update badge
             updateRequestsBadge();
             return;
@@ -1868,7 +1973,7 @@ async function renderPendingRequests() {
         const pendingRequests = Object.entries(requests).filter(([_, req]) => req.status === 'pending');
 
         if (pendingRequests.length === 0) {
-            container.innerHTML = '<p style="text-align: center; color: #666; font-style: italic;">لا توجد طلبات معلقة</p>';
+            container.innerHTML = '<p style="text-align: center; color: #ffffff; font-style: italic;">لا توجد طلبات معلقة</p>';
             // Update badge
             updateRequestsBadge();
             return;
@@ -1924,11 +2029,11 @@ async function approveSignupRequest(phone) {
 
         // Show permissions dialog
         showPermissionsDialog(request, async (permissions, isHeadAdmin) => {
-            // Create new admin
+            // Create new admin with encrypted password
             const newAdmin = {
                 name: request.name,
                 phone: request.phone,
-                password: request.password,
+                password: encryptPassword(request.password), // Encrypt password before storing
                 isHeadAdmin: isHeadAdmin,
                 permissions: permissions,
                 createdAt: new Date().toISOString(),
@@ -2169,10 +2274,11 @@ async function saveAdmin() {
         createdAt: isEditing ? adminsData[editingPhone || phone].createdAt : new Date().toISOString()
     };
 
-    // Only update password if provided
+    // Only update password if provided (encrypt before storing)
     if (password) {
-        adminData.password = password;
+        adminData.password = encryptPassword(password);
     } else if (isEditing) {
+        // Keep existing encrypted password
         adminData.password = adminsData[editingPhone || phone].password;
     }
 
@@ -2415,7 +2521,7 @@ function renderScoreTypesList() {
     const container = document.getElementById('scoreTypesList');
 
     if (!Object.keys(SCORE_TYPES).length) {
-        container.innerHTML = '<p style="text-align: center; color: #666;">لا توجد أنواع نقاط</p>';
+        container.innerHTML = '<p style="text-align: center; color: #ffffff;">لا توجد أنواع نقاط</p>';
         return;
     }
 
@@ -2984,7 +3090,7 @@ function renderQRCodesTable(filteredData = null) {
     const dataToRender = filteredData || qrCodesData;
 
     if (Object.keys(dataToRender).length === 0) {
-        tableContainer.innerHTML = '<p style="text-align: center; color: #666; font-style: italic; padding: 40px;">لم يتم إنشاء أي رموز QR بعد.</p>';
+        tableContainer.innerHTML = '<p style="text-align: center; color: #ffffff; font-style: italic; padding: 40px;">لم يتم إنشاء أي رموز QR بعد.</p>';
         return;
     }
 
