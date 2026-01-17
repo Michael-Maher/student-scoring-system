@@ -995,10 +995,28 @@ async function onScanSuccess(decodedText, decodedResult) {
     console.log(`QR Code detected (raw): "${decodedText}"`);
     console.log('Decoded text length:', decodedText.length);
     console.log('Character codes:', Array.from(decodedText).map(c => c.charCodeAt(0)));
+    console.log('Scan source:', decodedResult?.result?.format || 'unknown');
 
     // Check permission
     if (!canModifyDashboard()) {
         showNotification('ليس لديك صلاحية لإضافة نقاط', 'error');
+        return;
+    }
+
+    // Validate that we have actual content
+    if (!decodedText || decodedText.trim() === '') {
+        console.error('❌ Empty QR code scanned!');
+        console.error('DecodedResult:', decodedResult);
+        showNotification('⚠️ رمز QR فارغ - لا يحتوي على أي بيانات. يرجى التأكد من جودة الصورة أو طباعة QR جديد.', 'error');
+
+        // Resume scanner
+        if (html5QrcodeScanner) {
+            try {
+                html5QrcodeScanner.resume();
+            } catch (error) {
+                console.log('Note: Scanner resume skipped:', error.message);
+            }
+        }
         return;
     }
 
@@ -1007,7 +1025,7 @@ async function onScanSuccess(decodedText, decodedResult) {
         try {
             html5QrcodeScanner.pause(false);
         } catch (error) {
-            console.log('Error pausing scanner:', error);
+            console.log('Note: Scanner pause skipped:', error.message);
         }
     }
 
@@ -1122,22 +1140,103 @@ async function onScanSuccess(decodedText, decodedResult) {
         renderQRCodesTable();
     }
 
-    // Show scoring form with the database name (not the scanned raw text)
-    document.getElementById('studentName').value = displayName;
-    document.getElementById('scoreType').value = '';
-    document.getElementById('score').value = '1'; // Default 1 point
-    document.getElementById('scoringForm').classList.remove('hidden');
-
-    const message = isNewRecord
-        ? `تم إضافة المخدوم: ${displayName} - يمكنك الآن اختيار نوع النشاط`
-        : `اسم المخدوم: ${displayName}${additionalInfo}`;
-
-    showNotification(message, 'success');
+    // Show scoring form as modal popup
+    showScoringModal(displayName, additionalInfo, isNewRecord);
 }
 
 function onScanFailure(error) {
     // Silently handle scan failures
     console.log(`QR Code scan error: ${error}`);
+}
+
+// Show scoring modal dialog
+function showScoringModal(displayName, additionalInfo, isNewRecord) {
+    console.log('📋 Showing scoring modal for:', displayName);
+
+    // Pause scanner to prevent additional scans
+    if (html5QrcodeScanner) {
+        try {
+            html5QrcodeScanner.pause(false);
+        } catch (error) {
+            console.log('Note: Scanner pause skipped:', error.message);
+        }
+    }
+
+    // Populate form fields
+    document.getElementById('studentName').value = displayName;
+    document.getElementById('scoreType').value = '';
+    document.getElementById('score').value = '1';
+
+    // Create modal overlay if it doesn't exist
+    let modalOverlay = document.getElementById('scoringModalOverlay');
+    if (!modalOverlay) {
+        modalOverlay = document.createElement('div');
+        modalOverlay.id = 'scoringModalOverlay';
+        modalOverlay.className = 'modal-overlay';
+        modalOverlay.innerHTML = `
+            <div class="modal-content" onclick="event.stopPropagation()">
+                <div class="modal-header">
+                    <h3>⭐ إضافة نقاط للمخدوم</h3>
+                    <button class="modal-close" onclick="closeScoringModal()">✖</button>
+                </div>
+                <div class="modal-body" id="scoringModalBody">
+                    <!-- Form will be moved here -->
+                </div>
+            </div>
+        `;
+        modalOverlay.onclick = closeScoringModal;
+        document.body.appendChild(modalOverlay);
+    }
+
+    // Move scoring form into modal
+    const scoringForm = document.getElementById('scoringForm');
+    const modalBody = document.getElementById('scoringModalBody');
+
+    if (scoringForm && modalBody) {
+        scoringForm.classList.remove('hidden');
+        modalBody.innerHTML = '';
+        modalBody.appendChild(scoringForm);
+    }
+
+    // Show modal
+    modalOverlay.classList.add('active');
+
+    // Show notification message
+    const message = isNewRecord
+        ? `✨ تم إضافة المخدوم: ${displayName} - يمكنك الآن اختيار نوع النشاط`
+        : `📋 اسم المخدوم: ${displayName}${additionalInfo}`;
+
+    showNotification(message, 'success');
+}
+
+// Close scoring modal
+function closeScoringModal() {
+    const modalOverlay = document.getElementById('scoringModalOverlay');
+    if (modalOverlay) {
+        modalOverlay.classList.remove('active');
+
+        // Move form back to original location after animation
+        setTimeout(() => {
+            const scoringForm = document.getElementById('scoringForm');
+            const scannerSection = document.getElementById('scannerSection');
+            if (scoringForm && scannerSection) {
+                scoringForm.classList.add('hidden');
+                scannerSection.appendChild(scoringForm);
+            }
+        }, 300);
+    }
+
+    // Resume scanner
+    if (html5QrcodeScanner) {
+        try {
+            html5QrcodeScanner.resume();
+        } catch (error) {
+            console.log('Note: Scanner resume skipped:', error.message);
+        }
+    }
+
+    // Clear scanned QR data
+    scannedQRData = null;
 }
 
 // Scoring functions
@@ -1241,25 +1340,20 @@ async function submitScore() {
     // Update filter dropdowns (in case new team/year was added from QR scan)
     populateFilterDropdowns();
 
-    // Reset form and resume scanning
-    cancelScoring();
+    // Reset form and close modal
+    closeScoringModal();
+
+    // Clear form after a short delay
+    setTimeout(() => {
+        document.getElementById('studentName').value = '';
+        document.getElementById('scoreType').value = '';
+        document.getElementById('score').value = '1';
+    }, 350);
 }
 
 function cancelScoring() {
-    document.getElementById('scoringForm').classList.add('hidden');
-
-    // Clear form
-    document.getElementById('studentName').value = '';
-    document.getElementById('scoreType').value = '';
-    document.getElementById('score').value = '1'; // Reset to default
-
-    // Clear scanned QR data
-    scannedQRData = null;
-
-    // Resume scanning
-    if (html5QrcodeScanner) {
-        html5QrcodeScanner.resume();
-    }
+    // Close modal and resume scanning
+    closeScoringModal();
 }
 
 // Navigation functions
@@ -3549,6 +3643,10 @@ async function saveQREdit(qrId) {
 
     // Save to Firebase (real-time listener will update the UI automatically)
     await saveQRCodesToFirebase(qrId, qrCodesData[qrId]);
+
+    // Manually update UI immediately for better UX (real-time listener will sync across devices)
+    populateFilterDropdowns();
+    renderQRCodesTable();
 
     closeEditDialog();
     showNotification('تم تحديث رمز QR بنجاح', 'success');
