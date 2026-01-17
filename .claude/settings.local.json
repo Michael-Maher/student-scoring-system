@@ -11,7 +11,9 @@
       "Bash(git config:*)",
       "Bash(curl:*)",
       "Bash(find:*)",
-      "Bash(open -a \"Google Chrome\" index.html)"
+      "Bash(open -a \"Google Chrome\" index.html)",
+      "Bash(node:*)",
+      "Bash(base64:*)"
     ],
     "deny": [],
     "ask": []
