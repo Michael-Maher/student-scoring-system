@@ -396,13 +396,13 @@
                 <div id="addScoreTypeForm" class="score-type-form hidden">
                     <h3>➕ إضافة نوع نقاط جديد</h3>
                     <div class="form-group">
-                        <label>المعرف (ID):</label>
-                        <input type="text" id="newScoreTypeId" placeholder="مثال: homework" pattern="[a-z_]+" title="استخدم حروف إنجليزية صغيرة و _ فقط">
-                        <small class="hint">استخدم حروف إنجليزية صغيرة فقط (a-z) و _ للمسافات</small>
+                        <label>الاسم العربي: <span class="required">*</span></label>
+                        <input type="text" id="newScoreTypeLabel" placeholder="مثال: الواجب المنزلي" required>
                     </div>
                     <div class="form-group">
-                        <label>الاسم العربي:</label>
-                        <input type="text" id="newScoreTypeLabel" placeholder="مثال: الواجب المنزلي">
+                        <label>المعرف (ID): <span class="optional">اختياري</span></label>
+                        <input type="text" id="newScoreTypeId" placeholder="سيتم التوليد تلقائياً" pattern="[a-z_]+" title="استخدم حروف إنجليزية صغيرة و _ فقط">
+                        <small class="hint">💡 إذا تركته فارغاً، سيتم توليده تلقائياً من الاسم العربي</small>
                     </div>
                     <div class="form-group">
                         <label>تسجيل متعدد: <span id="multipleIndicatorAdd" class="selection-indicator"></span></label>
@@ -412,8 +412,33 @@
                         </select>
                     </div>
                     <div class="form-actions">
-                        <button onclick="addScoreType()" class="vip-button">إضافة</button>
-                        <button onclick="hideAddScoreTypeForm()" class="cancel-btn">إلغاء</button>
+                        <button onclick="addScoreType()" class="vip-button">➕ إضافة</button>
+                        <button onclick="hideAddScoreTypeForm()" class="cancel-btn">✖️ إلغاء</button>
+                    </div>
+                </div>
+
+                <div id="editScoreTypeForm" class="score-type-form hidden">
+                    <h3>✏️ تعديل نوع النقاط</h3>
+                    <input type="hidden" id="editScoreTypeId">
+                    <div class="form-group">
+                        <label>الاسم العربي: <span class="required">*</span></label>
+                        <input type="text" id="editScoreTypeLabel" placeholder="الاسم العربي" required>
+                    </div>
+                    <div class="form-group">
+                        <label>المعرف (ID):</label>
+                        <input type="text" id="editScoreTypeIdDisplay" disabled class="disabled-input">
+                        <small class="hint">🔒 لا يمكن تعديل المعرف بعد الإنشاء</small>
+                    </div>
+                    <div class="form-group">
+                        <label>تسجيل متعدد: <span id="multipleIndicatorEdit" class="selection-indicator"></span></label>
+                        <select id="editScoreTypeMultiple" onchange="updateMultipleIndicator('Edit')">
+                            <option value="false">❌ لا (مرة واحدة فقط)</option>
+                            <option value="true">✅ نعم (عدة مرات)</option>
+                        </select>
+                    </div>
+                    <div class="form-actions">
+                        <button onclick="saveScoreTypeEdit()" class="vip-button">💾 حفظ التغييرات</button>
+                        <button onclick="hideEditScoreTypeForm()" class="cancel-btn">✖️ إلغاء</button>
                     </div>
                 </div>
 

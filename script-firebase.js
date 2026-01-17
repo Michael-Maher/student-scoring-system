@@ -2591,8 +2591,9 @@ function renderScoreTypesList() {
 
     let html = '<div class="score-types-grid">';
     Object.entries(SCORE_TYPES).forEach(([typeId, scoreType]) => {
+        const multipleIcon = scoreType.allowMultiplePerDay ? '✅' : '❌';
         const multipleText = scoreType.allowMultiplePerDay ? 'نعم' : 'لا';
-        const multipleClass = scoreType.allowMultiplePerDay ? 'badge-yes' : 'badge-no';
+        const multipleClass = scoreType.allowMultiplePerDay ? 'indicator-yes' : 'indicator-no';
 
         html += `
             <div class="score-type-card">
@@ -2601,7 +2602,7 @@ function renderScoreTypesList() {
                     <code class="score-type-id">${typeId}</code>
                 </div>
                 <div class="score-type-info">
-                    <p><strong>تسجيل متعدد:</strong> <span class="badge ${multipleClass}">${multipleText}</span></p>
+                    <p><strong>تسجيل متعدد:</strong> <span class="selection-indicator ${multipleClass}">${multipleIcon} ${multipleText}</span></p>
                 </div>
                 <div class="score-type-actions">
                     <button onclick="editScoreType('${typeId}')" class="edit-btn">✏️ تعديل</button>
@@ -2648,10 +2649,59 @@ function hideAddScoreTypeForm() {
     document.getElementById('addScoreTypeForm').classList.add('hidden');
 }
 
+// Auto-generate ID from Arabic label
+function generateIdFromLabel(label) {
+    // Transliteration map for Arabic to English
+    const translitMap = {
+        'ا': 'a', 'أ': 'a', 'إ': 'i', 'آ': 'a',
+        'ب': 'b', 'ت': 't', 'ث': 'th', 'ج': 'j',
+        'ح': 'h', 'خ': 'kh', 'د': 'd', 'ذ': 'dh',
+        'ر': 'r', 'ز': 'z', 'س': 's', 'ش': 'sh',
+        'ص': 's', 'ض': 'd', 'ط': 't', 'ظ': 'z',
+        'ع': 'a', 'غ': 'gh', 'ف': 'f', 'ق': 'q',
+        'ك': 'k', 'ل': 'l', 'م': 'm', 'ن': 'n',
+        'ه': 'h', 'و': 'w', 'ي': 'y', 'ى': 'a',
+        'ة': 'h', 'ئ': 'y', 'ء': '', 'ؤ': 'w'
+    };
+
+    let id = '';
+    for (let char of label) {
+        if (translitMap[char]) {
+            id += translitMap[char];
+        } else if (char === ' ') {
+            id += '_';
+        } else if (/[a-z0-9_]/.test(char.toLowerCase())) {
+            id += char.toLowerCase();
+        }
+    }
+
+    // Clean up multiple underscores and trim
+    id = id.replace(/_+/g, '_').replace(/^_|_$/g, '');
+
+    // If empty, use a default
+    if (!id) id = 'custom_' + Date.now();
+
+    // Ensure uniqueness
+    let finalId = id;
+    let counter = 1;
+    while (SCORE_TYPES[finalId]) {
+        finalId = id + '_' + counter;
+        counter++;
+    }
+
+    return finalId;
+}
+
 async function addScoreType() {
-    const id = document.getElementById('newScoreTypeId').value.trim().toLowerCase();
+    let id = document.getElementById('newScoreTypeId').value.trim().toLowerCase();
     const label = document.getElementById('newScoreTypeLabel').value.trim();
     const allowMultiple = document.getElementById('newScoreTypeMultiple').value === 'true';
+
+    // Auto-generate ID if not provided
+    if (!id) {
+        id = generateIdFromLabel(label);
+        console.log('🔄 Auto-generated ID:', id);
+    }
 
     console.log('➕ Adding new score type:', { id, label, allowMultiple });
 
@@ -2707,21 +2757,60 @@ async function addScoreType() {
     showNotification('✅ تم إضافة نوع النقاط بنجاح وتم مزامنته مع جميع المستخدمين', 'success');
 }
 
-async function editScoreType(typeId) {
+// Show edit form
+function editScoreType(typeId) {
     const scoreType = SCORE_TYPES[typeId];
     if (!scoreType) return;
 
-    console.log('✏️ Editing score type:', typeId, scoreType);
+    console.log('✏️ Opening edit form for score type:', typeId, scoreType);
 
-    const newLabel = prompt('الاسم العربي الجديد:', scoreType.label);
-    if (!newLabel || !newLabel.trim()) return;
+    // Hide add form if visible
+    hideAddScoreTypeForm();
 
-    const allowMultiple = confirm('السماح بالتسجيل أكثر من مرة في اليوم؟');
+    // Populate form
+    document.getElementById('editScoreTypeId').value = typeId;
+    document.getElementById('editScoreTypeIdDisplay').value = typeId;
+    document.getElementById('editScoreTypeLabel').value = scoreType.label;
+    document.getElementById('editScoreTypeMultiple').value = scoreType.allowMultiplePerDay ? 'true' : 'false';
+
+    // Update indicator
+    updateMultipleIndicator('Edit');
+
+    // Show form
+    document.getElementById('editScoreTypeForm').classList.remove('hidden');
+
+    // Scroll to form
+    document.getElementById('editScoreTypeForm').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// Hide edit form
+function hideEditScoreTypeForm() {
+    document.getElementById('editScoreTypeForm').classList.add('hidden');
+}
+
+// Save edited score type
+async function saveScoreTypeEdit() {
+    const typeId = document.getElementById('editScoreTypeId').value;
+    const newLabel = document.getElementById('editScoreTypeLabel').value.trim();
+    const allowMultiple = document.getElementById('editScoreTypeMultiple').value === 'true';
+
+    if (!newLabel) {
+        showNotification('الرجاء إدخال الاسم العربي', 'error');
+        return;
+    }
+
+    const scoreType = SCORE_TYPES[typeId];
+    if (!scoreType) {
+        showNotification('نوع النقاط غير موجود', 'error');
+        return;
+    }
+
+    console.log('💾 Saving score type edit:', typeId, { newLabel, allowMultiple });
 
     // Update local data
     SCORE_TYPES[typeId] = {
         ...scoreType,
-        label: newLabel.trim(),
+        label: newLabel,
         allowMultiplePerDay: allowMultiple
     };
     console.log('✅ Score type updated locally:', typeId, SCORE_TYPES[typeId]);
@@ -2741,6 +2830,7 @@ async function editScoreType(typeId) {
         }
     }
 
+    hideEditScoreTypeForm();
     updateScoreTypeSelects();
     renderScoreTypesList();
     showNotification('✅ تم تحديث نوع النقاط بنجاح وتم مزامنته مع جميع المستخدمين', 'success');
