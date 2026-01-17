@@ -2615,11 +2615,33 @@ function renderScoreTypesList() {
     container.innerHTML = html;
 }
 
+// Update multiple indicator to show current selection
+function updateMultipleIndicator(formType) {
+    const selectId = formType === 'Add' ? 'newScoreTypeMultiple' : 'editScoreTypeMultiple';
+    const indicatorId = `multipleIndicator${formType}`;
+
+    const select = document.getElementById(selectId);
+    const indicator = document.getElementById(indicatorId);
+
+    if (!select || !indicator) return;
+
+    const value = select.value;
+
+    if (value === 'true') {
+        indicator.textContent = '✅ نعم';
+        indicator.className = 'selection-indicator indicator-yes';
+    } else {
+        indicator.textContent = '❌ لا';
+        indicator.className = 'selection-indicator indicator-no';
+    }
+}
+
 function showAddScoreTypeForm() {
     document.getElementById('addScoreTypeForm').classList.remove('hidden');
     document.getElementById('newScoreTypeId').value = '';
     document.getElementById('newScoreTypeLabel').value = '';
     document.getElementById('newScoreTypeMultiple').value = 'false';
+    updateMultipleIndicator('Add');
 }
 
 function hideAddScoreTypeForm() {

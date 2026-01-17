@@ -405,10 +405,10 @@
                         <input type="text" id="newScoreTypeLabel" placeholder="مثال: الواجب المنزلي">
                     </div>
                     <div class="form-group">
-                        <label>السماح بالتسجيل أكثر من مرة في اليوم:</label>
-                        <select id="newScoreTypeMultiple">
-                            <option value="false">لا (مرة واحدة فقط)</option>
-                            <option value="true">نعم (عدة مرات)</option>
+                        <label>تسجيل متعدد: <span id="multipleIndicatorAdd" class="selection-indicator"></span></label>
+                        <select id="newScoreTypeMultiple" onchange="updateMultipleIndicator('Add')">
+                            <option value="false">❌ لا (مرة واحدة فقط)</option>
+                            <option value="true">✅ نعم (عدة مرات)</option>
                         </select>
                     </div>
                     <div class="form-actions">
