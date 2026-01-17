@@ -809,8 +809,9 @@ async function checkLoginStatus() {
     if (storedPhone && storedPassword && adminsData[storedPhone]) {
         const admin = adminsData[storedPhone];
 
-        // Verify stored password still matches
-        if (admin.password === storedPassword) {
+        // Verify stored password still matches (decrypt stored password and compare)
+        const decryptedPassword = decryptPassword(admin.password);
+        if (decryptedPassword === storedPassword) {
             // Auto-login
             currentAdmin = admin.name;
             currentAdminData = admin;
@@ -939,18 +940,22 @@ async function onScanSuccess(decodedText, decodedResult) {
 
     // Look up student data in qrCodesData
     let qrRecord = Object.values(qrCodesData).find(qr =>
-        qr.name.toLowerCase() === studentName.toLowerCase()
+        qr.name.toLowerCase().trim() === studentName.toLowerCase().trim()
     );
 
     let additionalInfo = '';
     let isNewRecord = false;
+    let displayName = studentName; // Default to scanned name
 
     if (qrRecord) {
         // Existing record - use data from database
         console.log('Found existing QR record:', qrRecord);
         scannedQRData = qrRecord;
 
-        // Build info string
+        // Use the name from database record (clean, no encoding issues)
+        displayName = qrRecord.name;
+
+        // Build info string from database record
         const infoParts = [];
         if (qrRecord.academicYear) infoParts.push(`السنة: ${qrRecord.academicYear}`);
         if (qrRecord.phone) infoParts.push(`الهاتف: ${qrRecord.phone}`);
@@ -961,9 +966,13 @@ async function onScanSuccess(decodedText, decodedResult) {
         console.log('QR not found in system, creating new record');
         isNewRecord = true;
 
-        const qrId = sanitizeFirebaseKey(studentName) + '_' + Date.now();
+        // Clean the student name before saving
+        const cleanedName = studentName.replace(/\?/g, ' ').replace(/\s+/g, ' ').trim();
+        displayName = cleanedName;
+
+        const qrId = sanitizeFirebaseKey(cleanedName) + '_' + Date.now();
         const newQRData = {
-            name: studentName,
+            name: cleanedName,
             academicYear: '',
             phone: '',
             team: '',
@@ -986,15 +995,15 @@ async function onScanSuccess(decodedText, decodedResult) {
         renderQRCodesTable();
     }
 
-    // Show scoring form with the scanned name
-    document.getElementById('studentName').value = studentName;
+    // Show scoring form with the database name (not the scanned raw text)
+    document.getElementById('studentName').value = displayName;
     document.getElementById('scoreType').value = '';
     document.getElementById('score').value = '1'; // Default 1 point
     document.getElementById('scoringForm').classList.remove('hidden');
 
     const message = isNewRecord
-        ? `تم إضافة المخدوم: ${studentName} - يمكنك الآن اختيار نوع النشاط`
-        : `اسم المخدوم: ${studentName}${additionalInfo}`;
+        ? `تم إضافة المخدوم: ${displayName} - يمكنك الآن اختيار نوع النشاط`
+        : `اسم المخدوم: ${displayName}${additionalInfo}`;
 
     showNotification(message, 'success');
 }
