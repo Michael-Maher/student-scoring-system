@@ -1091,22 +1091,31 @@ header h1 {
     gap: 5px;
 }
 
+/* Gold gradient background for church name */
+.logo-text-gold {
+    background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+    padding: 15px 25px;
+    border-radius: 15px;
+    box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4);
+    animation: pulse 2s infinite;
+}
+
 .logo-text-line1 {
-    color: white;
+    color: #000;
     font-size: 1.8rem;
     font-weight: 700;
     margin: 0;
-    text-shadow: 2px 2px 8px rgba(0,0,0,0.5);
+    text-shadow: 1px 1px 3px rgba(255,255,255,0.3);
     font-family: 'Cairo', sans-serif;
     line-height: 1.2;
 }
 
 .logo-text-line2 {
-    color: white;
+    color: #000;
     font-size: 1.4rem;
     font-weight: 600;
     margin: 0;
-    text-shadow: 2px 2px 8px rgba(0,0,0,0.5);
+    text-shadow: 1px 1px 3px rgba(255,255,255,0.3);
     font-family: 'Cairo', sans-serif;
     line-height: 1.2;
 }
