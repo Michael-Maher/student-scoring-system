@@ -2759,8 +2759,13 @@ async function addScoreType() {
 
 // Show edit form (as modal popup)
 function editScoreType(typeId) {
+    console.log('🔍 editScoreType called with typeId:', typeId);
+
     const scoreType = SCORE_TYPES[typeId];
-    if (!scoreType) return;
+    if (!scoreType) {
+        console.error('❌ Score type not found:', typeId);
+        return;
+    }
 
     console.log('✏️ Opening edit modal for score type:', typeId, scoreType);
 
@@ -2777,16 +2782,26 @@ function editScoreType(typeId) {
     updateMultipleIndicator('Edit');
 
     // Show modal
-    document.getElementById('editScoreTypeModal').classList.remove('hidden');
+    const modal = document.getElementById('editScoreTypeModal');
+    console.log('📦 Modal element:', modal);
+    if (modal) {
+        modal.classList.remove('hidden');
+        console.log('✅ Modal shown');
+    } else {
+        console.error('❌ Modal element not found!');
+    }
 }
 
 // Hide edit form modal
 function hideEditScoreTypeForm() {
-    document.getElementById('editScoreTypeModal').classList.add('hidden');
+    const modal = document.getElementById('editScoreTypeModal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
 }
 
-// Close modal when clicking on backdrop
-document.addEventListener('DOMContentLoaded', function() {
+// Setup modal backdrop click handler
+function setupEditModalBackdrop() {
     const modalOverlay = document.getElementById('editScoreTypeModal');
     if (modalOverlay) {
         modalOverlay.addEventListener('click', function(e) {
@@ -2796,7 +2811,14 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-});
+}
+
+// Call setup when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupEditModalBackdrop);
+} else {
+    setupEditModalBackdrop();
+}
 
 // Save edited score type
 async function saveScoreTypeEdit() {
