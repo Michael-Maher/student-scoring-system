@@ -802,7 +802,7 @@ function initializeQRScanner() {
 // Store scanned QR data temporarily
 let scannedQRData = null;
 
-function onScanSuccess(decodedText, decodedResult) {
+async function onScanSuccess(decodedText, decodedResult) {
     console.log(`QR Code detected: ${decodedText}`);
 
     // Check permission
@@ -820,24 +820,65 @@ function onScanSuccess(decodedText, decodedResult) {
         }
     }
 
-    // Check if this is a new format QR (pipe-delimited) or old format (just name)
+    // Extract student name from QR code
+    // Support both old format (name|year|phone|team) and new format (name only)
     let studentName = decodedText.trim();
-    let additionalInfo = '';
-    scannedQRData = null; // Reset
 
     if (decodedText.includes('|')) {
-        // New format: name|year|phone|team
-        const qrData = decodeQRData(decodedText);
-        if (qrData && qrData.name) {
-            studentName = qrData.name;
-            scannedQRData = qrData; // Store for later use
-            // Build additional info string
-            const infoParts = [];
-            if (qrData.academicYear) infoParts.push(`السنة: ${qrData.academicYear}`);
-            if (qrData.phone) infoParts.push(`الهاتف: ${qrData.phone}`);
-            if (qrData.team) infoParts.push(`الفريق: ${qrData.team}`);
-            additionalInfo = infoParts.length > 0 ? ` (${infoParts.join(', ')})` : '';
-        }
+        // Old format: extract name from pipe-delimited string
+        const parts = decodedText.split('|');
+        studentName = parts[0] || decodedText.trim();
+    }
+
+    console.log('Scanned student name:', studentName);
+
+    // Look up student data in qrCodesData
+    let qrRecord = Object.values(qrCodesData).find(qr =>
+        qr.name.toLowerCase() === studentName.toLowerCase()
+    );
+
+    let additionalInfo = '';
+    let isNewRecord = false;
+
+    if (qrRecord) {
+        // Existing record - use data from database
+        console.log('Found existing QR record:', qrRecord);
+        scannedQRData = qrRecord;
+
+        // Build info string
+        const infoParts = [];
+        if (qrRecord.academicYear) infoParts.push(`السنة: ${qrRecord.academicYear}`);
+        if (qrRecord.phone) infoParts.push(`الهاتف: ${qrRecord.phone}`);
+        if (qrRecord.team) infoParts.push(`الفريق: ${qrRecord.team}`);
+        additionalInfo = infoParts.length > 0 ? ` (${infoParts.join(', ')})` : '';
+    } else {
+        // New QR code not in system - create record automatically
+        console.log('QR not found in system, creating new record');
+        isNewRecord = true;
+
+        const qrId = sanitizeFirebaseKey(studentName) + '_' + Date.now();
+        const newQRData = {
+            name: studentName,
+            academicYear: '',
+            phone: '',
+            team: '',
+            createdAt: new Date().toISOString(),
+            createdBy: currentAdmin
+        };
+
+        // Add to local data
+        qrCodesData[qrId] = newQRData;
+        scannedQRData = newQRData;
+
+        // Save to Firebase
+        await saveQRCodesToFirebase(qrId, newQRData);
+
+        console.log('Created new QR record:', qrId, newQRData);
+        additionalInfo = ' (جديد - لم يتم تسجيل البيانات بعد)';
+
+        // Update filter dropdowns and table
+        populateFilterDropdowns();
+        renderQRCodesTable();
     }
 
     // Show scoring form with the scanned name
@@ -846,7 +887,11 @@ function onScanSuccess(decodedText, decodedResult) {
     document.getElementById('score').value = '1'; // Default 1 point
     document.getElementById('scoringForm').classList.remove('hidden');
 
-    showNotification(`اسم المخدوم: ${studentName}${additionalInfo}`, 'success');
+    const message = isNewRecord
+        ? `تم إضافة المخدوم: ${studentName} - يمكنك الآن اختيار نوع النشاط`
+        : `اسم المخدوم: ${studentName}${additionalInfo}`;
+
+    showNotification(message, 'success');
 }
 
 function onScanFailure(error) {
@@ -2778,16 +2823,13 @@ async function generateQRCode() {
         return;
     }
 
-    // Check for duplicates
+    // Check for duplicate names (name must be unique)
     const isDuplicate = Object.values(qrCodesData).some(qr =>
-        qr.name.toLowerCase() === name.toLowerCase() &&
-        qr.academicYear === academicYear &&
-        qr.phone === phone &&
-        qr.team === team
+        qr.name.toLowerCase() === name.toLowerCase()
     );
 
     if (isDuplicate) {
-        showNotification('هذا الرمز موجود بالفعل بنفس البيانات', 'error');
+        showNotification('يوجد مخدوم بهذا الاسم بالفعل. الرجاء استخدام اسم مختلف', 'error');
         return;
     }
 
@@ -3062,17 +3104,14 @@ async function saveQREdit(qrId) {
         return;
     }
 
-    // Check for duplicates (excluding current QR)
+    // Check for duplicate names (excluding current QR being edited)
     const isDuplicate = Object.entries(qrCodesData).some(([id, qr]) =>
         id !== qrId &&
-        qr.name.toLowerCase() === newName.toLowerCase() &&
-        qr.academicYear === newAcademicYear &&
-        qr.phone === newPhone &&
-        qr.team === newTeam
+        qr.name.toLowerCase() === newName.toLowerCase()
     );
 
     if (isDuplicate) {
-        showNotification('يوجد رمز QR آخر بنفس هذه البيانات', 'error');
+        showNotification('يوجد مخدوم آخر بهذا الاسم. الرجاء استخدام اسم مختلف', 'error');
         return;
     }
 
@@ -3103,14 +3142,9 @@ function downloadQRCode(qrId) {
         return;
     }
 
-    // Create compact QR data string (pipe-delimited format: name|year|phone|team)
-    // This reduces data size significantly compared to JSON
-    const qrDataString = [
-        qr.name || '',
-        qr.academicYear || '',
-        qr.phone || '',
-        qr.team || ''
-    ].join('|');
+    // QR code contains only the student name (which is unique)
+    // All other data (phone, team, year) is looked up from database when scanned
+    const qrDataString = qr.name;
 
     // Create a temporary container for QR code
     const tempContainer = document.createElement('div');
