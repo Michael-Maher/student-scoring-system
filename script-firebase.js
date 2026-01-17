@@ -482,8 +482,10 @@ async function submitSignupRequest() {
             requestedAt: new Date().toISOString()
         };
 
+        console.log('📤 Saving signup request to Firebase:', requestData);
         const requestRef = window.firebase.ref(window.firebase.database, `signupRequests/${phone}`);
         await window.firebase.set(requestRef, requestData);
+        console.log('✅ Signup request saved to Firebase successfully');
 
         // Send SMS notification to head admins
         await notifyHeadAdmins(name, phone);
@@ -655,6 +657,42 @@ function initializeFirebaseSync() {
 
     firebaseListeners.push(unsubscribeQRCodes);
     console.log('✅ Firebase QR codes listener registered');
+
+    // ===== SIGNUP REQUESTS SYNC =====
+    const signupRequestsRef = window.firebase.ref(window.firebase.database, 'signupRequests');
+    console.log('📡 Setting up Firebase listener for signup requests data');
+
+    const unsubscribeSignupRequests = window.firebase.onValue(signupRequestsRef, (snapshot) => {
+        const timestamp = new Date().toLocaleTimeString();
+        console.log(`📥 [${timestamp}] Firebase signup requests data received:`, snapshot.exists());
+
+        if (snapshot.exists()) {
+            const newData = snapshot.val() || {};
+            const requestsCount = Object.keys(newData).length;
+            const pendingCount = Object.values(newData).filter(req => req.status === 'pending').length;
+
+            console.log(`✅ [${timestamp}] Signup requests loaded from Firebase:`, requestsCount, 'total (', pendingCount, 'pending)');
+
+            // Update badge with pending count
+            updateRequestsBadge(pendingCount);
+
+            // Update signup requests section if it's currently visible
+            if (isHeadAdmin() && !document.getElementById('signupRequestsSection').classList.contains('hidden')) {
+                console.log('📊 Signup requests section is visible, re-rendering');
+                renderPendingRequestsFromData(newData);
+            } else {
+                console.log('📱 Signup requests section not visible, skipping render');
+            }
+        } else {
+            console.log('ℹ️ No signup requests in Firebase yet');
+            updateRequestsBadge(0);
+        }
+    }, (error) => {
+        console.error('❌ Firebase signup requests sync error:', error);
+    });
+
+    firebaseListeners.push(unsubscribeSignupRequests);
+    console.log('✅ Firebase signup requests listener registered');
 }
 
 function saveToFirebase(studentId, studentData) {
@@ -2073,12 +2111,24 @@ function renderAdminsList() {
 }
 
 // Update requests badge count
-async function updateRequestsBadge() {
+async function updateRequestsBadge(pendingCount = null) {
     if (!isHeadAdmin()) return;
 
     const badge = document.getElementById('requestsBadge');
     if (!badge) return;
 
+    // If pendingCount is provided, use it directly (from real-time listener)
+    if (pendingCount !== null) {
+        if (pendingCount > 0) {
+            badge.textContent = pendingCount;
+            badge.classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
+        }
+        return;
+    }
+
+    // Otherwise, fetch from Firebase (backward compatibility)
     if (!window.firebase || !window.firebase.database) {
         badge.classList.add('hidden');
         return;
@@ -2094,10 +2144,10 @@ async function updateRequestsBadge() {
         }
 
         const requests = snapshot.val();
-        const pendingCount = Object.values(requests).filter(req => req.status === 'pending').length;
+        const count = Object.values(requests).filter(req => req.status === 'pending').length;
 
-        if (pendingCount > 0) {
-            badge.textContent = pendingCount;
+        if (count > 0) {
+            badge.textContent = count;
             badge.classList.remove('hidden');
         } else {
             badge.classList.add('hidden');
@@ -2106,6 +2156,44 @@ async function updateRequestsBadge() {
         console.error('Error updating requests badge:', error);
         badge.classList.add('hidden');
     }
+}
+
+// Render pending signup requests from data (used by real-time listener)
+function renderPendingRequestsFromData(requestsData) {
+    if (!isHeadAdmin()) return;
+
+    const container = document.getElementById('pendingRequestsList');
+    if (!container) return;
+
+    const pendingRequests = Object.entries(requestsData).filter(([_, req]) => req.status === 'pending');
+
+    if (pendingRequests.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #ffffff; font-style: italic;">لا توجد طلبات معلقة</p>';
+        return;
+    }
+
+    let html = '';
+    pendingRequests.forEach(([phone, request]) => {
+        const requestDate = new Date(request.requestedAt).toLocaleDateString('ar-EG');
+        html += `
+            <div class="request-card">
+                <div class="request-header">
+                    <div class="request-avatar">${request.name.charAt(0).toUpperCase()}</div>
+                    <div class="request-info">
+                        <h4>${request.name}</h4>
+                        <p class="request-phone">${request.phone}</p>
+                        <p class="request-date">تاريخ الطلب: ${requestDate}</p>
+                    </div>
+                </div>
+                <div class="request-actions">
+                    <button onclick="approveSignupRequest('${phone}')" class="approve-btn">✓ قبول</button>
+                    <button onclick="rejectSignupRequest('${phone}')" class="reject-btn">✗ رفض</button>
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
 }
 
 // Render pending signup requests
@@ -3067,18 +3155,26 @@ async function loadQRCodes() {
 
 // Save QR codes to Firebase and localStorage
 async function saveQRCodesToFirebase(qrId, qrData) {
+    console.log('💾 saveQRCodesToFirebase called for:', qrId, qrData);
+
     // Save to localStorage
     localStorage.setItem('qrCodesData', JSON.stringify(qrCodesData));
+    console.log('✅ Saved to localStorage');
 
     // Save to Firebase
     if (window.firebase && window.firebase.database) {
         try {
+            console.log('📤 Saving to Firebase at path: qrcodes/' + qrId);
             const qrRef = window.firebase.ref(window.firebase.database, `qrcodes/${qrId}`);
             await window.firebase.set(qrRef, qrData);
+            console.log('✅ Successfully saved to Firebase');
         } catch (error) {
-            console.error('Error saving QR code to Firebase:', error);
-            showNotification('حدث خطأ في حفظ QR للخادم', 'error');
+            console.error('❌ Error saving QR code to Firebase:', error);
+            console.error('Error details:', error.code, error.message);
+            showNotification('حدث خطأ في حفظ QR للخادم: ' + error.message, 'error');
         }
+    } else {
+        console.warn('⚠️ Firebase not available - only saved to localStorage');
     }
 }
 
