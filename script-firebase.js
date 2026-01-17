@@ -3144,38 +3144,37 @@ function decodeQRData(qrString) {
     }
 }
 
-// Load QR codes from Firebase and localStorage
+// Load QR codes from localStorage only
+// Firebase real-time listener (initializeFirebaseSync) handles Firebase data loading
 async function loadQRCodes() {
-    // Load from localStorage first
+    // Load from localStorage
     const stored = localStorage.getItem('qrCodesData');
     if (stored) {
         try {
             qrCodesData = JSON.parse(stored);
+            console.log('✅ Loaded QR codes from localStorage:', Object.keys(qrCodesData).length, 'codes');
         } catch (error) {
             console.error('Error parsing QR codes from localStorage:', error);
             qrCodesData = {};
         }
+    } else {
+        qrCodesData = {};
+        console.log('ℹ️ No QR codes in localStorage, waiting for Firebase sync...');
     }
 
-    // Load from Firebase
-    if (window.firebase && window.firebase.database) {
-        try {
-            const qrRef = window.firebase.ref(window.firebase.database, 'qrcodes');
-            const snapshot = await window.firebase.get(qrRef);
-            if (snapshot.exists()) {
-                qrCodesData = snapshot.val();
-                // Save to localStorage
-                localStorage.setItem('qrCodesData', JSON.stringify(qrCodesData));
-            }
-        } catch (error) {
-            console.error('Error loading QR codes from Firebase:', error);
-        }
-    }
+    // Real-time listener will sync from Firebase automatically when ready
 }
 
 // Save QR codes to Firebase and localStorage
 async function saveQRCodesToFirebase(qrId, qrData) {
     console.log('💾 saveQRCodesToFirebase called for:', qrId, qrData);
+
+    // Validate qrData
+    if (!qrData || !qrData.name) {
+        console.error('❌ Invalid QR data - missing name!', qrData);
+        showNotification('خطأ: بيانات QR غير صالحة', 'error');
+        return;
+    }
 
     // Save to localStorage
     localStorage.setItem('qrCodesData', JSON.stringify(qrCodesData));
@@ -3183,15 +3182,28 @@ async function saveQRCodesToFirebase(qrId, qrData) {
 
     // Save to Firebase
     if (window.firebase && window.firebase.database) {
+        // Check if user is authenticated
+        if (!window.firebase.auth || !window.firebase.auth.currentUser) {
+            console.warn('⚠️ Firebase auth not ready yet, data saved to localStorage');
+            showNotification('تم الحفظ محلياً - جاري المزامنة مع الخادم...', 'info');
+            return;
+        }
+
         try {
             console.log('📤 Saving to Firebase at path: qrcodes/' + qrId);
+            console.log('📤 User authenticated:', window.firebase.auth.currentUser.uid);
             const qrRef = window.firebase.ref(window.firebase.database, `qrcodes/${qrId}`);
             await window.firebase.set(qrRef, qrData);
             console.log('✅ Successfully saved to Firebase');
         } catch (error) {
             console.error('❌ Error saving QR code to Firebase:', error);
             console.error('Error details:', error.code, error.message);
-            showNotification('حدث خطأ في حفظ QR للخادم: ' + error.message, 'error');
+
+            if (error.code === 'PERMISSION_DENIED') {
+                showNotification('⚠️ خطأ في الصلاحيات - تم الحفظ محلياً فقط', 'warning');
+            } else {
+                showNotification('حدث خطأ في حفظ QR للخادم: ' + error.message, 'error');
+            }
         }
     } else {
         console.warn('⚠️ Firebase not available - only saved to localStorage');
@@ -3550,9 +3562,21 @@ function downloadQRCode(qrId) {
         return;
     }
 
+    console.log('📥 Downloading QR for:', qrId);
+    console.log('📥 QR Data:', qr);
+    console.log('📥 Student Name:', qr.name);
+
     // QR code contains only the student name (which is unique)
     // All other data (phone, team, year) is looked up from database when scanned
     const qrDataString = qr.name;
+
+    if (!qrDataString || qrDataString.trim() === '') {
+        console.error('❌ Empty QR data string!');
+        showNotification('خطأ: اسم المخدوم فارغ في قاعدة البيانات', 'error');
+        return;
+    }
+
+    console.log('✅ QR Data String:', qrDataString);
 
     // Create a temporary container for QR code
     const tempContainer = document.createElement('div');
@@ -3719,8 +3743,20 @@ function downloadBookmark(qrId) {
         return;
     }
 
+    console.log('🔖 Downloading Bookmark for:', qrId);
+    console.log('🔖 QR Data:', qr);
+    console.log('🔖 Student Name:', qr.name);
+
     // QR code contains only the student name (consistent with downloadQRCode)
     const qrDataString = qr.name;
+
+    if (!qrDataString || qrDataString.trim() === '') {
+        console.error('❌ Empty QR data string for bookmark!');
+        showNotification('خطأ: اسم المخدوم فارغ في قاعدة البيانات', 'error');
+        return;
+    }
+
+    console.log('✅ Bookmark QR Data String:', qrDataString);
 
     // Create a temporary container for QR code generation
     const tempContainer = document.createElement('div');

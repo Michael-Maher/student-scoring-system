@@ -15,6 +15,14 @@
       ".read": "auth != null",
       ".write": "auth != null"
     },
+    "adminsData": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "signupRequests": {
+      ".read": "auth != null",
+      ".write": true
+    },
     "scoreTypes": {
       ".read": "auth != null",
       ".write": "auth != null"
