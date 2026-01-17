@@ -3218,11 +3218,11 @@ function downloadQRCode(qrId) {
     document.body.appendChild(tempContainer);
 
     try {
-        // Generate QR code with medium error correction
+        // Generate QR code with medium error correction (larger size: 700px)
         const qrcode = new QRCode(tempContainer, {
             text: qrDataString,
-            width: 512,
-            height: 512,
+            width: 700,
+            height: 700,
             colorDark: '#000000',
             colorLight: '#ffffff',
             correctLevel: QRCode.CorrectLevel.M
@@ -3234,9 +3234,9 @@ function downloadQRCode(qrId) {
             if (qrCanvas) {
                 // Create a new canvas with extra height for the name
                 const finalCanvas = document.createElement('canvas');
-                const qrSize = 512;
-                const textHeight = 80; // Height for text area
-                const padding = 20; // Padding around text
+                const qrSize = 700; // Increased from 512 to 700
+                const textHeight = 100; // Increased height for larger text
+                const padding = 30; // Increased padding
 
                 finalCanvas.width = qrSize;
                 finalCanvas.height = qrSize + textHeight;
@@ -3247,12 +3247,74 @@ function downloadQRCode(qrId) {
                 ctx.fillStyle = '#ffffff';
                 ctx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
 
-                // Draw QR code
+                // Apply purple-black gradient to QR code (top to bottom)
+                // First, draw the QR code
                 ctx.drawImage(qrCanvas, 0, 0);
 
-                // Draw student name below QR code
+                // Create gradient overlay (purple at top, black at bottom)
+                const gradient = ctx.createLinearGradient(0, 0, 0, qrSize);
+                gradient.addColorStop(0, '#8B5CF6');    // Purple at top
+                gradient.addColorStop(1, '#000000');    // Black at bottom
+
+                // Apply gradient only to the black parts of the QR code
+                ctx.globalCompositeOperation = 'source-in';
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, qrSize, qrSize);
+
+                // Reset composite operation for drawing text
+                ctx.globalCompositeOperation = 'source-over';
+
+                // Draw white background again (for text area)
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, qrSize, qrSize, textHeight);
+
+                // Redraw QR with gradient
+                const qrImageData = ctx.getImageData(0, 0, qrSize, qrSize);
+
+                // Clear and redraw properly
+                ctx.clearRect(0, 0, finalCanvas.width, finalCanvas.height);
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
+
+                // Draw original QR
+                const tempGradientCanvas = document.createElement('canvas');
+                tempGradientCanvas.width = qrSize;
+                tempGradientCanvas.height = qrSize;
+                const tempCtx = tempGradientCanvas.getContext('2d');
+
+                // Draw QR code on temp canvas
+                tempCtx.drawImage(qrCanvas, 0, 0);
+
+                // Get image data to manipulate pixels
+                const imageData = tempCtx.getImageData(0, 0, qrSize, qrSize);
+                const data = imageData.data;
+
+                // Apply gradient to dark pixels
+                for (let y = 0; y < qrSize; y++) {
+                    const gradientRatio = y / qrSize;
+                    // Purple: #8B5CF6 -> RGB(139, 92, 246)
+                    // Black: #000000 -> RGB(0, 0, 0)
+                    const r = Math.round(139 * (1 - gradientRatio));
+                    const g = Math.round(92 * (1 - gradientRatio));
+                    const b = Math.round(246 * (1 - gradientRatio));
+
+                    for (let x = 0; x < qrSize; x++) {
+                        const index = (y * qrSize + x) * 4;
+                        // If pixel is dark (QR code dark part)
+                        if (data[index] < 128) {
+                            data[index] = r;     // R
+                            data[index + 1] = g; // G
+                            data[index + 2] = b; // B
+                        }
+                    }
+                }
+
+                tempCtx.putImageData(imageData, 0, 0);
+                ctx.drawImage(tempGradientCanvas, 0, 0);
+
+                // Draw student name below QR code (larger font)
                 ctx.fillStyle = '#000000';
-                ctx.font = 'bold 32px Arial, sans-serif';
+                ctx.font = 'bold 42px Arial, sans-serif'; // Increased from 32px to 42px
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
 
@@ -3275,8 +3337,8 @@ function downloadQRCode(qrId) {
                 }
                 lines.push(line);
 
-                // Draw lines centered
-                const lineHeight = 36;
+                // Draw lines centered (adjusted for larger font)
+                const lineHeight = 48; // Increased from 36 to 48 for larger font
                 const startY = qrSize + (textHeight / 2) - ((lines.length - 1) * lineHeight / 2);
 
                 lines.forEach((line, index) => {
