@@ -531,11 +531,12 @@ function initializeFirebaseSync() {
         return;
     }
 
+    // ===== STUDENTS SYNC =====
     const studentsRef = window.firebase.ref(window.firebase.database, 'students');
     console.log('📡 Setting up Firebase listener for students data');
 
     // Listen for real-time updates
-    const unsubscribe = window.firebase.onValue(studentsRef, (snapshot) => {
+    const unsubscribeStudents = window.firebase.onValue(studentsRef, (snapshot) => {
         const timestamp = new Date().toLocaleTimeString();
         console.log(`📥 [${timestamp}] Firebase students data received:`, snapshot.exists());
         if (snapshot.exists()) {
@@ -608,8 +609,52 @@ function initializeFirebaseSync() {
         loadStoredData();
     });
 
-    firebaseListeners.push(unsubscribe);
-    console.log('✅ Firebase listener registered');
+    firebaseListeners.push(unsubscribeStudents);
+    console.log('✅ Firebase students listener registered');
+
+    // ===== QR CODES SYNC =====
+    const qrCodesRef = window.firebase.ref(window.firebase.database, 'qrcodes');
+    console.log('📡 Setting up Firebase listener for QR codes data');
+
+    const unsubscribeQRCodes = window.firebase.onValue(qrCodesRef, (snapshot) => {
+        const timestamp = new Date().toLocaleTimeString();
+        console.log(`📥 [${timestamp}] Firebase QR codes data received:`, snapshot.exists());
+        if (snapshot.exists()) {
+            const newData = snapshot.val() || {};
+            const qrCount = Object.keys(newData).length;
+            const previousCount = Object.keys(qrCodesData).length;
+
+            console.log(`✅ [${timestamp}] QR codes data loaded from Firebase:`, qrCount, 'QR codes (was', previousCount, ')');
+
+            // Check if data actually changed
+            if (JSON.stringify(qrCodesData) !== JSON.stringify(newData)) {
+                console.log('🔄 QR codes data changed, updating local qrCodesData');
+                qrCodesData = newData;
+
+                // Save to localStorage
+                localStorage.setItem('qrCodesData', JSON.stringify(qrCodesData));
+
+                // Update QR dashboard if it's currently visible
+                if (!document.getElementById('qrSection').classList.contains('hidden')) {
+                    console.log('📊 QR dashboard is visible, re-rendering table');
+                    renderQRCodesTable();
+                    populateFilterDropdowns();
+                } else {
+                    console.log('📱 QR dashboard not visible, skipping render');
+                }
+            } else {
+                console.log('ℹ️ QR codes data unchanged, skipping update');
+            }
+        } else {
+            qrCodesData = {};
+            console.log('ℹ️ No QR codes data in Firebase yet');
+        }
+    }, (error) => {
+        console.error('❌ Firebase QR codes sync error:', error);
+    });
+
+    firebaseListeners.push(unsubscribeQRCodes);
+    console.log('✅ Firebase QR codes listener registered');
 }
 
 function saveToFirebase(studentId, studentData) {
@@ -3024,14 +3069,26 @@ async function generateQRCode() {
         return;
     }
 
-    const name = document.getElementById('qrStudentName').value.trim();
+    const rawName = document.getElementById('qrStudentName').value.trim();
     const academicYear = document.getElementById('qrAcademicYear').value.trim();
     const phone = document.getElementById('qrPhone').value.trim();
     const team = document.getElementById('qrTeam').value.trim();
 
     // Validation
-    if (!name) {
+    if (!rawName) {
         showNotification('الرجاء إدخال اسم المخدوم', 'error');
+        return;
+    }
+
+    // Clean the name: remove special characters like ?, replace with proper spaces
+    const cleanedName = rawName
+        .replace(/\?/g, ' ')           // Replace ? with space
+        .replace(/[^\u0600-\u06FF\s\w]/g, ' ')  // Remove non-Arabic, non-alphanumeric except spaces
+        .replace(/\s+/g, ' ')          // Replace multiple spaces with single space
+        .trim();
+
+    if (!cleanedName) {
+        showNotification('الاسم غير صالح بعد إزالة الأحرف الخاصة', 'error');
         return;
     }
 
@@ -3043,7 +3100,7 @@ async function generateQRCode() {
 
     // Check for duplicate names (name must be unique)
     const isDuplicate = Object.values(qrCodesData).some(qr =>
-        qr.name.toLowerCase() === name.toLowerCase()
+        qr.name.toLowerCase() === cleanedName.toLowerCase()
     );
 
     if (isDuplicate) {
@@ -3051,9 +3108,9 @@ async function generateQRCode() {
         return;
     }
 
-    // Create QR data object
+    // Create QR data object with cleaned name
     const qrData = {
-        name,
+        name: cleanedName,
         academicYear: academicYear || '',
         phone: phone || '',
         team: team || '',
@@ -3062,12 +3119,12 @@ async function generateQRCode() {
     };
 
     // Generate unique ID
-    const qrId = sanitizeFirebaseKey(name) + '_' + Date.now();
+    const qrId = sanitizeFirebaseKey(cleanedName) + '_' + Date.now();
 
     // Add to qrCodesData
     qrCodesData[qrId] = qrData;
 
-    // Save to Firebase
+    // Save to Firebase (real-time listener will update all users)
     await saveQRCodesToFirebase(qrId, qrData);
 
     // Show success notification
