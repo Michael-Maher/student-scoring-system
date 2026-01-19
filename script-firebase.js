@@ -3723,51 +3723,49 @@ async function saveQREdit(qrId) {
     showNotification('تم تحديث رمز QR بنجاح', 'success');
 }
 
-// Helper function to generate QR code canvas using QRCode.js
+// Helper function to generate QR code canvas using qrcode-generator library
 function generateQRCanvas(text, size) {
-    // Check if QRCode library is loaded
-    if (typeof QRCode === 'undefined') {
+    // Check if qrcode library is loaded
+    if (typeof qrcode === 'undefined') {
         throw new Error('QR library not available. Please refresh the page.');
     }
 
-    // Create a temporary container for QR generation
-    const tempDiv = document.createElement('div');
-    tempDiv.style.display = 'none';
-    document.body.appendChild(tempDiv);
-
     try {
-        // Generate QR code using QRCode.js
-        const qrcode = new QRCode(tempDiv, {
-            text: text,
-            width: size,
-            height: size,
-            colorDark: '#000000',
-            colorLight: '#ffffff',
-            correctLevel: QRCode.CorrectLevel.H  // High error correction
-        });
+        // Create QR code object with error correction level H (30%)
+        const qr = qrcode(0, 'H');  // 0 = auto typeNumber, 'H' = high error correction
+        qr.addData(text);
+        qr.make();
 
-        // Wait for QR code to render and extract the canvas
-        const canvas = tempDiv.querySelector('canvas');
-        if (!canvas) {
-            throw new Error('Failed to generate QR canvas');
+        // Get module count (size of QR matrix)
+        const moduleCount = qr.getModuleCount();
+        const cellSize = Math.floor(size / moduleCount);
+        const margin = 0; // No margin, we'll add it in the canvas
+
+        // Create canvas
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+
+        // Fill white background
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, size, size);
+
+        // Draw QR code modules
+        ctx.fillStyle = '#000000';
+        for (let row = 0; row < moduleCount; row++) {
+            for (let col = 0; col < moduleCount; col++) {
+                if (qr.isDark(row, col)) {
+                    const x = col * cellSize + margin;
+                    const y = row * cellSize + margin;
+                    ctx.fillRect(x, y, cellSize, cellSize);
+                }
+            }
         }
 
-        // Clone the canvas before removing the temp div
-        const clonedCanvas = document.createElement('canvas');
-        clonedCanvas.width = canvas.width;
-        clonedCanvas.height = canvas.height;
-        const ctx = clonedCanvas.getContext('2d');
-        ctx.drawImage(canvas, 0, 0);
-
-        // Clean up
-        document.body.removeChild(tempDiv);
-
-        return clonedCanvas;
+        return canvas;
     } catch (error) {
-        // Clean up on error
-        if (document.body.contains(tempDiv)) {
-            document.body.removeChild(tempDiv);
-        }
+        console.error('Error generating QR code:', error);
         throw error;
     }
 }
@@ -3798,7 +3796,7 @@ async function downloadQRCode(qrId) {
     console.log('✅ QR Data String length:', qrDataString.length);
 
     try {
-        console.log('🔄 Generating QR code with QRCode.js, text:', JSON.stringify(qrDataString));
+        console.log('🔄 Generating QR code with qrcode-generator, text:', JSON.stringify(qrDataString));
 
         // Generate QR code canvas
         const qrCanvas = generateQRCanvas(qrDataString, 700);
@@ -3931,8 +3929,8 @@ async function downloadBookmark(qrId) {
     console.log('✅ Bookmark QR Data String:', qrDataString);
 
     try {
-        // Generate QR code using QRCode.js library (reliable UTF-8 support)
-        console.log('🔄 Generating bookmark QR with QRCode.js');
+        // Generate QR code using qrcode-generator library (reliable UTF-8 support)
+        console.log('🔄 Generating bookmark QR with qrcode-generator');
 
         // Generate QR code canvas
         const qrCanvas = generateQRCanvas(qrDataString, 700);
