@@ -4,15 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>نظام تسجيل نقاط المخدومين</title>
-    <link rel="icon" type="image/png" href="logo.png">
-    <link rel="apple-touch-icon" href="logo.png">
+    <link rel="icon" type="image/png" href="assets/logo.png">
+    <link rel="apple-touch-icon" href="assets/logo.png">
     <link rel="stylesheet" href="styles.css">
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <!-- Using kjua library for proper UTF-8/Arabic QR code support -->
     <script src="https://unpkg.com/kjua@0.9.0/dist/kjua.min.js"></script>
     <!-- Bookmark template as base64 to avoid CORS issues -->
-    <script src="bookmark-template-data.js"></script>
+    <script src="assets/bookmark-template-data.js"></script>
 
     <!-- Firebase SDK -->
     <script type="module">
@@ -470,7 +470,8 @@
 
     <div id="notification" class="notification hidden"></div>
 
-    <script src="firebase-config.js"></script>
-    <script src="script-firebase.js?v=12.0"></script>
+    <script src="scripts/constants.js"></script>
+    <script src="scripts/firebase-config.js"></script>
+    <script src="scripts/script-firebase.js?v=15.0"></script>
 </body>
 </html>

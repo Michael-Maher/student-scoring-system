@@ -60,17 +60,41 @@ Score types can be customized by the head admin in the settings.
 
 ```
 student-scoring-system/
-├── index.html              # Main application UI
-├── script-firebase.js      # Application logic with Firebase integration
-├── firebase-config.js      # Firebase configuration and initialization
-├── styles.css              # Application styling
-├── logo.png                # Church logo
-├── sample-qr-codes.html    # QR code generator for testing
-├── README.md               # This file
-├── FIREBASE_SETUP.md       # Detailed Firebase setup guide
-├── DEPLOYMENT_GUIDE.md     # Deployment instructions
-└── QUICK_START.md          # Quick start guide
+├── assets/                      # Static assets
+│   ├── logo.png                # Church logo
+│   └── bookmark-template-data.js # Bookmark template
+├── docs/                        # Documentation
+│   ├── README.md               # This file
+│   ├── QUICK_START.md          # Quick start guide
+│   ├── FIREBASE_SETUP.md       # Firebase setup
+│   ├── DEPLOYMENT_GUIDE.md     # Deployment instructions
+│   ├── CHANGELOG.md            # Version history
+│   ├── BOOKMARK_SETUP.md       # Bookmark configuration
+│   ├── QR_FORMAT_GUIDE.md      # QR code specs
+│   ├── FIREBASE_RULES_UPDATE.md # Security rules
+│   ├── PROJECT_STRUCTURE.md    # Project organization
+│   ├── PHASE1_REFACTORING.md   # Phase 1 details
+│   ├── REFACTORING_GUIDE.md    # Migration guide
+│   └── REFACTORING_SUMMARY.md  # Refactoring summary
+├── scripts/                     # JavaScript files
+│   ├── core/                   # Core modules (NEW)
+│   │   ├── firebase-adapter.js # Firebase abstraction
+│   │   └── state-manager.js    # State management
+│   ├── constants.js            # Configuration constants
+│   ├── firebase-config.js      # Firebase initialization
+│   └── script-firebase.js      # Main application logic
+├── index.html                   # Main application UI
+├── styles.css                   # Application styling
+├── sample-qr-codes.html         # QR code generator for testing
+└── database.rules.json          # Firebase security rules
 ```
+
+**Recent Updates (v15.0):**
+- ✅ Reorganized folder structure for better maintainability
+- ✅ Created core modules (FirebaseAdapter, StateManager)
+- ✅ Extracted configuration to constants file
+- ✅ Enhanced documentation with refactoring guides
+- ✅ See `docs/REFACTORING_SUMMARY.md` for details
 
 ## Technical Details
 
@@ -230,8 +254,19 @@ See `DEPLOYMENT_GUIDE.md` for GitHub Pages deployment instructions.
 
 This project is created for church/educational use.
 
+## Architecture
+
+The application now includes core modules for improved maintainability:
+
+- **FirebaseAdapter** (`scripts/core/firebase-adapter.js`) - Abstraction layer for database operations
+- **StateManager** (`scripts/core/state-manager.js`) - Centralized state with Observer pattern
+- **Constants** (`scripts/constants.js`) - Single source of truth for configuration
+
+For details on the architecture and gradual migration, see `docs/REFACTORING_GUIDE.md`
+
 ## Support
 
-For Firebase setup help, see `FIREBASE_SETUP.md`
-For deployment help, see `DEPLOYMENT_GUIDE.md`
-For quick start, see `QUICK_START.md`
+For Firebase setup help, see `docs/FIREBASE_SETUP.md`
+For deployment help, see `docs/DEPLOYMENT_GUIDE.md`
+For quick start, see `docs/QUICK_START.md`
+For refactoring details, see `docs/REFACTORING_SUMMARY.md`

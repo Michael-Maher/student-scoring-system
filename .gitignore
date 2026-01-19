@@ -12,7 +12,39 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+.claude/
 
 # Temporary files
 *.tmp
 *.temp
+*~
+*.backup
+*.bak
+
+# Node modules (if added later)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Build artifacts
+dist/
+build/
+*.min.js
+*.min.css
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# Log files
+*.log
+logs/
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Lock files (optional - depends on team preference)
+package-lock.json
+yarn.lock

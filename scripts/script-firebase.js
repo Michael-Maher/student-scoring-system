@@ -3984,39 +3984,29 @@ async function downloadBookmark(qrId) {
                 // Draw gradient QR code on bookmark
                 ctx.drawImage(tempGradientCanvas, qrX, qrY, qrSize, qrSize);
 
-                // Add student name below QR code
+                // Add student name below QR code - auto-scale to fit on one line
                 ctx.fillStyle = '#000000';
-                ctx.font = 'bold 36px Arial, sans-serif'; // Larger font for better readability
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'top';
 
-                // Draw name centered below QR, with word wrap if needed
                 const nameX = qrX + (qrSize / 2);
                 const nameY = qrY + qrSize + 1; // Minimal gap between QR and name
-                const maxWidth = qrSize; // Match QR width for text wrapping
+                const maxWidth = qrSize; // Max width for text
 
-                // Simple word wrap
-                const words = qr.name.split(' ');
-                let line = '';
-                let lines = [];
+                // Start with large font and scale down if needed to fit on one line
+                let fontSize = 36; // Starting font size
+                ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+                let textWidth = ctx.measureText(qr.name).width;
 
-                for (let i = 0; i < words.length; i++) {
-                    const testLine = line + words[i] + ' ';
-                    const metrics = ctx.measureText(testLine);
-
-                    if (metrics.width > maxWidth && i > 0) {
-                        lines.push(line.trim());
-                        line = words[i] + ' ';
-                    } else {
-                        line = testLine;
-                    }
+                // Reduce font size until text fits on one line
+                while (textWidth > maxWidth && fontSize > 20) {
+                    fontSize -= 1;
+                    ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+                    textWidth = ctx.measureText(qr.name).width;
                 }
-                lines.push(line.trim());
 
-                // Draw each line with adjusted line spacing for 38px font
-                lines.forEach((textLine, index) => {
-                    ctx.fillText(textLine, nameX, nameY + (index * 40));
-                });
+                // Draw the name on a single line
+                ctx.fillText(qr.name, nameX, nameY);
 
                 // Convert to data URL and download (avoids tainted canvas issues)
                 try {
