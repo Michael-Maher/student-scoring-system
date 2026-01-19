@@ -472,10 +472,12 @@
 
     <script src="scripts/constants.js"></script>
     <script src="scripts/firebase-config.js"></script>
-    <script src="scripts/script-firebase.js?v=17.0"></script>
+    <script src="scripts/test-script.js"></script>
+    <script src="scripts/script-firebase.js?v=19.0"></script>
     <script>
         // Debug: Log when this inline script runs
         console.log('Inline script running...');
+        console.log('typeof testFunction:', typeof testFunction);
         console.log('typeof login:', typeof login);
         console.log('typeof window.login:', typeof window.login);
 
@@ -483,7 +485,7 @@
         setTimeout(() => {
             console.log('After timeout - typeof login:', typeof login);
             console.log('After timeout - typeof window.login:', typeof window.login);
-        }, 100);
+        }, 1000);
     </script>
 </body>
 </html>

@@ -1951,7 +1951,7 @@ function renderLeaderboard() {
 // ============================================
 
 // Section Registry - Single Source of Truth (Registry Pattern)
-const SECTIONS = {
+const SECTION_REGISTRY = {
     scanner: {
         id: 'scannerSection',
         navId: 'scannerNavBtn',
@@ -2064,7 +2064,7 @@ function initializeScannerIfNeeded() {
 
 // Central Section Manager (Strategy Pattern + Command Pattern)
 function showSection(sectionKey) {
-    const section = SECTIONS[sectionKey];
+    const section = SECTION_REGISTRY[sectionKey];
 
     if (!section) {
         console.error(`Section '${sectionKey}' not found in registry`);
@@ -2078,7 +2078,7 @@ function showSection(sectionKey) {
     }
 
     // Hide all sections and call their onHide hooks
-    Object.values(SECTIONS).forEach(s => {
+    Object.values(SECTION_REGISTRY).forEach(s => {
         const element = document.getElementById(s.id);
         if (element) {
             element.classList.add('hidden');
