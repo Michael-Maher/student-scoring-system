@@ -3976,24 +3976,24 @@ async function downloadBookmark(qrId) {
                 // Draw bookmark template
                 ctx.drawImage(bookmarkImg, 0, 0);
 
-                // Calculate QR position - slightly moved to trailing (right)
-                const qrSize = 200; // Smaller QR code for bookmark
-                const qrX = 47; // Slightly to trailing (right) side
-                const qrY = bookmarkImg.height - 240; // Adjusted vertical position
+                // Calculate QR position - larger QR for better scanning
+                const qrSize = 280; // Larger QR code for bookmark (increased from 200)
+                const qrX = 27; // Adjusted for larger QR
+                const qrY = bookmarkImg.height - 350; // Adjusted vertical position for larger QR
 
                 // Draw gradient QR code on bookmark
                 ctx.drawImage(tempGradientCanvas, qrX, qrY, qrSize, qrSize);
 
-                // Add student name below QR code with minimal spacing
+                // Add student name below QR code with larger font
                 ctx.fillStyle = '#000000';
-                ctx.font = 'bold 32px Arial, sans-serif'; // Increased font size for better readability
+                ctx.font = 'bold 42px Arial, sans-serif'; // Larger font for better readability (increased from 32px)
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'top';
 
                 // Draw name centered below QR, with word wrap if needed
                 const nameX = qrX + (qrSize / 2);
-                const nameY = qrY + qrSize + 1; // Minimal gap (1px) between QR and name
-                const maxWidth = 200; // Match QR width
+                const nameY = qrY + qrSize + 5; // Small gap between QR and name
+                const maxWidth = qrSize; // Match QR width for text wrapping
 
                 // Simple word wrap
                 const words = qr.name.split(' ');
@@ -4013,9 +4013,9 @@ async function downloadBookmark(qrId) {
                 }
                 lines.push(line.trim());
 
-                // Draw each line with adjusted line spacing
+                // Draw each line with adjusted line spacing for larger font
                 lines.forEach((textLine, index) => {
-                    ctx.fillText(textLine, nameX, nameY + (index * 32));
+                    ctx.fillText(textLine, nameX, nameY + (index * 45));
                 });
 
                 // Convert to data URL and download (avoids tainted canvas issues)
