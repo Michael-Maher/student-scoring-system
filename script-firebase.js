@@ -3723,20 +3723,10 @@ async function saveQREdit(qrId) {
     showNotification('تم تحديث رمز QR بنجاح', 'success');
 }
 
-// Helper function to convert string to UTF-8 byte array
-function stringToUTF8ByteArray(str) {
-    const utf8 = unescape(encodeURIComponent(str));
-    const arr = [];
-    for (let i = 0; i < utf8.length; i++) {
-        arr.push(utf8.charCodeAt(i));
-    }
-    return arr;
-}
-
-// Helper function to generate QR code canvas using qrcode-generator library
+// Helper function to generate QR code canvas using kjua library
 function generateQRCanvas(text, size) {
-    // Check if qrcode library is loaded
-    if (typeof qrcode === 'undefined') {
+    // Check if kjua library is loaded
+    if (typeof window.kjua === 'undefined') {
         throw new Error('QR library not available. Please refresh the page.');
     }
 
@@ -3745,46 +3735,22 @@ function generateQRCanvas(text, size) {
         console.log('📝 Text length:', text.length);
         console.log('📝 Character codes:', Array.from(text).map(c => c.charCodeAt(0)));
 
-        // Create QR code object with error correction level H (30%)
-        const qr = qrcode(0, 'H');  // 0 = auto typeNumber, 'H' = high error correction
+        // Generate QR code using kjua (returns a canvas element)
+        // kjua properly handles UTF-8 by default
+        const canvas = window.kjua({
+            text: text,
+            size: size,
+            ecLevel: 'H',       // High error correction (30%)
+            mode: 'plain',      // Plain mode (no logo)
+            rounded: 0,         // Square modules
+            quiet: 2,           // Quiet zone (border modules)
+            fill: '#000000',    // Black QR modules
+            back: '#ffffff',    // White background
+            render: 'canvas'    // Return canvas element
+        });
 
-        // For Arabic/UTF-8 text, we need to use byte mode
-        // Convert text to UTF-8 byte array
-        const utf8Bytes = stringToUTF8ByteArray(text);
-        console.log('📝 UTF-8 bytes:', utf8Bytes);
-
-        // Add data as byte mode for proper UTF-8 encoding
-        qr.addData(text, 'Byte');
-        qr.make();
-
-        console.log('✅ QR code generated, module count:', qr.getModuleCount());
-
-        // Get module count (size of QR matrix)
-        const moduleCount = qr.getModuleCount();
-        const cellSize = Math.floor(size / moduleCount);
-        const margin = 0; // No margin, we'll add it in the canvas
-
-        // Create canvas
-        const canvas = document.createElement('canvas');
-        canvas.width = size;
-        canvas.height = size;
-        const ctx = canvas.getContext('2d');
-
-        // Fill white background
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, size, size);
-
-        // Draw QR code modules
-        ctx.fillStyle = '#000000';
-        for (let row = 0; row < moduleCount; row++) {
-            for (let col = 0; col < moduleCount; col++) {
-                if (qr.isDark(row, col)) {
-                    const x = col * cellSize + margin;
-                    const y = row * cellSize + margin;
-                    ctx.fillRect(x, y, cellSize, cellSize);
-                }
-            }
-        }
+        console.log('✅ QR code generated successfully with kjua');
+        console.log('Canvas dimensions:', canvas.width, 'x', canvas.height);
 
         return canvas;
     } catch (error) {
@@ -3819,7 +3785,7 @@ async function downloadQRCode(qrId) {
     console.log('✅ QR Data String length:', qrDataString.length);
 
     try {
-        console.log('🔄 Generating QR code with qrcode-generator, text:', JSON.stringify(qrDataString));
+        console.log('🔄 Generating QR code with kjua, text:', JSON.stringify(qrDataString));
 
         // Generate QR code canvas
         const qrCanvas = generateQRCanvas(qrDataString, 700);
@@ -3952,8 +3918,8 @@ async function downloadBookmark(qrId) {
     console.log('✅ Bookmark QR Data String:', qrDataString);
 
     try {
-        // Generate QR code using qrcode-generator library (reliable UTF-8 support)
-        console.log('🔄 Generating bookmark QR with qrcode-generator');
+        // Generate QR code using kjua library (reliable UTF-8 support)
+        console.log('🔄 Generating bookmark QR with kjua');
 
         // Generate QR code canvas
         const qrCanvas = generateQRCanvas(qrDataString, 700);
