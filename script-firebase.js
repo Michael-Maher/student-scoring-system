@@ -1297,12 +1297,14 @@ async function submitScore() {
             lastUpdatedBy: currentAdmin
         };
     } else {
-        // Update academic year and team if they were scanned and are currently empty
+        // CRITICAL FIX: Always update academic year and team from scanned QR data
+        // This ensures records dashboard shows updated data after QR edit and re-scan
         if (scannedQRData) {
-            if (!studentsData[studentId].academicYear && scannedQRData.academicYear) {
+            // Update if QR has data (even if student record already has data)
+            if (scannedQRData.academicYear) {
                 studentsData[studentId].academicYear = scannedQRData.academicYear;
             }
-            if (!studentsData[studentId].team && scannedQRData.team) {
+            if (scannedQRData.team) {
                 studentsData[studentId].team = scannedQRData.team;
             }
         }
@@ -3648,6 +3650,8 @@ async function saveQREdit(qrId) {
         return;
     }
 
+    const oldName = qrCodesData[qrId].name;
+
     // Update QR data
     qrCodesData[qrId].name = newName;
     qrCodesData[qrId].academicYear = newAcademicYear;
@@ -3658,6 +3662,58 @@ async function saveQREdit(qrId) {
 
     // Save to Firebase (real-time listener will update the UI automatically)
     await saveQRCodesToFirebase(qrId, qrCodesData[qrId]);
+
+    // CRITICAL FIX: Update all existing student records that match the old name
+    // This ensures the records dashboard shows updated data after QR edit
+    const oldStudentId = sanitizeFirebaseKey(oldName);
+    const newStudentId = sanitizeFirebaseKey(newName);
+
+    if (studentsData[oldStudentId]) {
+        console.log(`📝 Updating student record from "${oldName}" to "${newName}"`);
+
+        // If name changed, we need to move the record to new key
+        if (oldName !== newName) {
+            // Copy to new key with updated name
+            studentsData[newStudentId] = {
+                ...studentsData[oldStudentId],
+                name: newName,
+                academicYear: newAcademicYear,
+                team: newTeam,
+                lastUpdated: new Date().toISOString(),
+                lastUpdatedBy: currentAdmin
+            };
+
+            // Save new record to Firebase
+            await saveToFirebase(newStudentId, studentsData[newStudentId]);
+
+            // Delete old record from Firebase by setting to null
+            try {
+                const oldStudentRef = window.firebase.ref(window.firebase.database, `students/${oldStudentId}`);
+                await window.firebase.set(oldStudentRef, null);
+                console.log(`✅ Deleted old student record: ${oldStudentId}`);
+            } catch (error) {
+                console.error('Error deleting old student record:', error);
+            }
+
+            // Delete old record from local data
+            delete studentsData[oldStudentId];
+        } else {
+            // Just update the existing record with new metadata
+            studentsData[oldStudentId].academicYear = newAcademicYear;
+            studentsData[oldStudentId].team = newTeam;
+            studentsData[oldStudentId].lastUpdated = new Date().toISOString();
+            studentsData[oldStudentId].lastUpdatedBy = currentAdmin;
+
+            // Save updated record to Firebase
+            await saveToFirebase(oldStudentId, studentsData[oldStudentId]);
+        }
+
+        // Save local data backup
+        saveData();
+
+        // Re-render scores table to show updated data
+        renderScoresTable();
+    }
 
     // Manually update UI immediately for better UX (real-time listener will sync across devices)
     populateFilterDropdowns();
@@ -3783,7 +3839,7 @@ async function downloadQRCode(qrId) {
 
                 // Draw student name below QR code (larger font)
                 ctx.fillStyle = '#000000';
-                ctx.font = 'bold 42px Arial, sans-serif'; // Increased from 32px to 42px
+                ctx.font = 'bold 56px Arial, sans-serif'; // Larger, more prominent text
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
 
@@ -3807,7 +3863,7 @@ async function downloadQRCode(qrId) {
                 lines.push(line);
 
                 // Draw lines centered (adjusted for larger font)
-                const lineHeight = 48; // Increased from 36 to 48 for larger font
+                const lineHeight = 64; // Increased for 56px font
                 const startY = actualQrSize + (textHeight / 2) - ((lines.length - 1) * lineHeight / 2);
 
                 lines.forEach((line, index) => {
