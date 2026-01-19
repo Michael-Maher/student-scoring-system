@@ -873,6 +873,17 @@ async function login() {
 // Expose login function immediately
 window.login = login;
 
+// Attach login event listener when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    const loginButton = document.getElementById('loginButton');
+    if (loginButton) {
+        loginButton.addEventListener('click', login);
+        console.log('✅ Login button event listener attached');
+    } else {
+        console.error('❌ Login button not found');
+    }
+});
+
 async function logout() {
     if (html5QrcodeScanner) {
         html5QrcodeScanner.clear();

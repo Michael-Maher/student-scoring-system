@@ -52,7 +52,7 @@
                     <input type="checkbox" id="keepLoggedIn" checked>
                     <label for="keepLoggedIn">ابقني مسجلاً</label>
                 </div>
-                <button onclick="login()" class="vip-button">دخول</button>
+                <button id="loginButton" class="vip-button">دخول</button>
                 <div id="loginError" class="login-error hidden"></div>
             </div>
 
@@ -473,5 +473,17 @@
     <script src="scripts/constants.js"></script>
     <script src="scripts/firebase-config.js"></script>
     <script src="scripts/script-firebase.js?v=17.0"></script>
+    <script>
+        // Debug: Log when this inline script runs
+        console.log('Inline script running...');
+        console.log('typeof login:', typeof login);
+        console.log('typeof window.login:', typeof window.login);
+
+        // If login is still undefined after a short delay, there's a loading issue
+        setTimeout(() => {
+            console.log('After timeout - typeof login:', typeof login);
+            console.log('After timeout - typeof window.login:', typeof window.login);
+        }, 100);
+    </script>
 </body>
 </html>
