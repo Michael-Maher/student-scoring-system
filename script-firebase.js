@@ -3845,9 +3845,9 @@ async function downloadQRCode(qrId) {
         // Draw the gradient QR to final canvas
         ctx.drawImage(tempCanvas, 0, 0);
 
-        // Draw student name below QR code (large font)
+        // Draw student name below QR code (very large font)
         ctx.fillStyle = '#000000';
-        ctx.font = 'bold 56px Arial, sans-serif';
+        ctx.font = 'bold 72px Arial, sans-serif'; // Much larger font (increased from 56px)
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
@@ -3870,8 +3870,8 @@ async function downloadQRCode(qrId) {
         }
         lines.push(line);
 
-        // Draw lines centered
-        const lineHeight = 64;
+        // Draw lines centered with larger line height
+        const lineHeight = 80; // Increased line height for 72px font
         const startY = actualQrSize + (textHeight / 2) - ((lines.length - 1) * lineHeight / 2);
 
         lines.forEach((line, index) => {
@@ -3976,23 +3976,23 @@ async function downloadBookmark(qrId) {
                 // Draw bookmark template
                 ctx.drawImage(bookmarkImg, 0, 0);
 
-                // Calculate QR position - larger QR for better scanning
-                const qrSize = 280; // Larger QR code for bookmark (increased from 200)
-                const qrX = 27; // Adjusted for larger QR
-                const qrY = bookmarkImg.height - 350; // Adjusted vertical position for larger QR
+                // Calculate QR position - smaller, fits comfortably in white frame
+                const qrSize = 210; // Smaller QR code that fits well inside white frame
+                const qrX = 45; // Positioned inside white frame (bottom left)
+                const qrY = bookmarkImg.height - 265; // Positioned in white frame with margin
 
                 // Draw gradient QR code on bookmark
                 ctx.drawImage(tempGradientCanvas, qrX, qrY, qrSize, qrSize);
 
-                // Add student name below QR code with larger font
+                // Add student name below QR code
                 ctx.fillStyle = '#000000';
-                ctx.font = 'bold 42px Arial, sans-serif'; // Larger font for better readability (increased from 32px)
+                ctx.font = 'bold 36px Arial, sans-serif'; // Larger font for better readability
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'top';
 
                 // Draw name centered below QR, with word wrap if needed
                 const nameX = qrX + (qrSize / 2);
-                const nameY = qrY + qrSize + 5; // Small gap between QR and name
+                const nameY = qrY + qrSize + 1; // Minimal gap between QR and name
                 const maxWidth = qrSize; // Match QR width for text wrapping
 
                 // Simple word wrap
@@ -4013,9 +4013,9 @@ async function downloadBookmark(qrId) {
                 }
                 lines.push(line.trim());
 
-                // Draw each line with adjusted line spacing for larger font
+                // Draw each line with adjusted line spacing for 38px font
                 lines.forEach((textLine, index) => {
-                    ctx.fillText(textLine, nameX, nameY + (index * 45));
+                    ctx.fillText(textLine, nameX, nameY + (index * 40));
                 });
 
                 // Convert to data URL and download (avoids tainted canvas issues)
