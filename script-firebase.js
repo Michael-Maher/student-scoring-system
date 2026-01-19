@@ -3723,6 +3723,16 @@ async function saveQREdit(qrId) {
     showNotification('تم تحديث رمز QR بنجاح', 'success');
 }
 
+// Helper function to convert string to UTF-8 byte array
+function stringToUTF8ByteArray(str) {
+    const utf8 = unescape(encodeURIComponent(str));
+    const arr = [];
+    for (let i = 0; i < utf8.length; i++) {
+        arr.push(utf8.charCodeAt(i));
+    }
+    return arr;
+}
+
 // Helper function to generate QR code canvas using qrcode-generator library
 function generateQRCanvas(text, size) {
     // Check if qrcode library is loaded
@@ -3731,10 +3741,23 @@ function generateQRCanvas(text, size) {
     }
 
     try {
+        console.log('📝 Generating QR for text:', text);
+        console.log('📝 Text length:', text.length);
+        console.log('📝 Character codes:', Array.from(text).map(c => c.charCodeAt(0)));
+
         // Create QR code object with error correction level H (30%)
         const qr = qrcode(0, 'H');  // 0 = auto typeNumber, 'H' = high error correction
-        qr.addData(text);
+
+        // For Arabic/UTF-8 text, we need to use byte mode
+        // Convert text to UTF-8 byte array
+        const utf8Bytes = stringToUTF8ByteArray(text);
+        console.log('📝 UTF-8 bytes:', utf8Bytes);
+
+        // Add data as byte mode for proper UTF-8 encoding
+        qr.addData(text, 'Byte');
         qr.make();
+
+        console.log('✅ QR code generated, module count:', qr.getModuleCount());
 
         // Get module count (size of QR matrix)
         const moduleCount = qr.getModuleCount();
