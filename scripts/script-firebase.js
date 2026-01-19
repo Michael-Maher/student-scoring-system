@@ -1,4 +1,5 @@
 // Global variables
+console.log('🔧 script-firebase.js loading...');
 let html5QrcodeScanner;
 let currentAdmin = '';
 let currentAdminData = null;
@@ -869,6 +870,8 @@ async function login() {
 
     showNotification(`أهلاً ${currentAdmin}!`, 'success');
 }
+// Expose login function immediately
+window.login = login;
 
 async function logout() {
     if (html5QrcodeScanner) {
