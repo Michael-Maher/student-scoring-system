@@ -291,7 +291,7 @@ async function initializeAdminsData() {
                 '01207714622': {
                     name: 'Michael',
                     phone: '01207714622',
-                    password: '123456789mI#',
+                    password: encryptPassword('123456789mI#'),
                     isHeadAdmin: true,
                     permissions: {
                         canEditQR: true,
@@ -304,7 +304,7 @@ async function initializeAdminsData() {
                 '01283469752': {
                     name: 'Mina Zaher',
                     phone: '01283469752',
-                    password: '01283469752',
+                    password: encryptPassword('01283469752'),
                     isHeadAdmin: false,
                     permissions: {
                         canEditQR: false,
@@ -317,7 +317,7 @@ async function initializeAdminsData() {
                 '01207320088': {
                     name: 'Kero Boles',
                     phone: '01207320088',
-                    password: '01207320088',
+                    password: encryptPassword('01207320088'),
                     isHeadAdmin: false,
                     permissions: {
                         canEditQR: false,
@@ -330,7 +330,7 @@ async function initializeAdminsData() {
                 '01282201313': {
                     name: 'Remon Aziz',
                     phone: '01282201313',
-                    password: '01282201313',
+                    password: encryptPassword('01282201313'),
                     isHeadAdmin: false,
                     permissions: {
                         canEditQR: false,
@@ -4289,3 +4289,43 @@ window.addEventListener('beforeunload', function() {
     // Clean up Firebase listeners
     firebaseListeners.forEach(unsubscribe => unsubscribe());
 });
+
+// ============================================
+// EXPOSE FUNCTIONS TO GLOBAL SCOPE
+// ============================================
+// Make functions accessible to onclick handlers in HTML
+window.login = login;
+window.logout = logout;
+window.switchAuthTab = switchAuthTab;
+window.submitSignupRequest = submitSignupRequest;
+window.showScanner = showScanner;
+window.showDashboard = showDashboard;
+window.showQRGenerator = showQRGenerator;
+window.showProfile = showProfile;
+window.showSignupRequests = showSignupRequests;
+window.showManageAdmins = showManageAdmins;
+window.showManageScoreTypes = showManageScoreTypes;
+window.submitScore = submitScore;
+window.cancelScoring = cancelScoring;
+window.clearFilters = clearFilters;
+window.toggleLeaderboard = toggleLeaderboard;
+window.exportToExcel = exportToExcel;
+window.clearAllData = clearAllData;
+window.generateQRCode = generateQRCode;
+window.resetQRForm = resetQRForm;
+window.cleanupInvalidQRRecords = cleanupInvalidQRRecords;
+window.exportQRDataToExcel = exportQRDataToExcel;
+window.clearQRFilters = clearQRFilters;
+window.applyQRFilters = applyQRFilters;
+window.updateProfile = updateProfile;
+window.showAddAdminForm = showAddAdminForm;
+window.hideAddAdminForm = hideAddAdminForm;
+window.saveAdmin = saveAdmin;
+window.showAddScoreTypeForm = showAddScoreTypeForm;
+window.hideAddScoreTypeForm = hideAddScoreTypeForm;
+window.addScoreType = addScoreType;
+window.hideEditScoreTypeForm = hideEditScoreTypeForm;
+window.saveScoreTypeEdit = saveScoreTypeEdit;
+window.applyFilters = applyFilters;
+window.toggleHeadAdminPermissions = toggleHeadAdminPermissions;
+window.updateMultipleIndicator = updateMultipleIndicator;
