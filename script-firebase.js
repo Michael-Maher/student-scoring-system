@@ -3998,7 +3998,7 @@ async function downloadBookmark(qrId) {
 
                 // Add student name below QR code with minimal spacing
                 ctx.fillStyle = '#000000';
-                ctx.font = 'bold 26px Arial, sans-serif'; // Font proportional to QR size
+                ctx.font = 'bold 32px Arial, sans-serif'; // Increased font size for better readability
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'top';
 
@@ -4025,9 +4025,9 @@ async function downloadBookmark(qrId) {
                 }
                 lines.push(line.trim());
 
-                // Draw each line with minimal line spacing
+                // Draw each line with adjusted line spacing
                 lines.forEach((textLine, index) => {
-                    ctx.fillText(textLine, nameX, nameY + (index * 26));
+                    ctx.fillText(textLine, nameX, nameY + (index * 32));
                 });
 
                 // Convert to data URL and download (avoids tainted canvas issues)
