@@ -3723,6 +3723,55 @@ async function saveQREdit(qrId) {
     showNotification('تم تحديث رمز QR بنجاح', 'success');
 }
 
+// Helper function to generate QR code canvas using QRCode.js
+function generateQRCanvas(text, size) {
+    // Check if QRCode library is loaded
+    if (typeof QRCode === 'undefined') {
+        throw new Error('QR library not available. Please refresh the page.');
+    }
+
+    // Create a temporary container for QR generation
+    const tempDiv = document.createElement('div');
+    tempDiv.style.display = 'none';
+    document.body.appendChild(tempDiv);
+
+    try {
+        // Generate QR code using QRCode.js
+        const qrcode = new QRCode(tempDiv, {
+            text: text,
+            width: size,
+            height: size,
+            colorDark: '#000000',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.H  // High error correction
+        });
+
+        // Wait for QR code to render and extract the canvas
+        const canvas = tempDiv.querySelector('canvas');
+        if (!canvas) {
+            throw new Error('Failed to generate QR canvas');
+        }
+
+        // Clone the canvas before removing the temp div
+        const clonedCanvas = document.createElement('canvas');
+        clonedCanvas.width = canvas.width;
+        clonedCanvas.height = canvas.height;
+        const ctx = clonedCanvas.getContext('2d');
+        ctx.drawImage(canvas, 0, 0);
+
+        // Clean up
+        document.body.removeChild(tempDiv);
+
+        return clonedCanvas;
+    } catch (error) {
+        // Clean up on error
+        if (document.body.contains(tempDiv)) {
+            document.body.removeChild(tempDiv);
+        }
+        throw error;
+    }
+}
+
 // Download QR Code with student name underneath
 async function downloadQRCode(qrId) {
     const qr = qrCodesData[qrId];
@@ -3747,143 +3796,111 @@ async function downloadQRCode(qrId) {
 
     console.log('✅ QR Data String:', qrDataString);
     console.log('✅ QR Data String length:', qrDataString.length);
-    console.log('✅ QR Data String bytes:', Array.from(qrDataString).map(c => c.charCodeAt(0)));
 
     try {
-        // Generate QR code using kjua library (proper UTF-8 support)
-        console.log('🔄 Generating QR code with kjua, text:', JSON.stringify(qrDataString));
+        console.log('🔄 Generating QR code with QRCode.js, text:', JSON.stringify(qrDataString));
 
-        // Check if kjua library is loaded
-        if (typeof window.kjua === 'undefined') {
-            console.error('❌ kjua library not loaded');
-            throw new Error('QR library not available. Please refresh the page.');
+        // Generate QR code canvas
+        const qrCanvas = generateQRCanvas(qrDataString, 700);
+        const actualQrSize = qrCanvas.width;
+
+        console.log('✅ QR code generated successfully');
+        console.log('QR Canvas dimensions:', actualQrSize, 'x', actualQrSize);
+
+        // Create final canvas with extra height for text
+        const textHeight = 150;
+        const padding = 30;
+        const finalCanvas = document.createElement('canvas');
+        finalCanvas.width = actualQrSize;
+        finalCanvas.height = actualQrSize + textHeight;
+
+        const ctx = finalCanvas.getContext('2d');
+
+        // Fill white background
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
+
+        // Create temporary canvas for gradient manipulation
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = actualQrSize;
+        tempCanvas.height = actualQrSize;
+        const tempCtx = tempCanvas.getContext('2d');
+
+        // Draw original QR to temp canvas
+        tempCtx.drawImage(qrCanvas, 0, 0);
+
+        // Get pixel data for gradient application
+        const imageData = tempCtx.getImageData(0, 0, actualQrSize, actualQrSize);
+        const data = imageData.data;
+
+        // Apply gradient only to dark pixels (QR modules)
+        for (let y = 0; y < actualQrSize; y++) {
+            const ratio = y / actualQrSize;
+            // Purple at top: RGB(124, 58, 237) -> Dark at bottom: RGB(31, 31, 31)
+            const r = Math.round(124 - (93 * ratio));
+            const g = Math.round(58 - (27 * ratio));
+            const b = Math.round(237 - (206 * ratio));
+
+            for (let x = 0; x < actualQrSize; x++) {
+                const index = (y * actualQrSize + x) * 4;
+                // Only modify dark pixels (threshold at 128)
+                if (data[index] < 128) {
+                    data[index] = r;
+                    data[index + 1] = g;
+                    data[index + 2] = b;
+                }
+            }
         }
 
-        // Generate QR code with kjua (returns a canvas element)
-        const qrCanvas = window.kjua({
-            text: qrDataString,
-            size: 700,
-            ecLevel: 'H',  // High error correction
-            mode: 'plain',  // Plain mode (no logo)
-            rounded: 0,     // Square modules
-            quiet: 2,       // Quiet zone (border modules)
-            fill: '#000000',
-            back: '#ffffff',
-            render: 'canvas'
+        // Put modified pixel data back
+        tempCtx.putImageData(imageData, 0, 0);
+
+        // Draw the gradient QR to final canvas
+        ctx.drawImage(tempCanvas, 0, 0);
+
+        // Draw student name below QR code (large font)
+        ctx.fillStyle = '#000000';
+        ctx.font = 'bold 56px Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        // Word wrap for long names
+        const maxWidth = actualQrSize - (padding * 2);
+        const words = qr.name.split(' ');
+        let line = '';
+        let lines = [];
+
+        for (let i = 0; i < words.length; i++) {
+            const testLine = line + words[i] + ' ';
+            const metrics = ctx.measureText(testLine);
+
+            if (metrics.width > maxWidth && i > 0) {
+                lines.push(line);
+                line = words[i] + ' ';
+            } else {
+                line = testLine;
+            }
+        }
+        lines.push(line);
+
+        // Draw lines centered
+        const lineHeight = 64;
+        const startY = actualQrSize + (textHeight / 2) - ((lines.length - 1) * lineHeight / 2);
+
+        lines.forEach((line, index) => {
+            ctx.fillText(line.trim(), actualQrSize / 2, startY + (index * lineHeight));
         });
 
-        console.log('✅ QR code generated successfully with kjua');
-        console.log('QR Canvas dimensions:', qrCanvas.width, 'x', qrCanvas.height);
-
-        // Process the QR code immediately (no timeout needed)
-        (function() {
-            if (qrCanvas) {
-                // Get actual QR canvas size
-                const actualQrSize = qrCanvas.width;
-                const textHeight = 100;
-                const padding = 30;
-
-                // Create a new canvas with extra height for the name
-                const finalCanvas = document.createElement('canvas');
-                finalCanvas.width = actualQrSize;
-                finalCanvas.height = actualQrSize + textHeight;
-
-                const ctx = finalCanvas.getContext('2d');
-
-                // Fill white background
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
-
-                // Create temporary canvas for gradient manipulation
-                const tempCanvas = document.createElement('canvas');
-                tempCanvas.width = actualQrSize;
-                tempCanvas.height = actualQrSize;
-                const tempCtx = tempCanvas.getContext('2d');
-
-                // Draw original QR to temp canvas (actual size)
-                tempCtx.drawImage(qrCanvas, 0, 0);
-
-                // Get pixel data
-                const imageData = tempCtx.getImageData(0, 0, actualQrSize, actualQrSize);
-                const data = imageData.data;
-
-                // Apply gradient only to dark pixels (QR modules)
-                // Keep dark pixels dark enough for scanning
-                for (let y = 0; y < actualQrSize; y++) {
-                    // Calculate gradient color for this row
-                    const ratio = y / actualQrSize;
-                    // Purple at top: RGB(124, 58, 237)
-                    // Dark at bottom: RGB(31, 31, 31)
-                    const r = Math.round(124 - (93 * ratio));  // 124 -> 31
-                    const g = Math.round(58 - (27 * ratio));   // 58 -> 31
-                    const b = Math.round(237 - (206 * ratio)); // 237 -> 31
-
-                    for (let x = 0; x < actualQrSize; x++) {
-                        const index = (y * actualQrSize + x) * 4;
-                        // Only modify dark pixels (QR code modules)
-                        // Threshold at 128 to detect black pixels
-                        if (data[index] < 128) {
-                            data[index] = r;
-                            data[index + 1] = g;
-                            data[index + 2] = b;
-                            // Keep alpha at 255
-                        }
-                    }
-                }
-
-                // Put modified pixel data back
-                tempCtx.putImageData(imageData, 0, 0);
-
-                // Draw the gradient QR to final canvas
-                ctx.drawImage(tempCanvas, 0, 0);
-
-                // Draw student name below QR code (larger font)
-                ctx.fillStyle = '#000000';
-                ctx.font = 'bold 56px Arial, sans-serif'; // Larger, more prominent text
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-
-                // Draw name (split into multiple lines if too long)
-                const maxWidth = actualQrSize - (padding * 2);
-                const words = qr.name.split(' ');
-                let line = '';
-                let lines = [];
-
-                for (let i = 0; i < words.length; i++) {
-                    const testLine = line + words[i] + ' ';
-                    const metrics = ctx.measureText(testLine);
-
-                    if (metrics.width > maxWidth && i > 0) {
-                        lines.push(line);
-                        line = words[i] + ' ';
-                    } else {
-                        line = testLine;
-                    }
-                }
-                lines.push(line);
-
-                // Draw lines centered (adjusted for larger font)
-                const lineHeight = 64; // Increased for 56px font
-                const startY = actualQrSize + (textHeight / 2) - ((lines.length - 1) * lineHeight / 2);
-
-                lines.forEach((line, index) => {
-                    ctx.fillText(line.trim(), actualQrSize / 2, startY + (index * lineHeight));
-                });
-
-                // Convert to blob and download
-                finalCanvas.toBlob((blob) => {
-                    const url = URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.download = `QR_${qr.name.replace(/\s+/g, '_')}.png`;
-                    link.click();
-                    URL.revokeObjectURL(url);
-                    showNotification('تم تحميل رمز QR بنجاح', 'success');
-                });
-            } else {
-                showNotification('حدث خطأ في إنشاء رمز QR', 'error');
-            }
-        })();  // End of IIFE
+        // Convert to blob and download
+        finalCanvas.toBlob((blob) => {
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `QR_${qr.name.replace(/\s+/g, '_')}.png`;
+            link.click();
+            URL.revokeObjectURL(url);
+            showNotification('تم تحميل رمز QR بنجاح', 'success');
+        });
     } catch (error) {
         console.error('Error generating QR code:', error);
         showNotification('حدث خطأ في إنشاء رمز QR: ' + error.message, 'error');
@@ -3914,29 +3931,13 @@ async function downloadBookmark(qrId) {
     console.log('✅ Bookmark QR Data String:', qrDataString);
 
     try {
-        // Generate QR code using kjua library (proper UTF-8 support)
-        console.log('🔄 Generating bookmark QR with kjua');
+        // Generate QR code using QRCode.js library (reliable UTF-8 support)
+        console.log('🔄 Generating bookmark QR with QRCode.js');
 
-        // Check if kjua library is loaded
-        if (typeof window.kjua === 'undefined') {
-            console.error('❌ kjua library not loaded');
-            throw new Error('QR library not available. Please refresh the page.');
-        }
+        // Generate QR code canvas
+        const qrCanvas = generateQRCanvas(qrDataString, 700);
 
-        // Generate QR code with kjua
-        const qrCanvas = window.kjua({
-            text: qrDataString,
-            size: 700,
-            ecLevel: 'H',
-            mode: 'plain',
-            rounded: 0,
-            quiet: 1,
-            fill: '#000000',
-            back: '#ffffff',
-            render: 'canvas'
-        });
-
-        console.log('✅ Bookmark QR code generated successfully with kjua');
+        console.log('✅ Bookmark QR code generated successfully');
         console.log('Bookmark QR Canvas dimensions:', qrCanvas.width, 'x', qrCanvas.height);
 
         // Load bookmark template image from base64 data (avoids CORS issues)

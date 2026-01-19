@@ -9,8 +9,8 @@
     <link rel="stylesheet" href="styles.css">
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <!-- Using kjua library for proper UTF-8/Arabic QR code support -->
-    <script src="https://unpkg.com/kjua@0.9.0/dist/kjua.min.js"></script>
+    <!-- Using QRCode.js library for reliable UTF-8/Arabic QR code support -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <!-- Bookmark template as base64 to avoid CORS issues -->
     <script src="bookmark-template-data.js"></script>
 
@@ -471,6 +471,6 @@
     <div id="notification" class="notification hidden"></div>
 
     <script src="firebase-config.js"></script>
-    <script src="script-firebase.js?v=4.0"></script>
+    <script src="script-firebase.js?v=5.0"></script>
 </body>
 </html>
