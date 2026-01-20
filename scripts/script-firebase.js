@@ -1,5 +1,4 @@
 // Global variables
-console.log('🔧 script-firebase.js loading...');
 let html5QrcodeScanner;
 let currentAdmin = '';
 let currentAdminData = null;
@@ -7,17 +6,6 @@ let studentsData = {};
 let adminsData = {};
 let isFirebaseConnected = false;
 let firebaseListeners = [];
-
-// Debug: Check QRCode library on load
-window.addEventListener('DOMContentLoaded', () => {
-    console.log('🔍 Checking QR libraries...');
-    console.log('window.kjua:', typeof window.kjua);
-    if (window.kjua) {
-        console.log('✅ kjua library loaded');
-    } else {
-        console.error('❌ kjua library NOT loaded!');
-    }
-});
 
 // Head admin phone number
 const HEAD_ADMIN_PHONE = '01207714622';
@@ -878,9 +866,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const loginButton = document.getElementById('loginButton');
     if (loginButton) {
         loginButton.addEventListener('click', login);
-        console.log('✅ Login button event listener attached');
-    } else {
-        console.error('❌ Login button not found');
     }
 });
 
@@ -3809,7 +3794,7 @@ async function downloadQRCode(qrId) {
         console.log('QR Canvas dimensions:', actualQrSize, 'x', actualQrSize);
 
         // Create final canvas with extra height for text
-        const textHeight = 150;
+        const textHeight = 180;
         const padding = 30;
         const finalCanvas = document.createElement('canvas');
         finalCanvas.width = actualQrSize;
@@ -3861,7 +3846,7 @@ async function downloadQRCode(qrId) {
 
         // Draw student name below QR code (very large font)
         ctx.fillStyle = '#000000';
-        ctx.font = 'bold 72px Arial, sans-serif'; // Much larger font (increased from 56px)
+        ctx.font = 'bold 96px Arial, sans-serif'; // Increased font size from 72px to 96px
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
@@ -3884,9 +3869,9 @@ async function downloadQRCode(qrId) {
         }
         lines.push(line);
 
-        // Draw lines centered with larger line height
-        const lineHeight = 80; // Increased line height for 72px font
-        const startY = actualQrSize + (textHeight / 2) - ((lines.length - 1) * lineHeight / 2);
+        // Draw lines centered with larger line height, positioned closer to QR
+        const lineHeight = 100; // Increased line height for 96px font
+        const startY = actualQrSize + 40 + (lineHeight / 2); // Moved closer to QR (40px gap instead of calculated center)
 
         lines.forEach((line, index) => {
             ctx.fillText(line.trim(), actualQrSize / 2, startY + (index * lineHeight));
@@ -4051,6 +4036,310 @@ async function downloadBookmark(qrId) {
     } catch (error) {
         console.error('Error generating bookmark:', error);
         showNotification('حدث خطأ في إنشاء علامة الكتاب: ' + error.message, 'error');
+    }
+}
+
+// Helper function to generate standalone QR image as blob
+async function generateStandaloneQRBlob(qr) {
+    const qrDataString = qr.name;
+
+    // Generate QR code canvas
+    const qrCanvas = generateQRCanvas(qrDataString, 700);
+    const actualQrSize = qrCanvas.width;
+
+    // Create final canvas with extra height for text
+    const textHeight = 180;
+    const padding = 30;
+    const finalCanvas = document.createElement('canvas');
+    finalCanvas.width = actualQrSize;
+    finalCanvas.height = actualQrSize + textHeight;
+
+    const ctx = finalCanvas.getContext('2d');
+
+    // Fill white background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
+
+    // Create temporary canvas for gradient manipulation
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = actualQrSize;
+    tempCanvas.height = actualQrSize;
+    const tempCtx = tempCanvas.getContext('2d');
+
+    // Draw original QR to temp canvas
+    tempCtx.drawImage(qrCanvas, 0, 0);
+
+    // Get pixel data for gradient application
+    const imageData = tempCtx.getImageData(0, 0, actualQrSize, actualQrSize);
+    const data = imageData.data;
+
+    // Apply gradient only to dark pixels (QR modules)
+    for (let y = 0; y < actualQrSize; y++) {
+        const ratio = y / actualQrSize;
+        const r = Math.round(124 - (93 * ratio));
+        const g = Math.round(58 - (27 * ratio));
+        const b = Math.round(237 - (206 * ratio));
+
+        for (let x = 0; x < actualQrSize; x++) {
+            const index = (y * actualQrSize + x) * 4;
+            if (data[index] < 128) {
+                data[index] = r;
+                data[index + 1] = g;
+                data[index + 2] = b;
+            }
+        }
+    }
+
+    // Put modified pixel data back
+    tempCtx.putImageData(imageData, 0, 0);
+
+    // Draw the gradient QR to final canvas
+    ctx.drawImage(tempCanvas, 0, 0);
+
+    // Draw student name below QR code
+    ctx.fillStyle = '#000000';
+    ctx.font = 'bold 96px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // Word wrap for long names
+    const maxWidth = actualQrSize - (padding * 2);
+    const words = qr.name.split(' ');
+    let line = '';
+    let lines = [];
+
+    for (let i = 0; i < words.length; i++) {
+        const testLine = line + words[i] + ' ';
+        const metrics = ctx.measureText(testLine);
+
+        if (metrics.width > maxWidth && i > 0) {
+            lines.push(line);
+            line = words[i] + ' ';
+        } else {
+            line = testLine;
+        }
+    }
+    lines.push(line);
+
+    // Draw lines centered with larger line height, positioned closer to QR
+    const lineHeight = 100;
+    const startY = actualQrSize + 40 + (lineHeight / 2);
+
+    lines.forEach((line, index) => {
+        ctx.fillText(line.trim(), actualQrSize / 2, startY + (index * lineHeight));
+    });
+
+    // Convert to blob
+    return new Promise((resolve) => {
+        finalCanvas.toBlob((blob) => resolve(blob));
+    });
+}
+
+// Helper function to generate bookmark QR image as blob
+async function generateBookmarkQRBlob(qr) {
+    return new Promise((resolve, reject) => {
+        const qrDataString = qr.name;
+
+        try {
+            // Generate QR code canvas
+            const qrCanvas = generateQRCanvas(qrDataString, 700);
+
+            // Load bookmark template image from base64 data
+            const bookmarkImg = new Image();
+
+            bookmarkImg.onload = function() {
+                const actualQrSize = qrCanvas.width;
+
+                // Create a temporary canvas for applying gradient to QR
+                const tempGradientCanvas = document.createElement('canvas');
+                tempGradientCanvas.width = actualQrSize;
+                tempGradientCanvas.height = actualQrSize;
+                const tempCtx = tempGradientCanvas.getContext('2d');
+
+                // Draw original QR
+                tempCtx.drawImage(qrCanvas, 0, 0);
+
+                // Get pixel data
+                const imageData = tempCtx.getImageData(0, 0, actualQrSize, actualQrSize);
+                const data = imageData.data;
+
+                // Apply gradient only to dark pixels
+                for (let y = 0; y < actualQrSize; y++) {
+                    const ratio = y / actualQrSize;
+                    const r = Math.round(124 - (93 * ratio));
+                    const g = Math.round(58 - (27 * ratio));
+                    const b = Math.round(237 - (206 * ratio));
+
+                    for (let x = 0; x < actualQrSize; x++) {
+                        const index = (y * actualQrSize + x) * 4;
+                        if (data[index] < 128) {
+                            data[index] = r;
+                            data[index + 1] = g;
+                            data[index + 2] = b;
+                        }
+                    }
+                }
+
+                // Put modified pixel data back
+                tempCtx.putImageData(imageData, 0, 0);
+
+                // Create final canvas with bookmark dimensions
+                const finalCanvas = document.createElement('canvas');
+                finalCanvas.width = bookmarkImg.width;
+                finalCanvas.height = bookmarkImg.height;
+                const ctx = finalCanvas.getContext('2d');
+
+                // Draw bookmark template
+                ctx.drawImage(bookmarkImg, 0, 0);
+
+                // Calculate QR position
+                const qrSize = 210;
+                const qrX = 45;
+                const qrY = bookmarkImg.height - 265;
+
+                // Draw gradient QR code on bookmark
+                ctx.drawImage(tempGradientCanvas, qrX, qrY, qrSize, qrSize);
+
+                // Add student name below QR code
+                ctx.fillStyle = '#000000';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'top';
+
+                const nameX = qrX + (qrSize / 2);
+                const nameY = qrY + qrSize + 1;
+                const maxWidth = qrSize;
+
+                // Start with large font and scale down if needed
+                let fontSize = 36;
+                let nameText = qr.name;
+                ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+
+                while (ctx.measureText(nameText).width > maxWidth && fontSize > 20) {
+                    fontSize -= 2;
+                    ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+                }
+
+                ctx.fillText(nameText, nameX, nameY);
+
+                // Convert to blob
+                finalCanvas.toBlob((blob) => resolve(blob));
+            };
+
+            bookmarkImg.onerror = () => reject(new Error('Failed to load bookmark template'));
+            bookmarkImg.src = window.bookmarkTemplateData;
+        } catch (error) {
+            reject(error);
+        }
+    });
+}
+
+// Export QR Images (standalone or bookmark) as ZIP
+async function exportQRImages(type) {
+    if (Object.keys(qrCodesData).length === 0) {
+        showNotification('لا توجد بيانات لتصديرها', 'error');
+        return;
+    }
+
+    // Get filtered data
+    const nameFilter = document.getElementById('qrFilterName').value.trim().toLowerCase();
+    const yearFilter = document.getElementById('qrFilterYear').value.trim().toLowerCase();
+    const phoneFilter = document.getElementById('qrFilterPhone').value.trim();
+    const teamFilter = document.getElementById('qrFilterTeam').value.trim().toLowerCase();
+
+    let filteredData = { ...qrCodesData };
+
+    if (nameFilter) {
+        filteredData = Object.fromEntries(
+            Object.entries(filteredData).filter(([id, qr]) =>
+                qr.name.toLowerCase().includes(nameFilter)
+            )
+        );
+    }
+
+    if (yearFilter) {
+        filteredData = Object.fromEntries(
+            Object.entries(filteredData).filter(([id, qr]) =>
+                qr.academicYear && qr.academicYear.toLowerCase().includes(yearFilter)
+            )
+        );
+    }
+
+    if (phoneFilter) {
+        filteredData = Object.fromEntries(
+            Object.entries(filteredData).filter(([id, qr]) =>
+                qr.phone && qr.phone.includes(phoneFilter)
+            )
+        );
+    }
+
+    if (teamFilter) {
+        filteredData = Object.fromEntries(
+            Object.entries(filteredData).filter(([id, qr]) =>
+                qr.team && qr.team.toLowerCase().includes(teamFilter)
+            )
+        );
+    }
+
+    const filteredQRs = Object.values(filteredData);
+
+    if (filteredQRs.length === 0) {
+        showNotification('لا توجد بيانات تطابق الفلاتر المحددة', 'error');
+        return;
+    }
+
+    const typeName = type === 'bookmark' ? 'Bookmarks' : 'QR_Images';
+    showNotification(`جاري إنشاء ${filteredQRs.length} صورة...`, 'info');
+
+    try {
+        if (filteredQRs.length === 1) {
+            // Single image - download directly
+            const qr = filteredQRs[0];
+            const blob = type === 'bookmark'
+                ? await generateBookmarkQRBlob(qr)
+                : await generateStandaloneQRBlob(qr);
+
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${typeName}_${qr.name.replace(/\s+/g, '_')}.png`;
+            link.click();
+            URL.revokeObjectURL(url);
+            showNotification('تم تحميل الصورة بنجاح', 'success');
+        } else {
+            // Multiple images - create ZIP
+            const zip = new JSZip();
+
+            for (let i = 0; i < filteredQRs.length; i++) {
+                const qr = filteredQRs[i];
+                const blob = type === 'bookmark'
+                    ? await generateBookmarkQRBlob(qr)
+                    : await generateStandaloneQRBlob(qr);
+
+                const fileName = `${qr.name.replace(/\s+/g, '_')}.png`;
+                zip.file(fileName, blob);
+
+                // Update progress
+                if ((i + 1) % 5 === 0 || i === filteredQRs.length - 1) {
+                    showNotification(`جاري المعالجة: ${i + 1} من ${filteredQRs.length}`, 'info');
+                }
+            }
+
+            // Generate and download ZIP
+            showNotification('جاري إنشاء ملف ZIP...', 'info');
+            const zipBlob = await zip.generateAsync({ type: 'blob' });
+            const url = URL.createObjectURL(zipBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            const timestamp = new Date().toISOString().split('T')[0];
+            link.download = `${typeName}_${timestamp}.zip`;
+            link.click();
+            URL.revokeObjectURL(url);
+
+            showNotification(`تم تصدير ${filteredQRs.length} صورة بنجاح في ملف ZIP`, 'success');
+        }
+    } catch (error) {
+        console.error('Error exporting QR images:', error);
+        showNotification('حدث خطأ أثناء تصدير الصور: ' + error.message, 'error');
     }
 }
 
@@ -4229,6 +4518,88 @@ function clearQRFilters() {
     renderQRCodesTable();
 }
 
+// Export Filtered QR Data to Excel
+function exportFilteredQRs() {
+    if (Object.keys(qrCodesData).length === 0) {
+        showNotification('لا توجد بيانات لتصديرها', 'error');
+        return;
+    }
+
+    // Get current filter values
+    const nameFilter = document.getElementById('qrFilterName').value.trim().toLowerCase();
+    const yearFilter = document.getElementById('qrFilterYear').value.trim().toLowerCase();
+    const phoneFilter = document.getElementById('qrFilterPhone').value.trim();
+    const teamFilter = document.getElementById('qrFilterTeam').value.trim().toLowerCase();
+
+    // Apply filters to get filtered data
+    let filteredData = { ...qrCodesData };
+
+    if (nameFilter) {
+        filteredData = Object.fromEntries(
+            Object.entries(filteredData).filter(([id, qr]) =>
+                qr.name.toLowerCase().includes(nameFilter)
+            )
+        );
+    }
+
+    if (yearFilter) {
+        filteredData = Object.fromEntries(
+            Object.entries(filteredData).filter(([id, qr]) =>
+                qr.academicYear && qr.academicYear.toLowerCase().includes(yearFilter)
+            )
+        );
+    }
+
+    if (phoneFilter) {
+        filteredData = Object.fromEntries(
+            Object.entries(filteredData).filter(([id, qr]) =>
+                qr.phone && qr.phone.includes(phoneFilter)
+            )
+        );
+    }
+
+    if (teamFilter) {
+        filteredData = Object.fromEntries(
+            Object.entries(filteredData).filter(([id, qr]) =>
+                qr.team && qr.team.toLowerCase().includes(teamFilter)
+            )
+        );
+    }
+
+    // Check if any data matches the filters
+    if (Object.keys(filteredData).length === 0) {
+        showNotification('لا توجد بيانات تطابق الفلاتر المحددة', 'error');
+        return;
+    }
+
+    // Prepare export data
+    const exportData = Object.values(filteredData).map(qr => ({
+        'الاسم': qr.name,
+        'السنة الدراسية': qr.academicYear || '-',
+        'رقم الهاتف': qr.phone || '-',
+        'الفريق': qr.team || '-',
+        'تاريخ الإنشاء': new Date(qr.createdAt).toLocaleString('ar-EG'),
+        'الخادم': qr.createdBy || 'غير معروف'
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'QR Codes Filtered');
+
+    const timestamp = new Date().toISOString().split('T')[0];
+    const filterSuffix = (nameFilter || yearFilter || phoneFilter || teamFilter) ? '_Filtered' : '';
+    XLSX.writeFile(wb, `QR_Codes${filterSuffix}_${timestamp}.xlsx`);
+
+    // Show notification with count and hint
+    const totalCount = Object.keys(qrCodesData).length;
+    const filteredCount = Object.keys(filteredData).length;
+    const message = filteredCount === totalCount
+        ? `تم تصدير جميع رموز QR (${filteredCount} رمز) بنجاح`
+        : `تم تصدير ${filteredCount} من ${totalCount} رمز QR (حسب الفلتر المحدد)`;
+
+    showNotification(message, 'success');
+}
+
 // Export QR Data to Excel
 function exportQRDataToExcel() {
     if (Object.keys(qrCodesData).length === 0) {
@@ -4329,6 +4700,8 @@ window.generateQRCode = generateQRCode;
 window.resetQRForm = resetQRForm;
 window.cleanupInvalidQRRecords = cleanupInvalidQRRecords;
 window.exportQRDataToExcel = exportQRDataToExcel;
+window.exportFilteredQRs = exportFilteredQRs;
+window.exportQRImages = exportQRImages;
 window.clearQRFilters = clearQRFilters;
 window.applyQRFilters = applyQRFilters;
 window.updateProfile = updateProfile;

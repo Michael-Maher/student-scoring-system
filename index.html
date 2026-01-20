@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="styles.css">
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <!-- Using kjua library for proper UTF-8/Arabic QR code support -->
     <script src="https://unpkg.com/kjua@0.9.0/dist/kjua.min.js"></script>
     <!-- Bookmark template as base64 to avoid CORS issues -->
@@ -278,6 +279,9 @@
                         <label>فلترة حسب الهاتف:</label>
                         <input type="tel" id="qrFilterPhone" placeholder="رقم الهاتف..." oninput="applyQRFilters()">
                     </div>
+                    <button onclick="exportFilteredQRs()" class="export-btn">📊 تصدير Excel</button>
+                    <button onclick="exportQRImages('standalone')" class="export-btn">🖼️ تصدير صور QR</button>
+                    <button onclick="exportQRImages('bookmark')" class="export-btn">🔖 تصدير Bookmarks</button>
                     <button onclick="clearQRFilters()" class="clear-filter-btn">مسح الفلاتر</button>
                 </div>
 
@@ -472,20 +476,6 @@
 
     <script src="scripts/constants.js"></script>
     <script src="scripts/firebase-config.js"></script>
-    <script src="scripts/test-script.js"></script>
-    <script src="scripts/script-firebase.js?v=1.0"></script>
-    <script>
-        // Debug: Log when this inline script runs
-        console.log('Inline script running...');
-        console.log('typeof testFunction:', typeof testFunction);
-        console.log('typeof login:', typeof login);
-        console.log('typeof window.login:', typeof window.login);
-
-        // If login is still undefined after a short delay, there's a loading issue
-        setTimeout(() => {
-            console.log('After timeout - typeof login:', typeof login);
-            console.log('After timeout - typeof window.login:', typeof window.login);
-        }, 1000);
-    </script>
+    <script src="scripts/script-firebase.js?v=22.0"></script>
 </body>
 </html>
