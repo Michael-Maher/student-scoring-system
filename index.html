@@ -279,10 +279,18 @@
                         <label>فلترة حسب الهاتف:</label>
                         <input type="tel" id="qrFilterPhone" placeholder="رقم الهاتف..." oninput="applyQRFilters()">
                     </div>
+                    <button onclick="clearQRFilters()" class="clear-filter-btn">مسح الفلاتر</button>
+                </div>
+
+                <div class="export-hint" style="text-align: center; margin-top: 15px; padding: 10px; background: #f0f8ff; border-radius: 8px; border-left: 4px solid #4a90e2;">
+                    <span style="color: #2c5aa0; font-weight: 500;">💡 ملاحظة:</span>
+                    <span style="color: #555;">سيتم تصدير العناصر المحددة حسب الفلاتر المطبقة فقط</span>
+                </div>
+
+                <div class="export-actions" style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; justify-content: center;">
                     <button onclick="exportFilteredQRs()" class="export-btn">📊 تصدير Excel</button>
                     <button onclick="exportQRImages('standalone')" class="export-btn">🖼️ تصدير صور QR</button>
                     <button onclick="exportQRImages('bookmark')" class="export-btn">🔖 تصدير Bookmarks</button>
-                    <button onclick="clearQRFilters()" class="clear-filter-btn">مسح الفلاتر</button>
                 </div>
 
                 <div id="qrCodesTable" class="qr-codes-table"></div>
@@ -476,6 +484,6 @@
 
     <script src="scripts/constants.js"></script>
     <script src="scripts/firebase-config.js"></script>
-    <script src="scripts/script-firebase.js?v=22.0"></script>
+    <script src="scripts/script-firebase.js?v=24.0"></script>
 </body>
 </html>

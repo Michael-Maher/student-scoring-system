@@ -4140,6 +4140,12 @@ async function generateBookmarkQRBlob(qr) {
     return new Promise((resolve, reject) => {
         const qrDataString = qr.name;
 
+        // Check if bookmark template is available
+        if (typeof BOOKMARK_TEMPLATE_DATA === 'undefined') {
+            reject(new Error('Bookmark template not loaded. Please refresh the page.'));
+            return;
+        }
+
         try {
             // Generate QR code canvas
             const qrCanvas = generateQRCanvas(qrDataString, 700);
@@ -4226,7 +4232,7 @@ async function generateBookmarkQRBlob(qr) {
             };
 
             bookmarkImg.onerror = () => reject(new Error('Failed to load bookmark template'));
-            bookmarkImg.src = window.bookmarkTemplateData;
+            bookmarkImg.src = BOOKMARK_TEMPLATE_DATA;
         } catch (error) {
             reject(error);
         }
@@ -4237,6 +4243,12 @@ async function generateBookmarkQRBlob(qr) {
 async function exportQRImages(type) {
     if (Object.keys(qrCodesData).length === 0) {
         showNotification('لا توجد بيانات لتصديرها', 'error');
+        return;
+    }
+
+    // Check if bookmark template is loaded when exporting bookmarks
+    if (type === 'bookmark' && typeof BOOKMARK_TEMPLATE_DATA === 'undefined') {
+        showNotification('قالب البوك مارك غير محمل. يرجى تحديث الصفحة والمحاولة مرة أخرى', 'error');
         return;
     }
 
