@@ -167,6 +167,12 @@
                     </select>
                 </div>
                 <div class="filter-group">
+                    <label>فلترة حسب المسؤول:</label>
+                    <select id="filterTeamResponsible" onchange="applyFilters()">
+                        <option value="">الكل</option>
+                    </select>
+                </div>
+                <div class="filter-group">
                     <label>فلترة حسب الخادم:</label>
                     <select id="filterAdmin" onchange="applyFilters()">
                         <option value="">الكل</option>
@@ -183,6 +189,7 @@
                     </select>
                 </div>
                 <button onclick="clearFilters()" class="clear-filter-btn">مسح الفلاتر</button>
+                <button onclick="showTeamAdminManager()" class="manage-team-admin-btn" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: 600; margin-right: 10px;">👥 إدارة مسؤولي الفرق</button>
             </div>
             <div class="dashboard-actions">
                 <button onclick="toggleLeaderboard()" class="leaderboard-btn" id="leaderboardBtn">🏆 عرض الترتيب</button>
@@ -232,6 +239,15 @@
                             <input type="text" id="qrTeam" placeholder="مثال: الفريق الأحمر">
                         </div>
                     </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>
+                                <span class="label-icon">👨‍💼</span>
+                                المسؤول عن الفريق
+                            </label>
+                            <input type="text" id="qrTeamResponsible" placeholder="اسم المسؤول أو الخادم المشرف">
+                        </div>
+                    </div>
                     <div class="form-actions-modern">
                         <button type="button" onclick="generateQRCode()" class="generate-qr-btn">
                             <span class="btn-icon">✨</span>
@@ -276,10 +292,17 @@
                         </select>
                     </div>
                     <div class="filter-group">
+                        <label>فلترة حسب المسؤول:</label>
+                        <select id="qrFilterTeamResponsible" onchange="applyQRFilters()">
+                            <option value="">الكل</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
                         <label>فلترة حسب الهاتف:</label>
                         <input type="tel" id="qrFilterPhone" placeholder="رقم الهاتف..." oninput="applyQRFilters()">
                     </div>
                     <button onclick="clearQRFilters()" class="clear-filter-btn">مسح الفلاتر</button>
+                    <button onclick="showTeamAdminManager()" class="manage-team-admin-btn" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: 600; margin-right: 10px;">👥 إدارة مسؤولي الفرق</button>
                 </div>
 
                 <div class="export-hint" style="text-align: center; margin-top: 15px; padding: 10px; background: #f0f8ff; border-radius: 8px; border-left: 4px solid #4a90e2;">

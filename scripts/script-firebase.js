@@ -1123,6 +1123,7 @@ async function onScanSuccess(decodedText, decodedResult) {
         if (qrRecord.academicYear) infoParts.push(`السنة: ${qrRecord.academicYear}`);
         if (qrRecord.phone) infoParts.push(`الهاتف: ${qrRecord.phone}`);
         if (qrRecord.team) infoParts.push(`الفريق: ${qrRecord.team}`);
+        if (qrRecord.teamResponsible) infoParts.push(`المسؤول: ${qrRecord.teamResponsible}`);
         additionalInfo = infoParts.length > 0 ? ` (${infoParts.join(', ')})` : '';
     } else {
         // New QR code not in system - create record automatically
@@ -1290,6 +1291,7 @@ async function submitScore() {
             name: studentName,
             academicYear: scannedQRData?.academicYear || '',
             team: scannedQRData?.team || '',
+            teamResponsible: scannedQRData?.teamResponsible || '',
             scores: {},
             scans: {}, // Track scans by type and date
             lastUpdated: new Date().toISOString(),
@@ -1305,6 +1307,9 @@ async function submitScore() {
             }
             if (scannedQRData.team) {
                 studentsData[studentId].team = scannedQRData.team;
+            }
+            if (scannedQRData.teamResponsible) {
+                studentsData[studentId].teamResponsible = scannedQRData.teamResponsible;
             }
         }
     }
@@ -1418,6 +1423,7 @@ function renderScoresTable(filteredData = null) {
                     <th>اسم المخدوم</th>
                     <th>السنة الدراسية</th>
                     <th>الفريق</th>
+                    <th>المسؤول</th>
                     ${ALL_SCORE_TYPE_IDS.map(typeId => `<th>${SCORE_TYPES[typeId].label}</th>`).join('')}
                     <th class="total-column">المجموع</th>
                     <th>التاريخ والوقت</th>
@@ -1447,6 +1453,7 @@ function renderScoresTable(filteredData = null) {
                 <td><strong>${student.name}</strong></td>
                 <td>${student.academicYear || '-'}</td>
                 <td>${student.team || '-'}</td>
+                <td>${student.teamResponsible || '-'}</td>
                 ${scoresCells}
                 <td class="total-column"><strong>${total}</strong></td>
                 <td>${lastUpdated}</td>
@@ -1487,6 +1494,10 @@ async function editStudentRow(studentId) {
             <div style="margin-bottom: 15px;">
                 <label style="display: block; margin-bottom: 5px; font-weight: 600;">الفريق:</label>
                 <input type="text" id="editStudentTeam" value="${student.team || ''}" placeholder="مثال: الفريق الأحمر" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #999;">المسؤول عن الفريق: <span style="font-size: 11px;">(للتعديل استخدم زر "إدارة مسؤولي الفرق")</span></label>
+                <input type="text" id="editStudentTeamResponsible" value="${student.teamResponsible || '-'}" disabled readonly style="width: 100%; padding: 8px; border: 1px solid #e0e0e0; border-radius: 5px; background-color: #f5f5f5; color: #999; cursor: not-allowed;">
             </div>
             <h4 style="margin: 20px 0 10px 0; color: #667eea;">النقاط:</h4>
     `;
@@ -1554,10 +1565,211 @@ function closeEditDialog() {
     }
 }
 
+// Team Admin Manager - Assign responsible person to entire teams
+function showTeamAdminManager() {
+    // Get all unique teams from both students and QR codes
+    const teams = new Set();
+
+    Object.values(studentsData).forEach(student => {
+        if (student.team && student.team.trim()) {
+            teams.add(student.team.trim());
+        }
+    });
+
+    Object.values(qrCodesData).forEach(qr => {
+        if (qr.team && qr.team.trim()) {
+            teams.add(qr.team.trim());
+        }
+    });
+
+    if (teams.size === 0) {
+        showNotification('لا توجد فرق في النظام حالياً', 'error');
+        return;
+    }
+
+    // Build team list with current responsible person
+    const teamsList = Array.from(teams).sort();
+    let dialogHTML = `
+        <div style="max-width: 700px;">
+            <h3 style="margin-bottom: 20px; text-align: center; color: #667eea;">👥 إدارة مسؤولي الفرق</h3>
+            <p style="text-align: center; color: #666; margin-bottom: 20px;">قم بتعيين أو تغيير المسؤول عن كل فريق. سيتم تحديث جميع أعضاء الفريق تلقائياً.</p>
+            <div style="max-height: 500px; overflow-y: auto;">
+    `;
+
+    teamsList.forEach((team, index) => {
+        // Find current responsible person for this team
+        let currentResponsible = '';
+
+        // Check students first
+        const studentInTeam = Object.values(studentsData).find(s => s.team === team);
+        if (studentInTeam && studentInTeam.teamResponsible) {
+            currentResponsible = studentInTeam.teamResponsible;
+        } else {
+            // Check QR codes
+            const qrInTeam = Object.values(qrCodesData).find(q => q.team === team);
+            if (qrInTeam && qrInTeam.teamResponsible) {
+                currentResponsible = qrInTeam.teamResponsible;
+            }
+        }
+
+        // Count members
+        const studentCount = Object.values(studentsData).filter(s => s.team === team).length;
+        const qrCount = Object.values(qrCodesData).filter(q => q.team === team).length;
+
+        dialogHTML += `
+            <div style="background: #f8f9fa; padding: 15px; margin-bottom: 15px; border-radius: 10px; border-left: 4px solid #667eea;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <div>
+                        <strong style="font-size: 16px; color: #333;">⚽ ${team}</strong>
+                        <div style="font-size: 12px; color: #666; margin-top: 5px;">
+                            ${studentCount} مخدوم في السجلات | ${qrCount} رمز QR
+                        </div>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <label style="min-width: 80px; font-weight: 600; color: #555;">المسؤول:</label>
+                    <input
+                        type="text"
+                        id="teamResponsible_${index}"
+                        data-team="${team}"
+                        value="${currentResponsible}"
+                        placeholder="اسم المسؤول أو الخادم المشرف"
+                        style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px;"
+                    >
+                    <button
+                        onclick="assignTeamResponsible('${team}', 'teamResponsible_${index}')"
+                        style="padding: 10px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 5px; font-weight: 600; cursor: pointer; white-space: nowrap;"
+                    >
+                        💾 حفظ
+                    </button>
+                    ${currentResponsible ? `
+                    <button
+                        onclick="clearTeamResponsible('${team}', 'teamResponsible_${index}')"
+                        style="padding: 10px 20px; background: #dc3545; color: white; border: none; border-radius: 5px; font-weight: 600; cursor: pointer; white-space: nowrap;"
+                        title="إزالة المسؤول"
+                    >
+                        🗑️ إزالة
+                    </button>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    });
+
+    dialogHTML += `
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 20px; justify-content: center;">
+                <button onclick="closeEditDialog()" style="padding: 12px 30px; background: #6c757d; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">إغلاق</button>
+            </div>
+        </div>
+    `;
+
+    showEditDialog(dialogHTML);
+}
+
+async function assignTeamResponsible(teamName, inputId) {
+    const responsibleName = document.getElementById(inputId).value.trim();
+
+    if (!responsibleName) {
+        showNotification('الرجاء إدخال اسم المسؤول', 'error');
+        return;
+    }
+
+    // Update all students in this team
+    let studentsUpdated = 0;
+    for (const [studentId, student] of Object.entries(studentsData)) {
+        if (student.team === teamName) {
+            studentsData[studentId].teamResponsible = responsibleName;
+            studentsData[studentId].lastUpdated = new Date().toISOString();
+            studentsData[studentId].lastUpdatedBy = currentAdmin;
+
+            // Save to Firebase
+            await saveToFirebase(studentId, studentsData[studentId]);
+            studentsUpdated++;
+        }
+    }
+
+    // Update all QR codes in this team
+    let qrCodesUpdated = 0;
+    for (const [qrId, qr] of Object.entries(qrCodesData)) {
+        if (qr.team === teamName) {
+            qrCodesData[qrId].teamResponsible = responsibleName;
+            qrCodesData[qrId].lastUpdated = new Date().toISOString();
+            qrCodesData[qrId].lastUpdatedBy = currentAdmin;
+
+            // Save to Firebase
+            await saveQRCodesToFirebase(qrId, qrCodesData[qrId]);
+            qrCodesUpdated++;
+        }
+    }
+
+    // Update filter dropdowns
+    populateFilterDropdowns();
+
+    // Re-render current view
+    if (!document.getElementById('dashboardSection').classList.contains('hidden')) {
+        applyFilters();
+    } else if (!document.getElementById('qrGeneratorSection').classList.contains('hidden')) {
+        applyQRFilters();
+    }
+
+    showNotification(`✅ تم تعيين "${responsibleName}" مسؤولاً عن فريق "${teamName}"\n(${studentsUpdated} مخدوم)`, 'success');
+}
+
+async function clearTeamResponsible(teamName, inputId) {
+    if (!confirm(`هل أنت متأكد من إزالة المسؤول عن فريق "${teamName}"؟`)) {
+        return;
+    }
+
+    // Update all students in this team
+    let studentsUpdated = 0;
+    for (const [studentId, student] of Object.entries(studentsData)) {
+        if (student.team === teamName) {
+            studentsData[studentId].teamResponsible = '';
+            studentsData[studentId].lastUpdated = new Date().toISOString();
+            studentsData[studentId].lastUpdatedBy = currentAdmin;
+
+            // Save to Firebase
+            await saveToFirebase(studentId, studentsData[studentId]);
+            studentsUpdated++;
+        }
+    }
+
+    // Update all QR codes in this team
+    let qrCodesUpdated = 0;
+    for (const [qrId, qr] of Object.entries(qrCodesData)) {
+        if (qr.team === teamName) {
+            qrCodesData[qrId].teamResponsible = '';
+            qrCodesData[qrId].lastUpdated = new Date().toISOString();
+            qrCodesData[qrId].lastUpdatedBy = currentAdmin;
+
+            // Save to Firebase
+            await saveQRCodesToFirebase(qrId, qrCodesData[qrId]);
+            qrCodesUpdated++;
+        }
+    }
+
+    // Clear the input field
+    document.getElementById(inputId).value = '';
+
+    // Update filter dropdowns
+    populateFilterDropdowns();
+
+    // Re-render current view
+    if (!document.getElementById('dashboardSection').classList.contains('hidden')) {
+        applyFilters();
+    } else if (!document.getElementById('qrGeneratorSection').classList.contains('hidden')) {
+        applyQRFilters();
+    }
+
+    showNotification(`✅ تم إزالة المسؤول عن فريق "${teamName}"\n(${studentsUpdated} مخدوم)`, 'success');
+}
+
 async function saveStudentEdit(studentId) {
     const newName = document.getElementById('editStudentName').value.trim();
     const newAcademicYear = document.getElementById('editStudentAcademicYear').value.trim();
     const newTeam = document.getElementById('editStudentTeam').value.trim();
+    // Note: teamResponsible is read-only, managed only through "إدارة مسؤولي الفرق" button
 
     if (!newName) {
         showNotification('الرجاء إدخال اسم المخدوم', 'error');
@@ -1587,11 +1799,12 @@ async function saveStudentEdit(studentId) {
         // Delete old entry from local data
         delete studentsData[studentId];
 
-        // Create new entry with new name, preserving scans data
+        // Create new entry with new name, preserving scans data and teamResponsible
         studentsData[newStudentKey] = {
             name: newName,
             academicYear: newAcademicYear,
             team: newTeam,
+            teamResponsible: oldStudentData.teamResponsible || '', // Preserve existing teamResponsible
             scores: newScores,
             scans: oldStudentData.scans || {},
             lastUpdated: new Date().toISOString(),
@@ -1611,9 +1824,10 @@ async function saveStudentEdit(studentId) {
         // Save to localStorage
         saveData();
     } else {
-        // Just update data - name unchanged
+        // Just update data - name unchanged (teamResponsible is NOT updated here)
         studentsData[studentId].academicYear = newAcademicYear;
         studentsData[studentId].team = newTeam;
+        // teamResponsible is preserved, not updated from form (managed only via "إدارة مسؤولي الفرق")
         studentsData[studentId].scores = newScores;
         studentsData[studentId].lastUpdated = new Date().toISOString();
         studentsData[studentId].lastUpdatedBy = currentAdmin;
@@ -1623,7 +1837,8 @@ async function saveStudentEdit(studentId) {
     }
 
     closeEditDialog();
-    renderScoresTable();
+    populateFilterDropdowns();
+    applyFilters();
     showNotification('تم تحديث البيانات بنجاح', 'success');
 }
 
@@ -1655,7 +1870,7 @@ function exportToExcel() {
     const excelData = [];
 
     // Header row with Arabic labels
-    const headers = ['اسم المخدوم', 'السنة الدراسية', 'الفريق', ...ALL_SCORE_TYPE_IDS.map(id => SCORE_TYPES[id].label), 'المجموع', 'آخر تحديث', 'الخادم'];
+    const headers = ['اسم المخدوم', 'السنة الدراسية', 'الفريق', 'المسؤول عن الفريق', ...ALL_SCORE_TYPE_IDS.map(id => SCORE_TYPES[id].label), 'المجموع', 'آخر تحديث', 'الخادم'];
     excelData.push(headers);
 
     // If no data, still create Excel with headers
@@ -1681,7 +1896,8 @@ function exportToExcel() {
         const row = [
             student.name,
             student.academicYear || '-',
-            student.team || '-'
+            student.team || '-',
+            student.teamResponsible || '-'
         ];
 
         // Add score columns for ALL score types using IDs
@@ -1761,6 +1977,7 @@ function applyFilters() {
     const nameFilter = document.getElementById('filterName').value.trim().toLowerCase();
     const academicYearFilter = document.getElementById('filterAcademicYear').value.trim().toLowerCase();
     const teamFilter = document.getElementById('filterTeam').value.trim().toLowerCase();
+    const teamResponsibleFilter = document.getElementById('filterTeamResponsible').value.trim().toLowerCase();
     const adminFilter = document.getElementById('filterAdmin').value.trim().toLowerCase();
     const dateFilter = document.getElementById('filterDate').value;
     const scoreTypeFilter = document.getElementById('filterScoreType').value;
@@ -1790,6 +2007,15 @@ function applyFilters() {
         filteredData = Object.fromEntries(
             Object.entries(filteredData).filter(([id, student]) =>
                 student.team && student.team.toLowerCase().includes(teamFilter)
+            )
+        );
+    }
+
+    // Filter by team responsible
+    if (teamResponsibleFilter) {
+        filteredData = Object.fromEntries(
+            Object.entries(filteredData).filter(([id, student]) =>
+                student.teamResponsible && student.teamResponsible.toLowerCase().includes(teamResponsibleFilter)
             )
         );
     }
@@ -1830,6 +2056,7 @@ function clearFilters() {
     document.getElementById('filterName').value = '';
     document.getElementById('filterAcademicYear').value = '';
     document.getElementById('filterTeam').value = '';
+    document.getElementById('filterTeamResponsible').value = '';
     document.getElementById('filterAdmin').value = '';
     document.getElementById('filterDate').value = '';
     document.getElementById('filterScoreType').value = '';
@@ -1949,7 +2176,7 @@ const SECTION_REGISTRY = {
         onShow: () => {
             hideScoringForm();
             populateFilterDropdowns();
-            renderScoresTable();
+            applyFilters();
         },
         onHide: () => {}
     },
@@ -1960,10 +2187,10 @@ const SECTION_REGISTRY = {
             hideScoringForm();
             populateFilterDropdowns();
             loadQRCodes().then(() => {
-                renderQRCodesTable();
+                applyQRFilters();
             }).catch(error => {
                 console.error('Error loading QR codes:', error);
-                renderQRCodesTable();
+                applyQRFilters();
             });
         },
         onHide: () => {}
@@ -3238,7 +3465,7 @@ function showQRGenerator() {
 let qrCodesData = {};
 
 // Helper function to decode QR data (pipe-delimited format)
-// Format: name|academicYear|phone|team
+// Format: name|academicYear|phone|team|teamResponsible
 function decodeQRData(qrString) {
     try {
         const parts = qrString.split('|');
@@ -3246,7 +3473,8 @@ function decodeQRData(qrString) {
             name: parts[0] || '',
             academicYear: parts[1] || '',
             phone: parts[2] || '',
-            team: parts[3] || ''
+            team: parts[3] || '',
+            teamResponsible: parts[4] || ''
         };
     } catch (error) {
         console.error('Error decoding QR data:', error);
@@ -3373,6 +3601,7 @@ async function generateQRCode() {
         academicYear: academicYear || '',
         phone: phone || '',
         team: team || '',
+        teamResponsible: document.getElementById('qrTeamResponsible').value.trim() || '',
         createdAt: new Date().toISOString(),
         createdBy: currentAdmin
     };
@@ -3401,10 +3630,11 @@ async function generateQRCode() {
 
 // Populate filter dropdowns with unique values from existing data
 function populateFilterDropdowns() {
-    // Get unique academic years, teams, and admins from both students and QR codes
+    // Get unique academic years, teams, admins, and team responsibles from both students and QR codes
     const academicYears = new Set();
     const teams = new Set();
     const admins = new Set();
+    const teamResponsibles = new Set();
 
     // Collect from students data
     Object.values(studentsData).forEach(student => {
@@ -3416,6 +3646,9 @@ function populateFilterDropdowns() {
         }
         if (student.lastUpdatedBy && student.lastUpdatedBy.trim()) {
             admins.add(student.lastUpdatedBy.trim());
+        }
+        if (student.teamResponsible && student.teamResponsible.trim()) {
+            teamResponsibles.add(student.teamResponsible.trim());
         }
     });
 
@@ -3429,6 +3662,9 @@ function populateFilterDropdowns() {
         }
         if (qr.createdBy && qr.createdBy.trim()) {
             admins.add(qr.createdBy.trim());
+        }
+        if (qr.teamResponsible && qr.teamResponsible.trim()) {
+            teamResponsibles.add(qr.teamResponsible.trim());
         }
     });
 
@@ -3458,6 +3694,20 @@ function populateFilterDropdowns() {
             dashboardTeamFilter.appendChild(option);
         });
         if (currentValue) dashboardTeamFilter.value = currentValue;
+    }
+
+    // Populate Dashboard Team Responsible filter
+    const dashboardTeamResponsibleFilter = document.getElementById('filterTeamResponsible');
+    if (dashboardTeamResponsibleFilter) {
+        const currentValue = dashboardTeamResponsibleFilter.value;
+        dashboardTeamResponsibleFilter.innerHTML = '<option value="">الكل</option>';
+        Array.from(teamResponsibles).sort().forEach(responsible => {
+            const option = document.createElement('option');
+            option.value = responsible;
+            option.textContent = responsible;
+            dashboardTeamResponsibleFilter.appendChild(option);
+        });
+        if (currentValue) dashboardTeamResponsibleFilter.value = currentValue;
     }
 
     // Populate Dashboard Admin/Servant filter
@@ -3501,6 +3751,20 @@ function populateFilterDropdowns() {
         });
         if (currentValue) qrTeamFilter.value = currentValue;
     }
+
+    // Populate QR Generator Team Responsible filter
+    const qrTeamResponsibleFilter = document.getElementById('qrFilterTeamResponsible');
+    if (qrTeamResponsibleFilter) {
+        const currentValue = qrTeamResponsibleFilter.value;
+        qrTeamResponsibleFilter.innerHTML = '<option value="">الكل</option>';
+        Array.from(teamResponsibles).sort().forEach(responsible => {
+            const option = document.createElement('option');
+            option.value = responsible;
+            option.textContent = responsible;
+            qrTeamResponsibleFilter.appendChild(option);
+        });
+        if (currentValue) qrTeamResponsibleFilter.value = currentValue;
+    }
 }
 
 // Reset QR form
@@ -3510,6 +3774,7 @@ function resetQRForm() {
     document.getElementById('qrAcademicYear').value = '';
     document.getElementById('qrPhone').value = '';
     document.getElementById('qrTeam').value = '';
+    document.getElementById('qrTeamResponsible').value = '';
 }
 
 // Render QR Codes Table
@@ -3530,8 +3795,9 @@ function renderQRCodesTable(filteredData = null) {
                     <th>السنة الدراسية</th>
                     <th>رقم الهاتف</th>
                     <th>الفريق</th>
+                    <th>المسؤول</th>
                     <th>تاريخ الإنشاء</th>
-                    <th>الخادم</th>
+                    <th>تم التحديث بواسطة</th>
                     <th>الإجراءات</th>
                 </tr>
             </thead>
@@ -3558,6 +3824,7 @@ function renderQRCodesTable(filteredData = null) {
                 <td>${qr.academicYear || '-'}</td>
                 <td>${qr.phone || '-'}</td>
                 <td>${qr.team || '-'}</td>
+                <td>${qr.teamResponsible || '-'}</td>
                 <td>${createdDate}</td>
                 <td>${qr.createdBy || 'غير معروف'}</td>
                 <td>
@@ -3610,6 +3877,10 @@ async function editQRCode(qrId) {
                 <label style="display: block; margin-bottom: 5px; font-weight: 600;">الفريق:</label>
                 <input type="text" id="editQRTeam" value="${qr.team || ''}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
             </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #999;">المسؤول عن الفريق: <span style="font-size: 11px;">(للتعديل استخدم زر "إدارة مسؤولي الفرق")</span></label>
+                <input type="text" id="editQRTeamResponsible" value="${qr.teamResponsible || '-'}" disabled readonly style="width: 100%; padding: 8px; border: 1px solid #e0e0e0; border-radius: 5px; background-color: #f5f5f5; color: #999; cursor: not-allowed;">
+            </div>
             <div style="display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end;">
                 <button onclick="saveQREdit('${qrId}')" style="padding: 10px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 5px; font-weight: 600; cursor: pointer;">💾 حفظ</button>
                 <button onclick="closeEditDialog()" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 5px; font-weight: 600; cursor: pointer;">إلغاء</button>
@@ -3626,6 +3897,7 @@ async function saveQREdit(qrId) {
     const newAcademicYear = document.getElementById('editQRAcademicYear').value.trim();
     const newPhone = document.getElementById('editQRPhone').value.trim();
     const newTeam = document.getElementById('editQRTeam').value.trim();
+    // Note: teamResponsible is read-only, managed only through "إدارة مسؤولي الفرق" button
 
     if (!newName) {
         showNotification('الرجاء إدخال اسم المخدوم', 'error');
@@ -3651,11 +3923,12 @@ async function saveQREdit(qrId) {
 
     const oldName = qrCodesData[qrId].name;
 
-    // Update QR data
+    // Update QR data (teamResponsible is NOT updated here, managed only via "إدارة مسؤولي الفرق")
     qrCodesData[qrId].name = newName;
     qrCodesData[qrId].academicYear = newAcademicYear;
     qrCodesData[qrId].phone = newPhone;
     qrCodesData[qrId].team = newTeam;
+    // teamResponsible is preserved, not updated from form
     qrCodesData[qrId].lastUpdated = new Date().toISOString();
     qrCodesData[qrId].lastUpdatedBy = currentAdmin;
 
@@ -3716,7 +3989,7 @@ async function saveQREdit(qrId) {
 
     // Manually update UI immediately for better UX (real-time listener will sync across devices)
     populateFilterDropdowns();
-    renderQRCodesTable();
+    applyQRFilters();
 
     closeEditDialog();
     showNotification('تم تحديث رمز QR بنجاح', 'success');
@@ -4483,6 +4756,7 @@ function applyQRFilters() {
     const yearFilter = document.getElementById('qrFilterYear').value.trim().toLowerCase();
     const phoneFilter = document.getElementById('qrFilterPhone').value.trim();
     const teamFilter = document.getElementById('qrFilterTeam').value.trim().toLowerCase();
+    const teamResponsibleFilter = document.getElementById('qrFilterTeamResponsible').value.trim().toLowerCase();
 
     let filteredData = { ...qrCodesData };
 
@@ -4518,6 +4792,14 @@ function applyQRFilters() {
         );
     }
 
+    if (teamResponsibleFilter) {
+        filteredData = Object.fromEntries(
+            Object.entries(filteredData).filter(([id, qr]) =>
+                qr.teamResponsible && qr.teamResponsible.toLowerCase().includes(teamResponsibleFilter)
+            )
+        );
+    }
+
     renderQRCodesTable(filteredData);
 }
 
@@ -4527,6 +4809,7 @@ function clearQRFilters() {
     document.getElementById('qrFilterYear').value = '';
     document.getElementById('qrFilterPhone').value = '';
     document.getElementById('qrFilterTeam').value = '';
+    document.getElementById('qrFilterTeamResponsible').value = '';
     renderQRCodesTable();
 }
 
@@ -4542,6 +4825,7 @@ function exportFilteredQRs() {
     const yearFilter = document.getElementById('qrFilterYear').value.trim().toLowerCase();
     const phoneFilter = document.getElementById('qrFilterPhone').value.trim();
     const teamFilter = document.getElementById('qrFilterTeam').value.trim().toLowerCase();
+    const teamResponsibleFilter = document.getElementById('qrFilterTeamResponsible').value.trim().toLowerCase();
 
     // Apply filters to get filtered data
     let filteredData = { ...qrCodesData };
@@ -4578,6 +4862,14 @@ function exportFilteredQRs() {
         );
     }
 
+    if (teamResponsibleFilter) {
+        filteredData = Object.fromEntries(
+            Object.entries(filteredData).filter(([id, qr]) =>
+                qr.teamResponsible && qr.teamResponsible.toLowerCase().includes(teamResponsibleFilter)
+            )
+        );
+    }
+
     // Check if any data matches the filters
     if (Object.keys(filteredData).length === 0) {
         showNotification('لا توجد بيانات تطابق الفلاتر المحددة', 'error');
@@ -4590,6 +4882,7 @@ function exportFilteredQRs() {
         'السنة الدراسية': qr.academicYear || '-',
         'رقم الهاتف': qr.phone || '-',
         'الفريق': qr.team || '-',
+        'المسؤول عن الفريق': qr.teamResponsible || '-',
         'تاريخ الإنشاء': new Date(qr.createdAt).toLocaleString('ar-EG'),
         'الخادم': qr.createdBy || 'غير معروف'
     }));
@@ -4599,7 +4892,7 @@ function exportFilteredQRs() {
     XLSX.utils.book_append_sheet(wb, ws, 'QR Codes Filtered');
 
     const timestamp = new Date().toISOString().split('T')[0];
-    const filterSuffix = (nameFilter || yearFilter || phoneFilter || teamFilter) ? '_Filtered' : '';
+    const filterSuffix = (nameFilter || yearFilter || phoneFilter || teamFilter || teamResponsibleFilter) ? '_Filtered' : '';
     XLSX.writeFile(wb, `QR_Codes${filterSuffix}_${timestamp}.xlsx`);
 
     // Show notification with count and hint
@@ -4716,6 +5009,9 @@ window.exportFilteredQRs = exportFilteredQRs;
 window.exportQRImages = exportQRImages;
 window.clearQRFilters = clearQRFilters;
 window.applyQRFilters = applyQRFilters;
+window.showTeamAdminManager = showTeamAdminManager;
+window.assignTeamResponsible = assignTeamResponsible;
+window.clearTeamResponsible = clearTeamResponsible;
 window.updateProfile = updateProfile;
 window.showAddAdminForm = showAddAdminForm;
 window.hideAddAdminForm = hideAddAdminForm;
