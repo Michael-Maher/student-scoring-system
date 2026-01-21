@@ -1713,7 +1713,11 @@ async function assignTeamResponsible(teamName, inputId) {
         applyQRFilters();
     }
 
-    showNotification(`✅ تم تعيين "${responsibleName}" مسؤولاً عن فريق "${teamName}"\n(${studentsUpdated} مخدوم)`, 'success');
+    // Refresh the team admin manager dialog to show the remove button
+    closeEditDialog();
+    showTeamAdminManager();
+
+    showNotification(`✅ تم تعيين "${responsibleName}" مسؤولاً عن فريق "${teamName}"\n(${studentsUpdated} سجل مخدوم، ${qrCodesUpdated} رمز QR)`, 'success');
 }
 
 async function clearTeamResponsible(teamName, inputId) {
@@ -1749,9 +1753,6 @@ async function clearTeamResponsible(teamName, inputId) {
         }
     }
 
-    // Clear the input field
-    document.getElementById(inputId).value = '';
-
     // Update filter dropdowns
     populateFilterDropdowns();
 
@@ -1762,7 +1763,11 @@ async function clearTeamResponsible(teamName, inputId) {
         applyQRFilters();
     }
 
-    showNotification(`✅ تم إزالة المسؤول عن فريق "${teamName}"\n(${studentsUpdated} مخدوم)`, 'success');
+    // Refresh the team admin manager dialog to hide the remove button
+    closeEditDialog();
+    showTeamAdminManager();
+
+    showNotification(`✅ تم إزالة المسؤول عن فريق "${teamName}"\n(${studentsUpdated} سجل مخدوم، ${qrCodesUpdated} رمز QR)`, 'success');
 }
 
 async function saveStudentEdit(studentId) {
@@ -2873,6 +2878,18 @@ async function saveAdmin() {
         canModifyDashboard: document.getElementById('permModifyDashboard').checked
     };
 
+    // Check if trying to downgrade the last head admin
+    if (isEditing) {
+        const currentAdmin = adminsData[editingPhone || phone];
+        const wasHeadAdmin = currentAdmin && currentAdmin.isHeadAdmin === true;
+        const isBecomingNonHeadAdmin = !isHeadAdmin;
+
+        if (wasHeadAdmin && isBecomingNonHeadAdmin && countHeadAdmins() <= 1) {
+            showNotification('⚠️ لا يمكن إزالة صلاحية المسؤول الرئيسي من آخر مسؤول رئيسي في النظام!\nيجب أن يكون هناك مسؤول رئيسي واحد على الأقل للتحكم في الصلاحيات.\n\nإذا كنت تريد تغيير المسؤول الرئيسي، قم أولاً بترقية خادم آخر إلى مسؤول رئيسي.', 'error');
+            return;
+        }
+    }
+
     const adminData = {
         name,
         phone,
@@ -2946,9 +2963,20 @@ function editAdmin(phone) {
     document.getElementById('addAdminForm').classList.remove('hidden');
 }
 
+// Helper function to count head admins
+function countHeadAdmins() {
+    return Object.values(adminsData).filter(admin => admin.isHeadAdmin === true).length;
+}
+
 async function deleteAdmin(phone) {
     const admin = adminsData[phone];
     if (!admin) return;
+
+    // Check if this is the last head admin
+    if (admin.isHeadAdmin && countHeadAdmins() <= 1) {
+        showNotification('⚠️ لا يمكن حذف آخر مسؤول رئيسي في النظام!\nيجب أن يكون هناك مسؤول رئيسي واحد على الأقل للتحكم في الصلاحيات.', 'error');
+        return;
+    }
 
     if (!confirm(`هل أنت متأكد من حذف الخادم "${admin.name}"؟`)) {
         return;
