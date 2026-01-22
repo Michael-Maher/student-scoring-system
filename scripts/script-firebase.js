@@ -1546,11 +1546,13 @@ function showEditDialog(content) {
     const dialog = document.createElement('div');
     dialog.style.cssText = `
         background: white;
-        padding: 30px;
+        padding: 20px;
         border-radius: 15px;
         box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-        max-height: 80vh;
+        max-height: 90vh;
         overflow-y: auto;
+        max-width: 95vw;
+        margin: 10px;
     `;
     dialog.innerHTML = content;
 
@@ -1590,10 +1592,10 @@ function showTeamAdminManager() {
     // Build team list with current responsible person
     const teamsList = Array.from(teams).sort();
     let dialogHTML = `
-        <div style="max-width: 700px;">
+        <div style="max-width: 700px; width: 90vw;">
             <h3 style="margin-bottom: 20px; text-align: center; color: #667eea;">👥 إدارة مسؤولي الفرق</h3>
             <p style="text-align: center; color: #666; margin-bottom: 20px;">قم بتعيين أو تغيير المسؤول عن كل فريق. سيتم تحديث جميع أعضاء الفريق تلقائياً.</p>
-            <div style="max-height: 500px; overflow-y: auto;">
+            <div style="max-height: 60vh; overflow-y: auto; padding-right: 5px;">
     `;
 
     teamsList.forEach((team, index) => {
@@ -1618,7 +1620,7 @@ function showTeamAdminManager() {
 
         dialogHTML += `
             <div style="background: #f8f9fa; padding: 15px; margin-bottom: 15px; border-radius: 10px; border-left: 4px solid #667eea;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 10px;">
                     <div>
                         <strong style="font-size: 16px; color: #333;">⚽ ${team}</strong>
                         <div style="font-size: 12px; color: #666; margin-top: 5px;">
@@ -1626,26 +1628,26 @@ function showTeamAdminManager() {
                         </div>
                     </div>
                 </div>
-                <div style="display: flex; gap: 10px; align-items: center;">
-                    <label style="min-width: 80px; font-weight: 600; color: #555;">المسؤول:</label>
+                <div style="display: flex; gap: 8px; align-items: stretch; flex-wrap: wrap;">
+                    <label style="min-width: 70px; font-weight: 600; color: #555; align-self: center; flex-shrink: 0;">المسؤول:</label>
                     <input
                         type="text"
                         id="teamResponsible_${index}"
                         data-team="${team}"
                         value="${currentResponsible}"
-                        placeholder="اسم المسؤول أو الخادم المشرف"
-                        style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px;"
+                        placeholder="اسم المسؤول"
+                        style="flex: 1; min-width: 150px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px;"
                     >
                     <button
                         onclick="assignTeamResponsible('${team}', 'teamResponsible_${index}')"
-                        style="padding: 10px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 5px; font-weight: 600; cursor: pointer; white-space: nowrap;"
+                        style="padding: 10px 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 5px; font-weight: 600; cursor: pointer; white-space: nowrap; flex-shrink: 0;"
                     >
                         💾 حفظ
                     </button>
                     ${currentResponsible ? `
                     <button
                         onclick="clearTeamResponsible('${team}', 'teamResponsible_${index}')"
-                        style="padding: 10px 20px; background: #dc3545; color: white; border: none; border-radius: 5px; font-weight: 600; cursor: pointer; white-space: nowrap;"
+                        style="padding: 10px 15px; background: #dc3545; color: white; border: none; border-radius: 5px; font-weight: 600; cursor: pointer; white-space: nowrap; flex-shrink: 0;"
                         title="إزالة المسؤول"
                     >
                         🗑️ إزالة
@@ -2961,6 +2963,9 @@ function editAdmin(phone) {
 
     // Show form
     document.getElementById('addAdminForm').classList.remove('hidden');
+
+    // Scroll to top to show the edit form
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // Helper function to count head admins
@@ -5047,6 +5052,8 @@ window.saveAdmin = saveAdmin;
 window.showAddScoreTypeForm = showAddScoreTypeForm;
 window.hideAddScoreTypeForm = hideAddScoreTypeForm;
 window.addScoreType = addScoreType;
+window.editScoreType = editScoreType;
+window.deleteScoreType = deleteScoreType;
 window.hideEditScoreTypeForm = hideEditScoreTypeForm;
 window.saveScoreTypeEdit = saveScoreTypeEdit;
 window.applyFilters = applyFilters;
