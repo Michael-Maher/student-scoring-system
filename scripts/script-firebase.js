@@ -1377,6 +1377,21 @@ function cancelScoring() {
     closeScoringModal();
 }
 
+// Handle score type selection change - auto-fill score with default points
+function onScoreTypeChange() {
+    const scoreTypeSelect = document.getElementById('scoreType');
+    const scoreInput = document.getElementById('score');
+
+    if (!scoreTypeSelect || !scoreInput) return;
+
+    const selectedTypeId = scoreTypeSelect.value;
+    if (selectedTypeId && SCORE_TYPES[selectedTypeId]) {
+        const defaultPoints = SCORE_TYPES[selectedTypeId].points !== undefined ? SCORE_TYPES[selectedTypeId].points : 1;
+        scoreInput.value = defaultPoints;
+        console.log('🔄 Auto-filled score with default points:', defaultPoints, 'for type:', selectedTypeId);
+    }
+}
+
 // Navigation functions
 // Helper function to format date as two lines (Day, Date / Time in 12h format)
 function formatDateTwoLines(dateString) {
@@ -3147,6 +3162,7 @@ function renderScoreTypesList() {
         const multipleIcon = scoreType.allowMultiplePerDay ? '✅' : '❌';
         const multipleText = scoreType.allowMultiplePerDay ? 'نعم' : 'لا';
         const multipleClass = scoreType.allowMultiplePerDay ? 'indicator-yes' : 'indicator-no';
+        const points = scoreType.points !== undefined ? scoreType.points : 1;
 
         html += `
             <div class="score-type-card">
@@ -3155,6 +3171,7 @@ function renderScoreTypesList() {
                     <code class="score-type-id">${typeId}</code>
                 </div>
                 <div class="score-type-info">
+                    <p><strong>النقاط الافتراضية:</strong> <span class="points-badge">${points}</span></p>
                     <p><strong>تسجيل متعدد:</strong> <span class="selection-indicator ${multipleClass}">${multipleIcon} ${multipleText}</span></p>
                 </div>
                 <div class="score-type-actions">
@@ -3195,6 +3212,8 @@ function showAddScoreTypeForm() {
     document.getElementById('newScoreTypeId').value = '';
     document.getElementById('newScoreTypeLabel').value = '';
     document.getElementById('newScoreTypeMultiple').value = 'false';
+    const pointsInput = document.getElementById('newScoreTypePoints');
+    if (pointsInput) pointsInput.value = '1';
     updateMultipleIndicator('Add');
 }
 
@@ -3249,6 +3268,8 @@ async function addScoreType() {
     let id = document.getElementById('newScoreTypeId').value.trim().toLowerCase();
     const label = document.getElementById('newScoreTypeLabel').value.trim();
     const allowMultiple = document.getElementById('newScoreTypeMultiple').value === 'true';
+    const pointsInput = document.getElementById('newScoreTypePoints');
+    const points = pointsInput ? parseInt(pointsInput.value) || 1 : 1;
 
     // Auto-generate ID if not provided
     if (!id) {
@@ -3256,7 +3277,7 @@ async function addScoreType() {
         console.log('🔄 Auto-generated ID:', id);
     }
 
-    console.log('➕ Adding new score type:', { id, label, allowMultiple });
+    console.log('➕ Adding new score type:', { id, label, allowMultiple, points });
 
     if (!id) {
         showNotification('الرجاء إدخال المعرف (ID)', 'error');
@@ -3281,7 +3302,8 @@ async function addScoreType() {
     const newScoreType = {
         id,
         label,
-        allowMultiplePerDay: allowMultiple
+        allowMultiplePerDay: allowMultiple,
+        points: points
     };
 
     // Update local data
@@ -3330,6 +3352,10 @@ function editScoreType(typeId) {
     document.getElementById('editScoreTypeIdDisplay').value = typeId;
     document.getElementById('editScoreTypeLabel').value = scoreType.label;
     document.getElementById('editScoreTypeMultiple').value = scoreType.allowMultiplePerDay ? 'true' : 'false';
+    const pointsInput = document.getElementById('editScoreTypePoints');
+    if (pointsInput) {
+        pointsInput.value = scoreType.points !== undefined ? scoreType.points : 1;
+    }
 
     // Update indicator
     updateMultipleIndicator('Edit');
@@ -3378,6 +3404,8 @@ async function saveScoreTypeEdit() {
     const typeId = document.getElementById('editScoreTypeId').value;
     const newLabel = document.getElementById('editScoreTypeLabel').value.trim();
     const allowMultiple = document.getElementById('editScoreTypeMultiple').value === 'true';
+    const pointsInput = document.getElementById('editScoreTypePoints');
+    const points = pointsInput ? parseInt(pointsInput.value) || 1 : 1;
 
     if (!newLabel) {
         showNotification('الرجاء إدخال الاسم العربي', 'error');
@@ -3390,13 +3418,14 @@ async function saveScoreTypeEdit() {
         return;
     }
 
-    console.log('💾 Saving score type edit:', typeId, { newLabel, allowMultiple });
+    console.log('💾 Saving score type edit:', typeId, { newLabel, allowMultiple, points });
 
     // Update local data
     SCORE_TYPES[typeId] = {
         ...scoreType,
         label: newLabel,
-        allowMultiplePerDay: allowMultiple
+        allowMultiplePerDay: allowMultiple,
+        points: points
     };
     console.log('✅ Score type updated locally:', typeId, SCORE_TYPES[typeId]);
 

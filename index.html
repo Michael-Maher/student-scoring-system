@@ -131,7 +131,7 @@
                 </div>
                 <div class="form-group">
                     <label>نوع النشاط:</label>
-                    <select id="scoreType" required>
+                    <select id="scoreType" required onchange="onScoreTypeChange()">
                         <option value="">اختر نوع النشاط</option>
                     </select>
                 </div>
@@ -446,6 +446,11 @@
                         <small class="hint">💡 إذا تركته فارغاً، سيتم توليده تلقائياً من الاسم العربي</small>
                     </div>
                     <div class="form-group">
+                        <label>النقاط الافتراضية: <span class="optional">اختياري</span></label>
+                        <input type="number" id="newScoreTypePoints" min="0" max="100" value="1" placeholder="1">
+                        <small class="hint">💡 عدد النقاط التي تُضاف تلقائياً عند اختيار هذا النوع (الافتراضي: 1)</small>
+                    </div>
+                    <div class="form-group">
                         <label>تسجيل متعدد: <span id="multipleIndicatorAdd" class="selection-indicator"></span></label>
                         <select id="newScoreTypeMultiple" onchange="updateMultipleIndicator('Add')">
                             <option value="false">❌ لا (مرة واحدة فقط)</option>
@@ -482,6 +487,11 @@
                     <small class="hint">🔒 لا يمكن تعديل المعرف بعد الإنشاء</small>
                 </div>
                 <div class="form-group">
+                    <label>النقاط الافتراضية:</label>
+                    <input type="number" id="editScoreTypePoints" min="0" max="100" value="1" placeholder="1">
+                    <small class="hint">💡 عدد النقاط التي تُضاف تلقائياً عند اختيار هذا النوع</small>
+                </div>
+                <div class="form-group">
                     <label>تسجيل متعدد: <span id="multipleIndicatorEdit" class="selection-indicator"></span></label>
                     <select id="editScoreTypeMultiple" onchange="updateMultipleIndicator('Edit')">
                         <option value="false">❌ لا (مرة واحدة فقط)</option>
@@ -492,13 +502,6 @@
             <div class="modal-footer">
                 <button onclick="saveScoreTypeEdit()" class="vip-button">💾 حفظ التغييرات</button>
                 <button onclick="hideEditScoreTypeForm()" class="cancel-btn">✖️ إلغاء</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- End of Main App -->
-    <div id="hiddenScoreTypesListWrapper">
-                <div id="scoreTypesList" class="score-types-list"></div>
             </div>
         </div>
     </div>

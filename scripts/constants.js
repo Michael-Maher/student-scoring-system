@@ -26,56 +26,64 @@ const DEFAULT_SCORE_TYPES = {
         label: 'حضور القداس',
         icon: '⛪',
         maxScore: 100,
-        allowMultiplePerDay: false
+        allowMultiplePerDay: false,
+        points: 1
     },
     tunic: {
         id: 'tunic',
         label: 'لبس التونية',
         icon: '👕',
         maxScore: 100,
-        allowMultiplePerDay: false
+        allowMultiplePerDay: false,
+        points: 1
     },
     meeting: {
         id: 'meeting',
         label: 'حضور الاجتماع',
         icon: '📖',
         maxScore: 100,
-        allowMultiplePerDay: false
+        allowMultiplePerDay: false,
+        points: 1
     },
     lesson: {
         id: 'lesson',
         label: 'حفظ الدرس',
         icon: '📝',
         maxScore: 100,
-        allowMultiplePerDay: false
+        allowMultiplePerDay: false,
+        points: 1
     },
     hymn: {
         id: 'hymn',
         label: 'حفظ الألحان',
         icon: '🎵',
         maxScore: 100,
-        allowMultiplePerDay: false
+        allowMultiplePerDay: false,
+        points: 1
     },
     verse: {
         id: 'verse',
         label: 'حفظ الآيات',
         icon: '✝️',
         maxScore: 100,
-        allowMultiplePerDay: false
+        allowMultiplePerDay: false,
+        points: 1
     },
     service: {
         id: 'service',
         label: 'الخدمة',
         icon: '🤝',
         maxScore: 100,
-        allowMultiplePerDay: true
+        allowMultiplePerDay: true,
+        points: 1
     },
     competition: {
         id: 'competition',
         label: 'المسابقة',
         icon: '🏆',
         maxScore: 100,
-        allowMultiplePerDay: true
+        allowMultiplePerDay: true,
+        points: 1
     }
 };
 
