@@ -9,7 +9,9 @@ const FIREBASE_PATHS = {
     ADMINS: 'admins',
     QR_CODES: 'qrcodes',
     SCORE_TYPES: 'scoreTypes',
-    SIGNUP_REQUESTS: 'signupRequests'
+    SIGNUP_REQUESTS: 'signupRequests',
+    TEAMS: 'teams',
+    ACADEMIC_YEARS: 'academicYears'
 };
 
 // Admin Configuration
@@ -157,7 +159,8 @@ const SECTIONS = {
     PROFILE: 'profileSection',
     MANAGE_ADMINS: 'manageAdminsSection',
     MANAGE_SCORE_TYPES: 'manageScoreTypesSection',
-    SIGNUP_REQUESTS: 'signupRequestsSection'
+    SIGNUP_REQUESTS: 'signupRequestsSection',
+    SETTINGS: 'settingsSection'
 };
 
 // Validation Rules

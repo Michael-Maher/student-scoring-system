@@ -98,6 +98,10 @@
                 <span class="nav-icon">🎫</span>
                 <span class="nav-text">إنشاء QR</span>
             </button>
+            <button onclick="showSettings()" class="nav-btn hidden" id="settingsNavBtn">
+                <span class="nav-icon">⚽</span>
+                <span class="nav-text">التحكم في الفرق</span>
+            </button>
             <button onclick="showProfile()" class="nav-btn" id="profileNavBtn">
                 <span class="nav-icon">👤</span>
                 <span class="nav-text">الملف الشخصي</span>
@@ -189,7 +193,6 @@
                     </select>
                 </div>
                 <button onclick="clearFilters()" class="clear-filter-btn">مسح الفلاتر</button>
-                <button onclick="showTeamAdminManager()" class="manage-team-admin-btn" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: 600; margin-right: 10px;">👥 إدارة مسؤولي الفرق</button>
             </div>
             <div class="dashboard-actions">
                 <button onclick="toggleLeaderboard()" class="leaderboard-btn" id="leaderboardBtn">🏆 عرض الترتيب</button>
@@ -220,7 +223,11 @@
                                 <span class="label-icon">📚</span>
                                 السنة الدراسية
                             </label>
-                            <input type="text" id="qrAcademicYear" placeholder="مثال: اولى اعدادي">
+                            <select id="qrAcademicYearSelect" onchange="onAcademicYearSelectChange()">
+                                <option value="">اختر السنة الدراسية</option>
+                                <option value="__custom__">مخصص...</option>
+                            </select>
+                            <input type="text" id="qrAcademicYearCustom" placeholder="أدخل السنة الدراسية" class="hidden custom-input">
                         </div>
                     </div>
                     <div class="form-row">
@@ -236,16 +243,11 @@
                                 <span class="label-icon">⚽</span>
                                 الفريق
                             </label>
-                            <input type="text" id="qrTeam" placeholder="مثال: الفريق الأحمر">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>
-                                <span class="label-icon">👨‍💼</span>
-                                المسؤول عن الفريق
-                            </label>
-                            <input type="text" id="qrTeamResponsible" placeholder="اسم المسؤول أو الخادم المشرف">
+                            <select id="qrTeamSelect" onchange="onTeamSelectChange()">
+                                <option value="">اختر الفريق</option>
+                                <option value="__custom__">مخصص...</option>
+                            </select>
+                            <input type="text" id="qrTeamCustom" placeholder="أدخل اسم الفريق" class="hidden custom-input">
                         </div>
                     </div>
                     <div class="form-actions-modern">
@@ -302,7 +304,6 @@
                         <input type="tel" id="qrFilterPhone" placeholder="رقم الهاتف..." oninput="applyQRFilters()">
                     </div>
                     <button onclick="clearQRFilters()" class="clear-filter-btn">مسح الفلاتر</button>
-                    <button onclick="showTeamAdminManager()" class="manage-team-admin-btn" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: 600; margin-right: 10px;">👥 إدارة مسؤولي الفرق</button>
                 </div>
 
                 <div class="export-hint" style="text-align: center; margin-top: 15px; padding: 10px; background: #f0f8ff; border-radius: 8px; border-left: 4px solid #4a90e2;">
@@ -464,6 +465,84 @@
                 </div>
 
                 <div id="scoreTypesList" class="score-types-list"></div>
+            </div>
+        </div>
+
+        <div id="settingsSection" class="section hidden">
+            <h2>⚽ التحكم في الفرق</h2>
+            <div class="settings-container">
+                <!-- Settings Tabs -->
+                <div class="settings-tabs">
+                    <button class="settings-tab active" onclick="switchSettingsTab('teams')" id="teamsTabBtn">⚽ الفرق</button>
+                    <button class="settings-tab" onclick="switchSettingsTab('academicYears')" id="academicYearsTabBtn">📚 السنوات الدراسية</button>
+                </div>
+
+                <!-- Teams Sub-tab -->
+                <div id="teamsSettingsTab" class="settings-tab-content">
+                    <div class="settings-form-container">
+                        <h3>➕ إضافة فريق جديد</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>
+                                    <span class="label-icon">⚽</span>
+                                    اسم الفريق
+                                    <span class="required-mark">*</span>
+                                </label>
+                                <input type="text" id="newTeamName" placeholder="مثال: الفريق الأحمر">
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    <span class="label-icon">🎨</span>
+                                    لون الفريق
+                                    <span class="required-mark">*</span>
+                                </label>
+                                <div class="color-picker-container">
+                                    <input type="color" id="newTeamColor" value="#667eea" onchange="updateColorPreview()">
+                                    <span id="newTeamColorPreview" class="color-preview" style="background-color: #667eea;"></span>
+                                    <span id="newTeamColorHex" class="color-hex">#667eea</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label>
+                                    <span class="label-icon">👨‍💼</span>
+                                    المسؤول عن الفريق
+                                </label>
+                                <input type="text" id="newTeamResponsible" placeholder="اسم المسؤول أو الخادم المشرف">
+                            </div>
+                        </div>
+                        <div class="form-actions-modern">
+                            <button type="button" onclick="addTeam()" class="vip-button">
+                                <span>➕</span>
+                                <span>إضافة الفريق</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="teamsList" class="teams-grid"></div>
+                </div>
+
+                <!-- Academic Years Sub-tab -->
+                <div id="academicYearsSettingsTab" class="settings-tab-content hidden">
+                    <div class="settings-form-container">
+                        <h3>➕ إضافة سنة دراسية جديدة</h3>
+                        <div class="form-group">
+                            <label>
+                                <span class="label-icon">📚</span>
+                                اسم السنة الدراسية
+                                <span class="required-mark">*</span>
+                            </label>
+                            <input type="text" id="newAcademicYearName" placeholder="مثال: اولى اعدادي">
+                        </div>
+                        <div class="form-actions-modern">
+                            <button type="button" onclick="addAcademicYear()" class="vip-button">
+                                <span>➕</span>
+                                <span>إضافة السنة الدراسية</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="academicYearsList" class="academic-years-grid"></div>
+                </div>
             </div>
         </div>
     </div>

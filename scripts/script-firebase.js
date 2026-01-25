@@ -4,6 +4,8 @@ let currentAdmin = '';
 let currentAdminData = null;
 let studentsData = {};
 let adminsData = {};
+let teamsData = {};
+let academicYearsData = {};
 let isFirebaseConnected = false;
 let firebaseListeners = [];
 
@@ -114,6 +116,144 @@ async function migratePasswordsToEncrypted() {
 // Make migration function available globally for console access
 window.migratePasswordsToEncrypted = migratePasswordsToEncrypted;
 
+// ============================================
+// INITIALIZE DEFAULT TEAMS AND ACADEMIC YEARS
+// ============================================
+
+// Default teams with colors and responsibles
+const DEFAULT_TEAMS_DATA = [
+    { name: 'فريق (١) دانيال النبي', color: '#E74C3C', responsible: 'ا. ريمون' },
+    { name: 'فريق (٢) يوسف الصديق', color: '#3498DB', responsible: 'ا. مايكل ماهر' },
+    { name: 'فريق (٣) داود النبي', color: '#2ECC71', responsible: 'ا. امير' },
+    { name: 'فريق (٤) شمشون الجبار', color: '#F39C12', responsible: 'ا. بيشوي' },
+    { name: 'فريق (٥) اسطفانوس', color: '#9B59B6', responsible: 'ا. مايكل كمال' },
+    { name: 'فريق (٦) القديس ابانوب', color: '#1ABC9C', responsible: 'ا. انطون' },
+    { name: 'فريق (٧) جدعون النبي', color: '#E91E63', responsible: 'ا. باخوم' },
+    { name: 'فريق (٨) الفتية التلاتة', color: '#00BCD4', responsible: 'ا. كيرلس' },
+    { name: 'فريق (٩) نحميا النبي', color: '#FF5722', responsible: 'ا. مينا زاهر' },
+    { name: 'فريق (١٠) مارجرجس', color: '#673AB7', responsible: 'ا. جورج' },
+    { name: 'فريق (١١) أبو سيفين', color: '#4CAF50', responsible: 'ا. مينا ظريف' },
+    { name: 'فريق (١٢) مارمينا', color: '#795548', responsible: 'ا. امجد' },
+    { name: 'فريق (١٣) بولس الرسول', color: '#607D8B', responsible: 'ا. مايكل ماهر' }
+];
+
+// Default academic years
+const DEFAULT_ACADEMIC_YEARS_DATA = [
+    { name: '١ اعدادي' },
+    { name: '٢ اعدادي' },
+    { name: '٣ اعدادي' }
+];
+
+// Initialize default teams in Firebase
+async function initializeDefaultTeams(forceOverwrite = false) {
+    if (!window.firebase || !window.firebase.database) {
+        console.error('❌ Firebase not initialized');
+        return;
+    }
+
+    if (!currentAdmin) {
+        console.error('❌ You must be logged in as an admin to initialize data');
+        return;
+    }
+
+    console.log('🏁 Starting teams initialization...');
+    let addedCount = 0;
+    let skippedCount = 0;
+
+    for (const team of DEFAULT_TEAMS_DATA) {
+        const teamId = sanitizeFirebaseKey(team.name);
+
+        // Check if team already exists
+        if (!forceOverwrite && teamsData[teamId]) {
+            console.log(`ℹ️ Team "${team.name}" already exists, skipping...`);
+            skippedCount++;
+            continue;
+        }
+
+        const teamData = {
+            name: team.name,
+            color: team.color,
+            responsible: team.responsible || '',
+            createdAt: new Date().toISOString(),
+            createdBy: currentAdmin
+        };
+
+        try {
+            const teamRef = window.firebase.ref(window.firebase.database, `${FIREBASE_PATHS.TEAMS}/${teamId}`);
+            await window.firebase.set(teamRef, teamData);
+            console.log(`✅ Added team: ${team.name}`);
+            addedCount++;
+        } catch (error) {
+            console.error(`❌ Error adding team "${team.name}":`, error);
+        }
+    }
+
+    console.log(`\n🎉 Teams initialization complete!`);
+    console.log(`   Added: ${addedCount} teams`);
+    console.log(`   Skipped (already exist): ${skippedCount} teams`);
+}
+
+// Initialize default academic years in Firebase
+async function initializeDefaultAcademicYears(forceOverwrite = false) {
+    if (!window.firebase || !window.firebase.database) {
+        console.error('❌ Firebase not initialized');
+        return;
+    }
+
+    if (!currentAdmin) {
+        console.error('❌ You must be logged in as an admin to initialize data');
+        return;
+    }
+
+    console.log('🏁 Starting academic years initialization...');
+    let addedCount = 0;
+    let skippedCount = 0;
+
+    for (const year of DEFAULT_ACADEMIC_YEARS_DATA) {
+        const yearId = sanitizeFirebaseKey(year.name);
+
+        // Check if year already exists
+        if (!forceOverwrite && academicYearsData[yearId]) {
+            console.log(`ℹ️ Academic year "${year.name}" already exists, skipping...`);
+            skippedCount++;
+            continue;
+        }
+
+        const yearData = {
+            name: year.name,
+            createdAt: new Date().toISOString(),
+            createdBy: currentAdmin
+        };
+
+        try {
+            const yearRef = window.firebase.ref(window.firebase.database, `${FIREBASE_PATHS.ACADEMIC_YEARS}/${yearId}`);
+            await window.firebase.set(yearRef, yearData);
+            console.log(`✅ Added academic year: ${year.name}`);
+            addedCount++;
+        } catch (error) {
+            console.error(`❌ Error adding academic year "${year.name}":`, error);
+        }
+    }
+
+    console.log(`\n🎉 Academic years initialization complete!`);
+    console.log(`   Added: ${addedCount} years`);
+    console.log(`   Skipped (already exist): ${skippedCount} years`);
+}
+
+// Initialize all default data (teams + academic years)
+async function initializeDefaultData(forceOverwrite = false) {
+    console.log('🚀 Starting full data initialization...\n');
+    await initializeDefaultTeams(forceOverwrite);
+    console.log('');
+    await initializeDefaultAcademicYears(forceOverwrite);
+    console.log('\n✨ All default data initialized!');
+}
+
+// Make initialization functions available globally for console access
+window.initializeDefaultTeams = initializeDefaultTeams;
+window.initializeDefaultAcademicYears = initializeDefaultAcademicYears;
+window.initializeDefaultData = initializeDefaultData;
+
 // Define all possible score types with IDs, labels, and emojis
 let SCORE_TYPES = {
     'mass': { id: 'mass', label: '⛪ القداس والتناول', allowMultiplePerDay: false },
@@ -204,6 +344,16 @@ function updateUIBasedOnPermissions() {
             scoresBtn.classList.remove('hidden');
         } else {
             scoresBtn.classList.add('hidden');
+        }
+    }
+
+    // Show/hide Settings section for head admins only
+    const settingsBtn = document.getElementById('settingsNavBtn');
+    if (settingsBtn) {
+        if (isHeadAdmin()) {
+            settingsBtn.classList.remove('hidden');
+        } else {
+            settingsBtn.classList.add('hidden');
         }
     }
 }
@@ -693,6 +843,66 @@ function initializeFirebaseSync() {
 
     firebaseListeners.push(unsubscribeSignupRequests);
     console.log('✅ Firebase signup requests listener registered');
+
+    // ===== TEAMS SYNC =====
+    const teamsRef = window.firebase.ref(window.firebase.database, FIREBASE_PATHS.TEAMS);
+    console.log('📡 Setting up Firebase listener for teams data');
+
+    const unsubscribeTeams = window.firebase.onValue(teamsRef, (snapshot) => {
+        const timestamp = new Date().toLocaleTimeString();
+        console.log(`📥 [${timestamp}] Firebase teams data received:`, snapshot.exists());
+
+        if (snapshot.exists()) {
+            teamsData = snapshot.val() || {};
+            console.log(`✅ [${timestamp}] Teams loaded from Firebase:`, Object.keys(teamsData).length, 'teams');
+
+            // Update dropdowns
+            populateTeamDropdowns();
+
+            // Render teams list if settings section is visible
+            if (!document.getElementById('settingsSection').classList.contains('hidden')) {
+                renderTeamsList();
+            }
+        } else {
+            teamsData = {};
+            console.log('ℹ️ No teams data in Firebase yet');
+        }
+    }, (error) => {
+        console.error('❌ Firebase teams sync error:', error);
+    });
+
+    firebaseListeners.push(unsubscribeTeams);
+    console.log('✅ Firebase teams listener registered');
+
+    // ===== ACADEMIC YEARS SYNC =====
+    const academicYearsRef = window.firebase.ref(window.firebase.database, FIREBASE_PATHS.ACADEMIC_YEARS);
+    console.log('📡 Setting up Firebase listener for academic years data');
+
+    const unsubscribeAcademicYears = window.firebase.onValue(academicYearsRef, (snapshot) => {
+        const timestamp = new Date().toLocaleTimeString();
+        console.log(`📥 [${timestamp}] Firebase academic years data received:`, snapshot.exists());
+
+        if (snapshot.exists()) {
+            academicYearsData = snapshot.val() || {};
+            console.log(`✅ [${timestamp}] Academic years loaded from Firebase:`, Object.keys(academicYearsData).length, 'years');
+
+            // Update dropdowns
+            populateAcademicYearDropdowns();
+
+            // Render years list if settings section is visible
+            if (!document.getElementById('settingsSection').classList.contains('hidden')) {
+                renderAcademicYearsList();
+            }
+        } else {
+            academicYearsData = {};
+            console.log('ℹ️ No academic years data in Firebase yet');
+        }
+    }, (error) => {
+        console.error('❌ Firebase academic years sync error:', error);
+    });
+
+    firebaseListeners.push(unsubscribeAcademicYears);
+    console.log('✅ Firebase academic years listener registered');
 }
 
 function saveToFirebase(studentId, studentData) {
@@ -1438,7 +1648,6 @@ function renderScoresTable(filteredData = null) {
                     <th>اسم المخدوم</th>
                     <th>السنة الدراسية</th>
                     <th>الفريق</th>
-                    <th>المسؤول</th>
                     ${ALL_SCORE_TYPE_IDS.map(typeId => `<th>${SCORE_TYPES[typeId].label}</th>`).join('')}
                     <th class="total-column">المجموع</th>
                     <th>التاريخ والوقت</th>
@@ -1463,12 +1672,17 @@ function renderScoresTable(filteredData = null) {
 
         const lastUpdated = formatDateTwoLines(student.lastUpdated);
 
+        // Get team color for row styling
+        const teamColor = getTeamColor(student.team);
+        const rowStyle = teamColor
+            ? `border-right: 10px solid ${teamColor}; background: linear-gradient(90deg, ${teamColor}20 0%, transparent 40%);`
+            : '';
+
         tableHTML += `
-            <tr>
+            <tr style="${rowStyle}">
                 <td><strong>${student.name}</strong></td>
                 <td>${student.academicYear || '-'}</td>
                 <td>${student.team || '-'}</td>
-                <td>${student.teamResponsible || '-'}</td>
                 ${scoresCells}
                 <td class="total-column"><strong>${total}</strong></td>
                 <td>${lastUpdated}</td>
@@ -1494,25 +1708,55 @@ async function editStudentRow(studentId) {
         return;
     }
 
+    // Build academic year options
+    let yearOptions = '<option value="">اختر السنة الدراسية</option>';
+    let yearMatchFound = false;
+    Object.values(academicYearsData).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ar')).forEach(year => {
+        const selected = year.name === student.academicYear ? 'selected' : '';
+        if (selected) yearMatchFound = true;
+        yearOptions += `<option value="${year.name}" ${selected}>${year.name}</option>`;
+    });
+    yearOptions += '<option value="__custom__">مخصص...</option>';
+
+    // Build team options
+    let teamOptions = '<option value="">اختر الفريق</option>';
+    let teamMatchFound = false;
+    Object.values(teamsData).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ar')).forEach(team => {
+        const selected = team.name === student.team ? 'selected' : '';
+        if (selected) teamMatchFound = true;
+        teamOptions += `<option value="${team.name}" ${selected}>${team.name}</option>`;
+    });
+    teamOptions += '<option value="__custom__">مخصص...</option>';
+
+    // Check if current values are custom (not in configured lists)
+    const isYearCustom = student.academicYear && !yearMatchFound;
+    const isTeamCustom = student.team && !teamMatchFound;
+
     // Create edit dialog content
     let dialogHTML = `
         <div style="max-width: 600px;">
             <h3 style="margin-bottom: 20px;">✏️ تعديل بيانات ${student.name}</h3>
             <div style="margin-bottom: 15px;">
                 <label style="display: block; margin-bottom: 5px; font-weight: 600;">اسم المخدوم:</label>
-                <input type="text" id="editStudentName" value="${student.name}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
+                <input type="text" id="editStudentName" value="${student.name}" style="width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px;">
             </div>
             <div style="margin-bottom: 15px;">
                 <label style="display: block; margin-bottom: 5px; font-weight: 600;">السنة الدراسية:</label>
-                <input type="text" id="editStudentAcademicYear" value="${student.academicYear || ''}" placeholder="مثال: 2024-2025" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
+                <select id="editStudentAcademicYearSelect" onchange="onEditStudentAcademicYearSelectChange()" style="width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px;">
+                    ${yearOptions}
+                </select>
+                <input type="text" id="editStudentAcademicYearCustom" value="${isYearCustom ? student.academicYear : ''}" placeholder="أدخل السنة الدراسية" class="${isYearCustom ? '' : 'hidden'}" style="width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px; margin-top: 8px;">
             </div>
             <div style="margin-bottom: 15px;">
                 <label style="display: block; margin-bottom: 5px; font-weight: 600;">الفريق:</label>
-                <input type="text" id="editStudentTeam" value="${student.team || ''}" placeholder="مثال: الفريق الأحمر" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
+                <select id="editStudentTeamSelect" onchange="onEditStudentTeamSelectChange()" style="width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px;">
+                    ${teamOptions}
+                </select>
+                <input type="text" id="editStudentTeamCustom" value="${isTeamCustom ? student.team : ''}" placeholder="أدخل اسم الفريق" class="${isTeamCustom ? '' : 'hidden'}" style="width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px; margin-top: 8px;">
             </div>
             <div style="margin-bottom: 15px;">
                 <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #999;">المسؤول عن الفريق: <span style="font-size: 11px;">(للتعديل استخدم زر "إدارة مسؤولي الفرق")</span></label>
-                <input type="text" id="editStudentTeamResponsible" value="${student.teamResponsible || '-'}" disabled readonly style="width: 100%; padding: 8px; border: 1px solid #e0e0e0; border-radius: 5px; background-color: #f5f5f5; color: #999; cursor: not-allowed;">
+                <input type="text" id="editStudentTeamResponsible" value="${student.teamResponsible || '-'}" disabled readonly style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; background-color: #f5f5f5; color: #999; cursor: not-allowed;">
             </div>
             <h4 style="margin: 20px 0 10px 0; color: #667eea;">النقاط:</h4>
     `;
@@ -1523,22 +1767,34 @@ async function editStudentRow(studentId) {
         dialogHTML += `
             <div style="margin-bottom: 15px;">
                 <label style="display: block; margin-bottom: 5px; font-weight: 600;">${SCORE_TYPES[typeId].label}:</label>
-                <input type="number" id="editScore_${typeId}" value="${currentScore}" min="0" max="1000" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
+                <input type="number" id="editScore_${typeId}" value="${currentScore}" min="0" max="1000" style="width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px;">
             </div>
         `;
     });
 
     dialogHTML += `
             <div style="display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end;">
-                <button onclick="saveStudentEdit('${studentId}')" style="padding: 10px 20px; background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); border: none; border-radius: 5px; font-weight: 600; cursor: pointer;">💾 حفظ</button>
-                <button onclick="deleteStudent('${studentId}')" style="padding: 10px 20px; background: #dc3545; color: white; border: none; border-radius: 5px; font-weight: 600; cursor: pointer;">🗑️ حذف</button>
-                <button onclick="closeEditDialog()" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 5px; font-weight: 600; cursor: pointer;">إلغاء</button>
+                <button onclick="saveStudentEdit('${studentId}')" style="padding: 12px 24px; background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-family: 'Cairo', sans-serif;">💾 حفظ</button>
+                <button onclick="deleteStudent('${studentId}')" style="padding: 12px 24px; background: #dc3545; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-family: 'Cairo', sans-serif;">🗑️ حذف</button>
+                <button onclick="closeEditDialog()" style="padding: 12px 24px; background: #6c757d; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-family: 'Cairo', sans-serif;">إلغاء</button>
             </div>
         </div>
     `;
 
     // Show edit dialog
     showEditDialog(dialogHTML);
+
+    // If custom values, set the select to __custom__
+    setTimeout(() => {
+        if (isYearCustom) {
+            const yearSelect = document.getElementById('editStudentAcademicYearSelect');
+            if (yearSelect) yearSelect.value = '__custom__';
+        }
+        if (isTeamCustom) {
+            const teamSelect = document.getElementById('editStudentTeamSelect');
+            if (teamSelect) teamSelect.value = '__custom__';
+        }
+    }, 50);
 }
 
 function showEditDialog(content) {
@@ -1787,11 +2043,62 @@ async function clearTeamResponsible(teamName, inputId) {
     showNotification(`✅ تم إزالة المسؤول عن فريق "${teamName}"\n(${studentsUpdated} سجل مخدوم، ${qrCodesUpdated} رمز QR)`, 'success');
 }
 
+// Handle student edit modal dropdown changes
+function onEditStudentAcademicYearSelectChange() {
+    const select = document.getElementById('editStudentAcademicYearSelect');
+    const customInput = document.getElementById('editStudentAcademicYearCustom');
+
+    if (!select || !customInput) return;
+
+    if (select.value === '__custom__') {
+        customInput.classList.remove('hidden');
+        customInput.focus();
+    } else {
+        customInput.classList.add('hidden');
+        customInput.value = '';
+    }
+}
+
+function onEditStudentTeamSelectChange() {
+    const select = document.getElementById('editStudentTeamSelect');
+    const customInput = document.getElementById('editStudentTeamCustom');
+
+    if (!select || !customInput) return;
+
+    if (select.value === '__custom__') {
+        customInput.classList.remove('hidden');
+        customInput.focus();
+    } else {
+        customInput.classList.add('hidden');
+        customInput.value = '';
+    }
+}
+
 async function saveStudentEdit(studentId) {
     const newName = document.getElementById('editStudentName').value.trim();
-    const newAcademicYear = document.getElementById('editStudentAcademicYear').value.trim();
-    const newTeam = document.getElementById('editStudentTeam').value.trim();
-    // Note: teamResponsible is read-only, managed only through "إدارة مسؤولي الفرق" button
+
+    // Get academic year from dropdown or custom input
+    const yearSelect = document.getElementById('editStudentAcademicYearSelect');
+    const yearCustom = document.getElementById('editStudentAcademicYearCustom');
+    const newAcademicYear = yearSelect && yearSelect.value === '__custom__'
+        ? (yearCustom ? yearCustom.value.trim() : '')
+        : (yearSelect ? yearSelect.value : '');
+
+    // Get team from dropdown or custom input
+    const teamSelect = document.getElementById('editStudentTeamSelect');
+    const teamCustom = document.getElementById('editStudentTeamCustom');
+    const newTeam = teamSelect && teamSelect.value === '__custom__'
+        ? (teamCustom ? teamCustom.value.trim() : '')
+        : (teamSelect ? teamSelect.value : '');
+
+    // Get team responsible from team data if team changed
+    let newTeamResponsible = studentsData[studentId]?.teamResponsible || '';
+    if (newTeam) {
+        const teamEntry = Object.values(teamsData).find(t => t.name === newTeam);
+        if (teamEntry && teamEntry.responsible) {
+            newTeamResponsible = teamEntry.responsible;
+        }
+    }
 
     if (!newName) {
         showNotification('الرجاء إدخال اسم المخدوم', 'error');
@@ -1812,21 +2119,20 @@ async function saveStudentEdit(studentId) {
 
     // Get the sanitized version of the new name for Firebase
     const newStudentKey = sanitizeFirebaseKey(newName);
+    const oldStudentData = { ...studentsData[studentId] };
+    const oldName = oldStudentData.name;
 
     // If student name changed, we need to delete old entry and create new one
     if (newStudentKey !== studentId) {
-        // Store the old student data BEFORE deleting
-        const oldStudentData = { ...studentsData[studentId] };
-
         // Delete old entry from local data
         delete studentsData[studentId];
 
-        // Create new entry with new name, preserving scans data and teamResponsible
+        // Create new entry with new name, preserving scans data
         studentsData[newStudentKey] = {
             name: newName,
             academicYear: newAcademicYear,
             team: newTeam,
-            teamResponsible: oldStudentData.teamResponsible || '', // Preserve existing teamResponsible
+            teamResponsible: newTeamResponsible,
             scores: newScores,
             scans: oldStudentData.scans || {},
             lastUpdated: new Date().toISOString(),
@@ -1846,10 +2152,10 @@ async function saveStudentEdit(studentId) {
         // Save to localStorage
         saveData();
     } else {
-        // Just update data - name unchanged (teamResponsible is NOT updated here)
+        // Just update data - name unchanged
         studentsData[studentId].academicYear = newAcademicYear;
         studentsData[studentId].team = newTeam;
-        // teamResponsible is preserved, not updated from form (managed only via "إدارة مسؤولي الفرق")
+        studentsData[studentId].teamResponsible = newTeamResponsible;
         studentsData[studentId].scores = newScores;
         studentsData[studentId].lastUpdated = new Date().toISOString();
         studentsData[studentId].lastUpdatedBy = currentAdmin;
@@ -1858,9 +2164,13 @@ async function saveStudentEdit(studentId) {
         await saveToFirebase(studentId, studentsData[studentId]);
     }
 
+    // Sync changes to corresponding QR code
+    await syncStudentToQRCode(oldName, newName, newAcademicYear, newTeam, newTeamResponsible);
+
     closeEditDialog();
     populateFilterDropdowns();
     applyFilters();
+    renderQRCodesTable();
     showNotification('تم تحديث البيانات بنجاح', 'success');
 }
 
@@ -1884,6 +2194,82 @@ async function deleteStudent(studentId) {
     closeEditDialog();
     renderScoresTable();
     showNotification('تم حذف المخدوم', 'info');
+}
+
+// Sync student data to corresponding QR code
+async function syncStudentToQRCode(oldName, newName, academicYear, team, teamResponsible) {
+    // Find QR code(s) that match the old name
+    const matchingQRIds = Object.entries(qrCodesData)
+        .filter(([id, qr]) => qr.name === oldName)
+        .map(([id]) => id);
+
+    if (matchingQRIds.length === 0) {
+        console.log(`No QR code found for student: ${oldName}`);
+        return;
+    }
+
+    for (const qrId of matchingQRIds) {
+        // Update QR code data
+        qrCodesData[qrId].name = newName;
+        qrCodesData[qrId].academicYear = academicYear;
+        qrCodesData[qrId].team = team;
+        qrCodesData[qrId].teamResponsible = teamResponsible;
+        qrCodesData[qrId].lastUpdated = new Date().toISOString();
+        qrCodesData[qrId].lastUpdatedBy = currentAdmin;
+
+        // Save to Firebase
+        await saveQRCodesToFirebase(qrId, qrCodesData[qrId]);
+    }
+
+    console.log(`✅ Synced ${matchingQRIds.length} QR code(s) for student: ${oldName} → ${newName}`);
+}
+
+// Sync QR code data to corresponding student
+async function syncQRCodeToStudent(oldName, newName, academicYear, team, teamResponsible) {
+    // Find student that matches the old name
+    const matchingStudentId = Object.keys(studentsData).find(id => studentsData[id].name === oldName);
+
+    if (!matchingStudentId) {
+        console.log(`No student found for QR code: ${oldName}`);
+        return;
+    }
+
+    const newStudentKey = sanitizeFirebaseKey(newName);
+
+    // If name changed, need to handle key change
+    if (newStudentKey !== matchingStudentId) {
+        const oldStudentData = { ...studentsData[matchingStudentId] };
+        delete studentsData[matchingStudentId];
+
+        studentsData[newStudentKey] = {
+            ...oldStudentData,
+            name: newName,
+            academicYear: academicYear,
+            team: team,
+            teamResponsible: teamResponsible,
+            lastUpdated: new Date().toISOString(),
+            lastUpdatedBy: currentAdmin
+        };
+
+        // Update Firebase - delete old and create new
+        if (window.firebase && window.firebase.database) {
+            const oldRef = window.firebase.ref(window.firebase.database, `students/${matchingStudentId}`);
+            await window.firebase.set(oldRef, null);
+            await saveToFirebase(newStudentKey, studentsData[newStudentKey]);
+        }
+    } else {
+        // Just update data
+        studentsData[matchingStudentId].academicYear = academicYear;
+        studentsData[matchingStudentId].team = team;
+        studentsData[matchingStudentId].teamResponsible = teamResponsible;
+        studentsData[matchingStudentId].lastUpdated = new Date().toISOString();
+        studentsData[matchingStudentId].lastUpdatedBy = currentAdmin;
+
+        // Save to Firebase
+        await saveToFirebase(matchingStudentId, studentsData[matchingStudentId]);
+    }
+
+    console.log(`✅ Synced student for QR code: ${oldName} → ${newName}`);
 }
 
 // Excel export function
@@ -1912,7 +2298,10 @@ function exportToExcel() {
         return;
     }
 
-    // Data rows
+    // Data rows - track team colors for each row
+    const teamColorMap = {}; // rowIndex -> color
+    let rowIndex = 1; // Start after header (0-indexed)
+
     Object.entries(studentsData).forEach(([studentId, student]) => {
         let total = 0;
         const row = [
@@ -1921,6 +2310,13 @@ function exportToExcel() {
             student.team || '-',
             student.teamResponsible || '-'
         ];
+
+        // Track team color for this row
+        const teamColor = getTeamColor(student.team);
+        if (teamColor) {
+            teamColorMap[rowIndex] = teamColor;
+        }
+        rowIndex++;
 
         // Add score columns for ALL score types using IDs
         ALL_SCORE_TYPE_IDS.forEach(typeId => {
@@ -1942,6 +2338,36 @@ function exportToExcel() {
 
     // Create workbook
     const ws = XLSX.utils.aoa_to_sheet(excelData);
+
+    // Apply team colors to cells if XLSX supports styling
+    // Note: Standard XLSX.js has limited styling. For full styling, xlsx-style package is needed.
+    // We'll add a "لون الفريق" column to indicate the team color as a fallback
+    if (Object.keys(teamColorMap).length > 0) {
+        // Add team color as a column indicator
+        const colCount = headers.length;
+        for (let r = 1; r < excelData.length; r++) {
+            const color = teamColorMap[r];
+            if (color) {
+                // Try to apply fill color if supported
+                const range = XLSX.utils.decode_range(ws['!ref']);
+                for (let c = 0; c <= range.e.c; c++) {
+                    const cellRef = XLSX.utils.encode_cell({ r: r, c: c });
+                    if (ws[cellRef]) {
+                        // Add style if available (requires xlsx-style for full support)
+                        if (!ws[cellRef].s) ws[cellRef].s = {};
+                        const rgb = hexToRgb(color);
+                        if (rgb) {
+                            ws[cellRef].s.fill = {
+                                patternType: 'solid',
+                                fgColor: { rgb: `${rgb.r.toString(16).padStart(2, '0')}${rgb.g.toString(16).padStart(2, '0')}${rgb.b.toString(16).padStart(2, '0')}`.toUpperCase() }
+                            };
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "نقاط المخدومين");
 
@@ -1999,7 +2425,7 @@ function applyFilters() {
     const nameFilter = document.getElementById('filterName').value.trim().toLowerCase();
     const academicYearFilter = document.getElementById('filterAcademicYear').value.trim().toLowerCase();
     const teamFilter = document.getElementById('filterTeam').value.trim().toLowerCase();
-    const teamResponsibleFilter = document.getElementById('filterTeamResponsible').value.trim().toLowerCase();
+    const teamResponsibleFilter = document.getElementById('filterTeamResponsible')?.value?.trim()?.toLowerCase() || '';
     const adminFilter = document.getElementById('filterAdmin').value.trim().toLowerCase();
     const dateFilter = document.getElementById('filterDate').value;
     const scoreTypeFilter = document.getElementById('filterScoreType').value;
@@ -2078,7 +2504,8 @@ function clearFilters() {
     document.getElementById('filterName').value = '';
     document.getElementById('filterAcademicYear').value = '';
     document.getElementById('filterTeam').value = '';
-    document.getElementById('filterTeamResponsible').value = '';
+    const filterTeamResponsible = document.getElementById('filterTeamResponsible');
+    if (filterTeamResponsible) filterTeamResponsible.value = '';
     document.getElementById('filterAdmin').value = '';
     document.getElementById('filterDate').value = '';
     document.getElementById('filterScoreType').value = '';
@@ -2234,6 +2661,16 @@ const SECTION_REGISTRY = {
         id: 'manageScoreTypesSection',
         navId: 'manageScoreTypesNavBtn',
         onShow: () => renderScoreTypesList(),
+        onHide: () => {},
+        permissionCheck: () => isHeadAdmin()
+    },
+    settings: {
+        id: 'settingsSection',
+        navId: 'settingsNavBtn',
+        onShow: () => {
+            loadTeamsData();
+            loadAcademicYearsData();
+        },
         onHide: () => {},
         permissionCheck: () => isHeadAdmin()
     },
@@ -3521,6 +3958,672 @@ function showQRGenerator() {
     showSection('qrGenerator');
 }
 
+function showSettings() {
+    showSection('settings');
+}
+
+// ============================================
+// TEAMS AND ACADEMIC YEARS MANAGEMENT
+// ============================================
+
+// Load teams data from Firebase
+function loadTeamsData() {
+    if (!window.firebase || !window.firebase.database) {
+        console.log('ℹ️ Firebase not available, teams data will load from listener');
+        return;
+    }
+    // Data is loaded via the Firebase listener, this just triggers rendering
+    renderTeamsList();
+    populateTeamDropdowns();
+}
+
+// Load academic years data from Firebase
+function loadAcademicYearsData() {
+    if (!window.firebase || !window.firebase.database) {
+        console.log('ℹ️ Firebase not available, academic years data will load from listener');
+        return;
+    }
+    // Data is loaded via the Firebase listener, this just triggers rendering
+    renderAcademicYearsList();
+    populateAcademicYearDropdowns();
+}
+
+// Switch between settings tabs
+function switchSettingsTab(tab) {
+    // Update tab buttons
+    document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
+
+    if (tab === 'teams') {
+        document.getElementById('teamsTabBtn').classList.add('active');
+        document.getElementById('teamsSettingsTab').classList.remove('hidden');
+        document.getElementById('academicYearsSettingsTab').classList.add('hidden');
+    } else {
+        document.getElementById('academicYearsTabBtn').classList.add('active');
+        document.getElementById('teamsSettingsTab').classList.add('hidden');
+        document.getElementById('academicYearsSettingsTab').classList.remove('hidden');
+    }
+}
+
+// Update color preview when color picker changes
+function updateColorPreview() {
+    const colorInput = document.getElementById('newTeamColor');
+    const colorPreview = document.getElementById('newTeamColorPreview');
+    const colorHex = document.getElementById('newTeamColorHex');
+
+    if (colorInput && colorPreview) {
+        colorPreview.style.backgroundColor = colorInput.value;
+    }
+    if (colorHex) {
+        colorHex.textContent = colorInput.value.toUpperCase();
+    }
+}
+
+// Get team color by team name
+function getTeamColor(teamName) {
+    if (!teamName) return null;
+
+    const team = Object.values(teamsData).find(t =>
+        t.name && t.name.toLowerCase() === teamName.toLowerCase()
+    );
+
+    return team ? team.color : null;
+}
+
+// Add new team
+async function addTeam() {
+    const name = document.getElementById('newTeamName').value.trim();
+    const color = document.getElementById('newTeamColor').value;
+    const responsible = document.getElementById('newTeamResponsible')?.value?.trim() || '';
+
+    if (!name) {
+        showNotification('الرجاء إدخال اسم الفريق', 'error');
+        return;
+    }
+
+    // Check for duplicate name
+    const isDuplicateName = Object.values(teamsData).some(t =>
+        t.name && t.name.toLowerCase() === name.toLowerCase()
+    );
+    if (isDuplicateName) {
+        showNotification('يوجد فريق بهذا الاسم بالفعل', 'error');
+        return;
+    }
+
+    // Check for duplicate color
+    const isDuplicateColor = Object.values(teamsData).some(t =>
+        t.color && t.color.toLowerCase() === color.toLowerCase()
+    );
+    if (isDuplicateColor) {
+        showNotification('هذا اللون مستخدم بالفعل. الرجاء اختيار لون مختلف', 'error');
+        return;
+    }
+
+    const teamId = sanitizeFirebaseKey(name);
+    const teamData = {
+        name,
+        color,
+        responsible,
+        createdAt: new Date().toISOString(),
+        createdBy: currentAdmin
+    };
+
+    try {
+        const teamRef = window.firebase.ref(window.firebase.database, `${FIREBASE_PATHS.TEAMS}/${teamId}`);
+        await window.firebase.set(teamRef, teamData);
+
+        // Update all QR codes and students with this team to have the responsible
+        if (responsible) {
+            await updateTeamResponsibleForAll(name, responsible);
+        }
+
+        // Clear form
+        document.getElementById('newTeamName').value = '';
+        document.getElementById('newTeamColor').value = '#667eea';
+        if (document.getElementById('newTeamResponsible')) {
+            document.getElementById('newTeamResponsible').value = '';
+        }
+        updateColorPreview();
+
+        showNotification('✅ تم إضافة الفريق بنجاح', 'success');
+    } catch (error) {
+        console.error('Error adding team:', error);
+        showNotification('حدث خطأ أثناء إضافة الفريق', 'error');
+    }
+}
+
+// Edit team
+function editTeam(teamId) {
+    const team = teamsData[teamId];
+    if (!team) return;
+
+    let dialogHTML = `
+        <div style="max-width: 500px;">
+            <h3 style="margin-bottom: 20px; color: #667eea;">✏️ تعديل الفريق</h3>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">اسم الفريق:</label>
+                <input type="text" id="editTeamName" value="${team.name}" style="width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px; font-size: 14px;">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">لون الفريق:</label>
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <input type="color" id="editTeamColor" value="${team.color}" style="width: 60px; height: 45px; border: 2px solid #e1e5e9; border-radius: 8px; cursor: pointer;">
+                    <span id="editTeamColorPreview" style="width: 45px; height: 45px; border-radius: 10px; background-color: ${team.color}; border: 2px solid #e1e5e9;"></span>
+                </div>
+            </div>
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">👨‍💼 المسؤول عن الفريق:</label>
+                <input type="text" id="editTeamResponsible" value="${team.responsible || ''}" placeholder="اسم المسؤول أو الخادم المشرف" style="width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px; font-size: 14px;">
+                <small style="color: #666; font-size: 11px; display: block; margin-top: 5px;">💡 سيتم تحديث المسؤول لجميع أعضاء الفريق تلقائياً</small>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button onclick="saveTeamEdit('${teamId}')" style="flex: 1; padding: 12px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-family: 'Cairo', sans-serif;">💾 حفظ</button>
+                <button onclick="closeEditDialog()" style="flex: 1; padding: 12px 20px; background: #6c757d; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-family: 'Cairo', sans-serif;">إلغاء</button>
+            </div>
+        </div>
+    `;
+
+    showEditDialog(dialogHTML);
+
+    // Add color preview update listener
+    setTimeout(() => {
+        const editColorInput = document.getElementById('editTeamColor');
+        if (editColorInput) {
+            editColorInput.addEventListener('input', function() {
+                const preview = document.getElementById('editTeamColorPreview');
+                if (preview) preview.style.backgroundColor = this.value;
+            });
+        }
+    }, 100);
+}
+
+// Save team edit
+async function saveTeamEdit(teamId) {
+    const newName = document.getElementById('editTeamName').value.trim();
+    const newColor = document.getElementById('editTeamColor').value;
+    const newResponsible = document.getElementById('editTeamResponsible')?.value?.trim() || '';
+
+    if (!newName) {
+        showNotification('الرجاء إدخال اسم الفريق', 'error');
+        return;
+    }
+
+    const oldTeam = teamsData[teamId];
+    if (!oldTeam) {
+        showNotification('الفريق غير موجود', 'error');
+        return;
+    }
+
+    // Check for duplicate color (excluding current team)
+    const isDuplicateColor = Object.entries(teamsData).some(([id, t]) =>
+        id !== teamId && t.color && t.color.toLowerCase() === newColor.toLowerCase()
+    );
+    if (isDuplicateColor) {
+        showNotification('هذا اللون مستخدم بالفعل', 'error');
+        return;
+    }
+
+    const oldTeamName = oldTeam.name;
+    const oldResponsible = oldTeam.responsible || '';
+
+    try {
+        // Update team data
+        const updatedTeamData = {
+            ...oldTeam,
+            name: newName,
+            color: newColor,
+            responsible: newResponsible,
+            lastUpdated: new Date().toISOString(),
+            lastUpdatedBy: currentAdmin
+        };
+
+        const teamRef = window.firebase.ref(window.firebase.database, `${FIREBASE_PATHS.TEAMS}/${teamId}`);
+        await window.firebase.set(teamRef, updatedTeamData);
+
+        // Update all students and QR codes with the old team name
+        if (oldTeamName !== newName) {
+            await updateTeamNameInRecords(oldTeamName, newName);
+        }
+
+        // Update team responsible for all members if changed
+        if (oldResponsible !== newResponsible) {
+            await updateTeamResponsibleForAll(newName, newResponsible);
+        }
+
+        closeEditDialog();
+        showNotification('✅ تم تحديث الفريق بنجاح', 'success');
+    } catch (error) {
+        console.error('Error saving team edit:', error);
+        showNotification('حدث خطأ أثناء حفظ التغييرات', 'error');
+    }
+}
+
+// Update team responsible for all team members (students and QR codes)
+async function updateTeamResponsibleForAll(teamName, responsibleName) {
+    let studentsUpdated = 0;
+    let qrCodesUpdated = 0;
+
+    // Update students
+    for (const [studentId, student] of Object.entries(studentsData)) {
+        if (student.team === teamName) {
+            studentsData[studentId].teamResponsible = responsibleName;
+            studentsData[studentId].lastUpdated = new Date().toISOString();
+            studentsData[studentId].lastUpdatedBy = currentAdmin;
+            await saveToFirebase(studentId, studentsData[studentId]);
+            studentsUpdated++;
+        }
+    }
+
+    // Update QR codes
+    for (const [qrId, qr] of Object.entries(qrCodesData)) {
+        if (qr.team === teamName) {
+            qrCodesData[qrId].teamResponsible = responsibleName;
+            qrCodesData[qrId].lastUpdated = new Date().toISOString();
+            qrCodesData[qrId].lastUpdatedBy = currentAdmin;
+            await saveQRCodesToFirebase(qrId, qrCodesData[qrId]);
+            qrCodesUpdated++;
+        }
+    }
+
+    if (studentsUpdated > 0 || qrCodesUpdated > 0) {
+        console.log(`✅ Updated team responsible in ${studentsUpdated} students and ${qrCodesUpdated} QR codes`);
+    }
+
+    return { studentsUpdated, qrCodesUpdated };
+}
+
+// Update team name in all student and QR records
+async function updateTeamNameInRecords(oldName, newName) {
+    let studentsUpdated = 0;
+    let qrCodesUpdated = 0;
+
+    // Update students
+    for (const [studentId, student] of Object.entries(studentsData)) {
+        if (student.team === oldName) {
+            studentsData[studentId].team = newName;
+            studentsData[studentId].lastUpdated = new Date().toISOString();
+            studentsData[studentId].lastUpdatedBy = currentAdmin;
+            await saveToFirebase(studentId, studentsData[studentId]);
+            studentsUpdated++;
+        }
+    }
+
+    // Update QR codes
+    for (const [qrId, qr] of Object.entries(qrCodesData)) {
+        if (qr.team === oldName) {
+            qrCodesData[qrId].team = newName;
+            qrCodesData[qrId].lastUpdated = new Date().toISOString();
+            qrCodesData[qrId].lastUpdatedBy = currentAdmin;
+            await saveQRCodesToFirebase(qrId, qrCodesData[qrId]);
+            qrCodesUpdated++;
+        }
+    }
+
+    if (studentsUpdated > 0 || qrCodesUpdated > 0) {
+        console.log(`✅ Updated team name in ${studentsUpdated} students and ${qrCodesUpdated} QR codes`);
+    }
+}
+
+// Delete team
+async function deleteTeam(teamId) {
+    const team = teamsData[teamId];
+    if (!team) return;
+
+    // Check if team is in use
+    const studentsWithTeam = Object.values(studentsData).filter(s => s.team === team.name).length;
+    const qrCodesWithTeam = Object.values(qrCodesData).filter(q => q.team === team.name).length;
+
+    let confirmMessage = `هل أنت متأكد من حذف فريق "${team.name}"؟`;
+    if (studentsWithTeam > 0 || qrCodesWithTeam > 0) {
+        confirmMessage += `\n\n⚠️ تنبيه: يوجد ${studentsWithTeam} مخدوم و ${qrCodesWithTeam} رمز QR مرتبط بهذا الفريق.`;
+    }
+
+    if (!confirm(confirmMessage)) return;
+
+    try {
+        const teamRef = window.firebase.ref(window.firebase.database, `${FIREBASE_PATHS.TEAMS}/${teamId}`);
+        await window.firebase.set(teamRef, null);
+
+        showNotification('✅ تم حذف الفريق بنجاح', 'success');
+    } catch (error) {
+        console.error('Error deleting team:', error);
+        showNotification('حدث خطأ أثناء حذف الفريق', 'error');
+    }
+}
+
+// Render teams list
+function renderTeamsList() {
+    const container = document.getElementById('teamsList');
+    if (!container) return;
+
+    if (Object.keys(teamsData).length === 0) {
+        container.innerHTML = `
+            <div class="settings-empty-state">
+                <span>⚽</span>
+                <p>لا توجد فرق مضافة</p>
+            </div>
+        `;
+        return;
+    }
+
+    let html = '';
+    Object.entries(teamsData).sort((a, b) => (a[1].name || '').localeCompare(b[1].name || '', 'ar')).forEach(([teamId, team]) => {
+        const responsibleText = team.responsible ? `👨‍💼 المسؤول: ${team.responsible}` : '👨‍💼 لم يتم تعيين مسؤول';
+        html += `
+            <div class="team-card" style="border-right: 4px solid ${team.color};">
+                <div class="team-color-preview" style="background-color: ${team.color};"></div>
+                <div class="team-info">
+                    <h4>${team.name}</h4>
+                    <small style="display: block; color: ${team.responsible ? '#667eea' : '#999'};">${responsibleText}</small>
+                    <small style="display: block; margin-top: 4px;">أنشأه: ${team.createdBy || 'غير معروف'}</small>
+                </div>
+                <div class="team-actions">
+                    <button onclick="editTeam('${teamId}')" class="action-btn edit-btn" title="تعديل">✏️</button>
+                    <button onclick="deleteTeam('${teamId}')" class="action-btn delete-btn" title="حذف">🗑️</button>
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+// Add new academic year
+async function addAcademicYear() {
+    const name = document.getElementById('newAcademicYearName').value.trim();
+
+    if (!name) {
+        showNotification('الرجاء إدخال اسم السنة الدراسية', 'error');
+        return;
+    }
+
+    // Check for duplicate
+    const isDuplicate = Object.values(academicYearsData).some(y =>
+        y.name && y.name.toLowerCase() === name.toLowerCase()
+    );
+    if (isDuplicate) {
+        showNotification('توجد سنة دراسية بهذا الاسم بالفعل', 'error');
+        return;
+    }
+
+    const yearId = sanitizeFirebaseKey(name);
+    const yearData = {
+        name,
+        createdAt: new Date().toISOString(),
+        createdBy: currentAdmin
+    };
+
+    try {
+        const yearRef = window.firebase.ref(window.firebase.database, `${FIREBASE_PATHS.ACADEMIC_YEARS}/${yearId}`);
+        await window.firebase.set(yearRef, yearData);
+
+        document.getElementById('newAcademicYearName').value = '';
+        showNotification('✅ تم إضافة السنة الدراسية بنجاح', 'success');
+    } catch (error) {
+        console.error('Error adding academic year:', error);
+        showNotification('حدث خطأ أثناء إضافة السنة الدراسية', 'error');
+    }
+}
+
+// Edit academic year
+function editAcademicYear(yearId) {
+    const year = academicYearsData[yearId];
+    if (!year) return;
+
+    let dialogHTML = `
+        <div style="max-width: 500px;">
+            <h3 style="margin-bottom: 20px; color: #667eea;">✏️ تعديل السنة الدراسية</h3>
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">اسم السنة الدراسية:</label>
+                <input type="text" id="editAcademicYearName" value="${year.name}" style="width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px; font-size: 14px;">
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button onclick="saveAcademicYearEdit('${yearId}')" style="flex: 1; padding: 12px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-family: 'Cairo', sans-serif;">💾 حفظ</button>
+                <button onclick="closeEditDialog()" style="flex: 1; padding: 12px 20px; background: #6c757d; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-family: 'Cairo', sans-serif;">إلغاء</button>
+            </div>
+        </div>
+    `;
+
+    showEditDialog(dialogHTML);
+}
+
+// Save academic year edit
+async function saveAcademicYearEdit(yearId) {
+    const newName = document.getElementById('editAcademicYearName').value.trim();
+
+    if (!newName) {
+        showNotification('الرجاء إدخال اسم السنة الدراسية', 'error');
+        return;
+    }
+
+    const oldYear = academicYearsData[yearId];
+    if (!oldYear) {
+        showNotification('السنة الدراسية غير موجودة', 'error');
+        return;
+    }
+
+    const oldYearName = oldYear.name;
+
+    try {
+        const updatedYearData = {
+            ...oldYear,
+            name: newName,
+            lastUpdated: new Date().toISOString(),
+            lastUpdatedBy: currentAdmin
+        };
+
+        const yearRef = window.firebase.ref(window.firebase.database, `${FIREBASE_PATHS.ACADEMIC_YEARS}/${yearId}`);
+        await window.firebase.set(yearRef, updatedYearData);
+
+        // Update all students and QR codes with the old year name
+        if (oldYearName !== newName) {
+            await updateAcademicYearInRecords(oldYearName, newName);
+        }
+
+        closeEditDialog();
+        showNotification('✅ تم تحديث السنة الدراسية بنجاح', 'success');
+    } catch (error) {
+        console.error('Error saving academic year edit:', error);
+        showNotification('حدث خطأ أثناء حفظ التغييرات', 'error');
+    }
+}
+
+// Update academic year in all student and QR records
+async function updateAcademicYearInRecords(oldName, newName) {
+    let studentsUpdated = 0;
+    let qrCodesUpdated = 0;
+
+    // Update students
+    for (const [studentId, student] of Object.entries(studentsData)) {
+        if (student.academicYear === oldName) {
+            studentsData[studentId].academicYear = newName;
+            studentsData[studentId].lastUpdated = new Date().toISOString();
+            studentsData[studentId].lastUpdatedBy = currentAdmin;
+            await saveToFirebase(studentId, studentsData[studentId]);
+            studentsUpdated++;
+        }
+    }
+
+    // Update QR codes
+    for (const [qrId, qr] of Object.entries(qrCodesData)) {
+        if (qr.academicYear === oldName) {
+            qrCodesData[qrId].academicYear = newName;
+            qrCodesData[qrId].lastUpdated = new Date().toISOString();
+            qrCodesData[qrId].lastUpdatedBy = currentAdmin;
+            await saveQRCodesToFirebase(qrId, qrCodesData[qrId]);
+            qrCodesUpdated++;
+        }
+    }
+
+    if (studentsUpdated > 0 || qrCodesUpdated > 0) {
+        console.log(`✅ Updated academic year in ${studentsUpdated} students and ${qrCodesUpdated} QR codes`);
+    }
+}
+
+// Delete academic year
+async function deleteAcademicYear(yearId) {
+    const year = academicYearsData[yearId];
+    if (!year) return;
+
+    // Check if year is in use
+    const studentsWithYear = Object.values(studentsData).filter(s => s.academicYear === year.name).length;
+    const qrCodesWithYear = Object.values(qrCodesData).filter(q => q.academicYear === year.name).length;
+
+    let confirmMessage = `هل أنت متأكد من حذف السنة الدراسية "${year.name}"؟`;
+    if (studentsWithYear > 0 || qrCodesWithYear > 0) {
+        confirmMessage += `\n\n⚠️ تنبيه: يوجد ${studentsWithYear} مخدوم و ${qrCodesWithYear} رمز QR مرتبط بهذه السنة الدراسية.`;
+    }
+
+    if (!confirm(confirmMessage)) return;
+
+    try {
+        const yearRef = window.firebase.ref(window.firebase.database, `${FIREBASE_PATHS.ACADEMIC_YEARS}/${yearId}`);
+        await window.firebase.set(yearRef, null);
+
+        showNotification('✅ تم حذف السنة الدراسية بنجاح', 'success');
+    } catch (error) {
+        console.error('Error deleting academic year:', error);
+        showNotification('حدث خطأ أثناء حذف السنة الدراسية', 'error');
+    }
+}
+
+// Render academic years list
+function renderAcademicYearsList() {
+    const container = document.getElementById('academicYearsList');
+    if (!container) return;
+
+    if (Object.keys(academicYearsData).length === 0) {
+        container.innerHTML = `
+            <div class="settings-empty-state">
+                <span>📚</span>
+                <p>لا توجد سنوات دراسية مضافة</p>
+            </div>
+        `;
+        return;
+    }
+
+    let html = '';
+    Object.entries(academicYearsData).sort((a, b) => (a[1].name || '').localeCompare(b[1].name || '', 'ar')).forEach(([yearId, year]) => {
+        html += `
+            <div class="academic-year-card">
+                <div class="academic-year-info">
+                    <h4>📚 ${year.name}</h4>
+                    <small>أنشأه: ${year.createdBy || 'غير معروف'}</small>
+                </div>
+                <div class="academic-year-actions">
+                    <button onclick="editAcademicYear('${yearId}')" class="action-btn edit-btn" title="تعديل">✏️</button>
+                    <button onclick="deleteAcademicYear('${yearId}')" class="action-btn delete-btn" title="حذف">🗑️</button>
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+// Populate team dropdowns
+function populateTeamDropdowns() {
+    const dropdownIds = ['qrTeamSelect'];
+
+    dropdownIds.forEach(dropdownId => {
+        const dropdown = document.getElementById(dropdownId);
+        if (!dropdown) return;
+
+        const currentValue = dropdown.value;
+        dropdown.innerHTML = '<option value="">اختر الفريق</option>';
+
+        Object.values(teamsData).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ar')).forEach(team => {
+            const option = document.createElement('option');
+            option.value = team.name;
+            option.textContent = team.name;
+            dropdown.appendChild(option);
+        });
+
+        // Add custom option
+        const customOption = document.createElement('option');
+        customOption.value = '__custom__';
+        customOption.textContent = 'مخصص...';
+        dropdown.appendChild(customOption);
+
+        // Restore value if exists
+        if (currentValue && currentValue !== '__custom__') {
+            dropdown.value = currentValue;
+        }
+    });
+}
+
+// Populate academic year dropdowns
+function populateAcademicYearDropdowns() {
+    const dropdownIds = ['qrAcademicYearSelect'];
+
+    dropdownIds.forEach(dropdownId => {
+        const dropdown = document.getElementById(dropdownId);
+        if (!dropdown) return;
+
+        const currentValue = dropdown.value;
+        dropdown.innerHTML = '<option value="">اختر السنة الدراسية</option>';
+
+        Object.values(academicYearsData).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ar')).forEach(year => {
+            const option = document.createElement('option');
+            option.value = year.name;
+            option.textContent = year.name;
+            dropdown.appendChild(option);
+        });
+
+        // Add custom option
+        const customOption = document.createElement('option');
+        customOption.value = '__custom__';
+        customOption.textContent = 'مخصص...';
+        dropdown.appendChild(customOption);
+
+        // Restore value if exists
+        if (currentValue && currentValue !== '__custom__') {
+            dropdown.value = currentValue;
+        }
+    });
+}
+
+// Handle team dropdown change
+function onTeamSelectChange() {
+    const select = document.getElementById('qrTeamSelect');
+    const customInput = document.getElementById('qrTeamCustom');
+
+    if (!select || !customInput) return;
+
+    if (select.value === '__custom__') {
+        customInput.classList.remove('hidden');
+        customInput.focus();
+    } else {
+        customInput.classList.add('hidden');
+        customInput.value = '';
+    }
+}
+
+// Handle academic year dropdown change
+function onAcademicYearSelectChange() {
+    const select = document.getElementById('qrAcademicYearSelect');
+    const customInput = document.getElementById('qrAcademicYearCustom');
+
+    if (!select || !customInput) return;
+
+    if (select.value === '__custom__') {
+        customInput.classList.remove('hidden');
+        customInput.focus();
+    } else {
+        customInput.classList.add('hidden');
+        customInput.value = '';
+    }
+}
+
+// Helper function to convert hex color to RGB
+function hexToRgb(hex) {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+    } : null;
+}
+
 // ============================================
 // QR CODE GENERATION AND MANAGEMENT SYSTEM
 // ============================================
@@ -3621,9 +4724,22 @@ async function generateQRCode() {
     }
 
     const rawName = document.getElementById('qrStudentName').value.trim();
-    const academicYear = document.getElementById('qrAcademicYear').value.trim();
+
+    // Get academic year from dropdown or custom input
+    const yearSelect = document.getElementById('qrAcademicYearSelect');
+    const yearCustom = document.getElementById('qrAcademicYearCustom');
+    const academicYear = yearSelect && yearSelect.value === '__custom__'
+        ? (yearCustom ? yearCustom.value.trim() : '')
+        : (yearSelect ? yearSelect.value : '');
+
     const phone = document.getElementById('qrPhone').value.trim();
-    const team = document.getElementById('qrTeam').value.trim();
+
+    // Get team from dropdown or custom input
+    const teamSelect = document.getElementById('qrTeamSelect');
+    const teamCustom = document.getElementById('qrTeamCustom');
+    const team = teamSelect && teamSelect.value === '__custom__'
+        ? (teamCustom ? teamCustom.value.trim() : '')
+        : (teamSelect ? teamSelect.value : '');
 
     // Validation
     if (!rawName) {
@@ -3659,13 +4775,22 @@ async function generateQRCode() {
         return;
     }
 
+    // Get team responsible from team data
+    let teamResponsible = '';
+    if (team) {
+        const teamEntry = Object.values(teamsData).find(t => t.name === team);
+        if (teamEntry && teamEntry.responsible) {
+            teamResponsible = teamEntry.responsible;
+        }
+    }
+
     // Create QR data object with cleaned name
     const qrData = {
         name: cleanedName,
         academicYear: academicYear || '',
         phone: phone || '',
         team: team || '',
-        teamResponsible: document.getElementById('qrTeamResponsible').value.trim() || '',
+        teamResponsible: teamResponsible,
         createdAt: new Date().toISOString(),
         createdBy: currentAdmin
     };
@@ -3835,10 +4960,26 @@ function populateFilterDropdowns() {
 
 function resetQRForm() {
     document.getElementById('qrStudentName').value = '';
-    document.getElementById('qrAcademicYear').value = '';
+
+    // Reset academic year dropdown and custom input
+    const yearSelect = document.getElementById('qrAcademicYearSelect');
+    const yearCustom = document.getElementById('qrAcademicYearCustom');
+    if (yearSelect) yearSelect.value = '';
+    if (yearCustom) {
+        yearCustom.value = '';
+        yearCustom.classList.add('hidden');
+    }
+
     document.getElementById('qrPhone').value = '';
-    document.getElementById('qrTeam').value = '';
-    document.getElementById('qrTeamResponsible').value = '';
+
+    // Reset team dropdown and custom input
+    const teamSelect = document.getElementById('qrTeamSelect');
+    const teamCustom = document.getElementById('qrTeamCustom');
+    if (teamSelect) teamSelect.value = '';
+    if (teamCustom) {
+        teamCustom.value = '';
+        teamCustom.classList.add('hidden');
+    }
 }
 
 // Render QR Codes Table
@@ -3882,8 +5023,14 @@ function renderQRCodesTable(filteredData = null) {
             actionButtons += `<button onclick="deleteQRCode('${qrId}')" class="action-btn delete-btn" title="حذف">🗑️</button>`;
         }
 
+        // Get team color for row styling
+        const teamColor = getTeamColor(qr.team);
+        const rowStyle = teamColor
+            ? `border-right: 10px solid ${teamColor}; background: linear-gradient(90deg, ${teamColor}20 0%, transparent 40%);`
+            : '';
+
         tableHTML += `
-            <tr>
+            <tr style="${rowStyle}">
                 <td><strong>${qr.name}</strong></td>
                 <td>${qr.academicYear || '-'}</td>
                 <td>${qr.phone || '-'}</td>
@@ -3922,46 +5069,140 @@ async function editQRCode(qrId) {
         return;
     }
 
+    // Build academic year options
+    let yearOptions = '<option value="">اختر السنة الدراسية</option>';
+    let yearMatchFound = false;
+    Object.values(academicYearsData).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ar')).forEach(year => {
+        const selected = year.name === qr.academicYear ? 'selected' : '';
+        if (selected) yearMatchFound = true;
+        yearOptions += `<option value="${year.name}" ${selected}>${year.name}</option>`;
+    });
+    yearOptions += '<option value="__custom__">مخصص...</option>';
+
+    // Build team options
+    let teamOptions = '<option value="">اختر الفريق</option>';
+    let teamMatchFound = false;
+    Object.values(teamsData).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ar')).forEach(team => {
+        const selected = team.name === qr.team ? 'selected' : '';
+        if (selected) teamMatchFound = true;
+        teamOptions += `<option value="${team.name}" ${selected}>${team.name}</option>`;
+    });
+    teamOptions += '<option value="__custom__">مخصص...</option>';
+
+    // Check if current values are custom (not in configured lists)
+    const isYearCustom = qr.academicYear && !yearMatchFound;
+    const isTeamCustom = qr.team && !teamMatchFound;
+
     let dialogHTML = `
         <div style="max-width: 600px;">
             <h3 style="margin-bottom: 20px;">✏️ تعديل رمز QR</h3>
             <div style="margin-bottom: 15px;">
                 <label style="display: block; margin-bottom: 5px; font-weight: 600;">اسم المخدوم: <span style="color: red;">*</span></label>
-                <input type="text" id="editQRName" value="${qr.name}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
+                <input type="text" id="editQRName" value="${qr.name}" style="width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px;">
             </div>
             <div style="margin-bottom: 15px;">
                 <label style="display: block; margin-bottom: 5px; font-weight: 600;">السنة الدراسية:</label>
-                <input type="text" id="editQRAcademicYear" value="${qr.academicYear || ''}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
+                <select id="editQRAcademicYearSelect" onchange="onEditAcademicYearSelectChange()" style="width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px;">
+                    ${yearOptions}
+                </select>
+                <input type="text" id="editQRAcademicYearCustom" value="${isYearCustom ? qr.academicYear : ''}" placeholder="أدخل السنة الدراسية" class="${isYearCustom ? '' : 'hidden'}" style="width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px; margin-top: 8px;">
             </div>
             <div style="margin-bottom: 15px;">
                 <label style="display: block; margin-bottom: 5px; font-weight: 600;">رقم الهاتف:</label>
-                <input type="tel" id="editQRPhone" value="${qr.phone || ''}" maxlength="11" pattern="[0-9]{11}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
+                <input type="tel" id="editQRPhone" value="${qr.phone || ''}" maxlength="11" pattern="[0-9]{11}" style="width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px;">
             </div>
             <div style="margin-bottom: 15px;">
                 <label style="display: block; margin-bottom: 5px; font-weight: 600;">الفريق:</label>
-                <input type="text" id="editQRTeam" value="${qr.team || ''}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
+                <select id="editQRTeamSelect" onchange="onEditTeamSelectChange()" style="width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px;">
+                    ${teamOptions}
+                </select>
+                <input type="text" id="editQRTeamCustom" value="${isTeamCustom ? qr.team : ''}" placeholder="أدخل اسم الفريق" class="${isTeamCustom ? '' : 'hidden'}" style="width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px; margin-top: 8px;">
             </div>
             <div style="margin-bottom: 15px;">
                 <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #999;">المسؤول عن الفريق: <span style="font-size: 11px;">(للتعديل استخدم زر "إدارة مسؤولي الفرق")</span></label>
-                <input type="text" id="editQRTeamResponsible" value="${qr.teamResponsible || '-'}" disabled readonly style="width: 100%; padding: 8px; border: 1px solid #e0e0e0; border-radius: 5px; background-color: #f5f5f5; color: #999; cursor: not-allowed;">
+                <input type="text" id="editQRTeamResponsible" value="${qr.teamResponsible || '-'}" disabled readonly style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; background-color: #f5f5f5; color: #999; cursor: not-allowed;">
             </div>
             <div style="display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end;">
-                <button onclick="saveQREdit('${qrId}')" style="padding: 10px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 5px; font-weight: 600; cursor: pointer;">💾 حفظ</button>
-                <button onclick="closeEditDialog()" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 5px; font-weight: 600; cursor: pointer;">إلغاء</button>
+                <button onclick="saveQREdit('${qrId}')" style="padding: 12px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-family: 'Cairo', sans-serif;">💾 حفظ</button>
+                <button onclick="closeEditDialog()" style="padding: 12px 24px; background: #6c757d; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-family: 'Cairo', sans-serif;">إلغاء</button>
             </div>
         </div>
     `;
 
     showEditDialog(dialogHTML);
+
+    // If custom values, set the select to __custom__
+    setTimeout(() => {
+        if (isYearCustom) {
+            const yearSelect = document.getElementById('editQRAcademicYearSelect');
+            if (yearSelect) yearSelect.value = '__custom__';
+        }
+        if (isTeamCustom) {
+            const teamSelect = document.getElementById('editQRTeamSelect');
+            if (teamSelect) teamSelect.value = '__custom__';
+        }
+    }, 50);
+}
+
+// Handle edit modal dropdown changes
+function onEditAcademicYearSelectChange() {
+    const select = document.getElementById('editQRAcademicYearSelect');
+    const customInput = document.getElementById('editQRAcademicYearCustom');
+
+    if (!select || !customInput) return;
+
+    if (select.value === '__custom__') {
+        customInput.classList.remove('hidden');
+        customInput.focus();
+    } else {
+        customInput.classList.add('hidden');
+        customInput.value = '';
+    }
+}
+
+function onEditTeamSelectChange() {
+    const select = document.getElementById('editQRTeamSelect');
+    const customInput = document.getElementById('editQRTeamCustom');
+
+    if (!select || !customInput) return;
+
+    if (select.value === '__custom__') {
+        customInput.classList.remove('hidden');
+        customInput.focus();
+    } else {
+        customInput.classList.add('hidden');
+        customInput.value = '';
+    }
 }
 
 // Save QR Edit
 async function saveQREdit(qrId) {
     const newName = document.getElementById('editQRName').value.trim();
-    const newAcademicYear = document.getElementById('editQRAcademicYear').value.trim();
+
+    // Get academic year from dropdown or custom input
+    const yearSelect = document.getElementById('editQRAcademicYearSelect');
+    const yearCustom = document.getElementById('editQRAcademicYearCustom');
+    const newAcademicYear = yearSelect && yearSelect.value === '__custom__'
+        ? (yearCustom ? yearCustom.value.trim() : '')
+        : (yearSelect ? yearSelect.value : '');
+
     const newPhone = document.getElementById('editQRPhone').value.trim();
-    const newTeam = document.getElementById('editQRTeam').value.trim();
-    // Note: teamResponsible is read-only, managed only through "إدارة مسؤولي الفرق" button
+
+    // Get team from dropdown or custom input
+    const teamSelect = document.getElementById('editQRTeamSelect');
+    const teamCustom = document.getElementById('editQRTeamCustom');
+    const newTeam = teamSelect && teamSelect.value === '__custom__'
+        ? (teamCustom ? teamCustom.value.trim() : '')
+        : (teamSelect ? teamSelect.value : '');
+
+    // Get team responsible from team data when team changes
+    let newTeamResponsible = qrCodesData[qrId]?.teamResponsible || '';
+    if (newTeam) {
+        const teamEntry = Object.values(teamsData).find(t => t.name === newTeam);
+        if (teamEntry && teamEntry.responsible) {
+            newTeamResponsible = teamEntry.responsible;
+        }
+    }
 
     if (!newName) {
         showNotification('الرجاء إدخال اسم المخدوم', 'error');
@@ -3987,12 +5228,12 @@ async function saveQREdit(qrId) {
 
     const oldName = qrCodesData[qrId].name;
 
-    // Update QR data (teamResponsible is NOT updated here, managed only via "إدارة مسؤولي الفرق")
+    // Update QR data
     qrCodesData[qrId].name = newName;
     qrCodesData[qrId].academicYear = newAcademicYear;
     qrCodesData[qrId].phone = newPhone;
     qrCodesData[qrId].team = newTeam;
-    // teamResponsible is preserved, not updated from form
+    qrCodesData[qrId].teamResponsible = newTeamResponsible;
     qrCodesData[qrId].lastUpdated = new Date().toISOString();
     qrCodesData[qrId].lastUpdatedBy = currentAdmin;
 
@@ -4015,6 +5256,7 @@ async function saveQREdit(qrId) {
                 name: newName,
                 academicYear: newAcademicYear,
                 team: newTeam,
+                teamResponsible: newTeamResponsible,
                 lastUpdated: new Date().toISOString(),
                 lastUpdatedBy: currentAdmin
             };
@@ -4037,6 +5279,7 @@ async function saveQREdit(qrId) {
             // Just update the existing record with new metadata
             studentsData[oldStudentId].academicYear = newAcademicYear;
             studentsData[oldStudentId].team = newTeam;
+            studentsData[oldStudentId].teamResponsible = newTeamResponsible;
             studentsData[oldStudentId].lastUpdated = new Date().toISOString();
             studentsData[oldStudentId].lastUpdatedBy = currentAdmin;
 
@@ -4820,7 +6063,7 @@ function applyQRFilters() {
     const yearFilter = document.getElementById('qrFilterYear').value.trim().toLowerCase();
     const phoneFilter = document.getElementById('qrFilterPhone').value.trim();
     const teamFilter = document.getElementById('qrFilterTeam').value.trim().toLowerCase();
-    const teamResponsibleFilter = document.getElementById('qrFilterTeamResponsible').value.trim().toLowerCase();
+    const teamResponsibleFilter = document.getElementById('qrFilterTeamResponsible')?.value?.trim()?.toLowerCase() || '';
 
     let filteredData = { ...qrCodesData };
 
@@ -4873,7 +6116,8 @@ function clearQRFilters() {
     document.getElementById('qrFilterYear').value = '';
     document.getElementById('qrFilterPhone').value = '';
     document.getElementById('qrFilterTeam').value = '';
-    document.getElementById('qrFilterTeamResponsible').value = '';
+    const qrFilterTeamResponsible = document.getElementById('qrFilterTeamResponsible');
+    if (qrFilterTeamResponsible) qrFilterTeamResponsible.value = '';
     renderQRCodesTable();
 }
 
@@ -4889,7 +6133,7 @@ function exportFilteredQRs() {
     const yearFilter = document.getElementById('qrFilterYear').value.trim().toLowerCase();
     const phoneFilter = document.getElementById('qrFilterPhone').value.trim();
     const teamFilter = document.getElementById('qrFilterTeam').value.trim().toLowerCase();
-    const teamResponsibleFilter = document.getElementById('qrFilterTeamResponsible').value.trim().toLowerCase();
+    const teamResponsibleFilter = document.getElementById('qrFilterTeamResponsible')?.value?.trim()?.toLowerCase() || '';
 
     // Apply filters to get filtered data
     let filteredData = { ...qrCodesData };
@@ -5090,3 +6334,22 @@ window.saveScoreTypeEdit = saveScoreTypeEdit;
 window.applyFilters = applyFilters;
 window.toggleHeadAdminPermissions = toggleHeadAdminPermissions;
 window.updateMultipleIndicator = updateMultipleIndicator;
+
+// Teams and Academic Years Management
+window.showSettings = showSettings;
+window.switchSettingsTab = switchSettingsTab;
+window.updateColorPreview = updateColorPreview;
+window.addTeam = addTeam;
+window.editTeam = editTeam;
+window.saveTeamEdit = saveTeamEdit;
+window.deleteTeam = deleteTeam;
+window.addAcademicYear = addAcademicYear;
+window.editAcademicYear = editAcademicYear;
+window.saveAcademicYearEdit = saveAcademicYearEdit;
+window.deleteAcademicYear = deleteAcademicYear;
+window.onTeamSelectChange = onTeamSelectChange;
+window.onAcademicYearSelectChange = onAcademicYearSelectChange;
+window.onEditTeamSelectChange = onEditTeamSelectChange;
+window.onEditAcademicYearSelectChange = onEditAcademicYearSelectChange;
+window.onEditStudentTeamSelectChange = onEditStudentTeamSelectChange;
+window.onEditStudentAcademicYearSelectChange = onEditStudentAcademicYearSelectChange;

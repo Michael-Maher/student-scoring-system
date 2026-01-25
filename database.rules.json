@@ -26,6 +26,20 @@
     "scoreTypes": {
       ".read": "auth != null",
       ".write": "auth != null"
+    },
+    "teams": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$teamId": {
+        ".validate": "newData.hasChildren(['name', 'color', 'createdAt', 'createdBy'])"
+      }
+    },
+    "academicYears": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$yearId": {
+        ".validate": "newData.hasChildren(['name', 'createdAt', 'createdBy'])"
+      }
     }
   }
 }

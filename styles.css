@@ -2777,3 +2777,256 @@ header h1 {
         font-size: 1.2rem;
     }
 }
+
+/* ========================================
+   Settings Section - Teams & Academic Years
+   ======================================== */
+
+.settings-container {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(15px);
+    border-radius: 20px;
+    padding: 30px;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.15);
+    margin-top: 20px;
+}
+
+.settings-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 25px;
+    border-bottom: 2px solid #e1e5e9;
+    padding-bottom: 15px;
+}
+
+.settings-tab {
+    padding: 12px 25px;
+    background: #f8f9fa;
+    border: 2px solid #e1e5e9;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: 'Cairo', sans-serif;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: #666;
+}
+
+.settings-tab:hover {
+    background: rgba(102, 126, 234, 0.1);
+    border-color: #667eea;
+    color: #667eea;
+}
+
+.settings-tab.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-color: #667eea;
+}
+
+.settings-tab-content {
+    animation: fadeIn 0.3s ease;
+}
+
+.settings-form-container {
+    background: #f8f9fa;
+    border-radius: 15px;
+    padding: 25px;
+    margin-bottom: 25px;
+    border: 1px solid #e1e5e9;
+}
+
+.settings-form-container h3 {
+    margin-bottom: 20px;
+    color: #333;
+    font-size: 1.1rem;
+}
+
+/* Color Picker Container */
+.color-picker-container {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.color-picker-container input[type="color"] {
+    width: 60px;
+    height: 45px;
+    border: 2px solid #e1e5e9;
+    border-radius: 10px;
+    cursor: pointer;
+    padding: 3px;
+    background: white;
+}
+
+.color-picker-container input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 2px;
+}
+
+.color-picker-container input[type="color"]::-webkit-color-swatch {
+    border-radius: 6px;
+    border: none;
+}
+
+.color-preview {
+    width: 45px;
+    height: 45px;
+    border-radius: 10px;
+    border: 2px solid #e1e5e9;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.color-hex {
+    font-family: monospace;
+    font-size: 14px;
+    color: #666;
+    background: #f0f0f0;
+    padding: 5px 10px;
+    border-radius: 5px;
+}
+
+/* Teams Grid */
+.teams-grid,
+.academic-years-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 15px;
+}
+
+.team-card,
+.academic-year-card {
+    background: white;
+    border-radius: 12px;
+    padding: 18px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    transition: all 0.3s ease;
+    border: 1px solid #e1e5e9;
+}
+
+.team-card:hover,
+.academic-year-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.12);
+}
+
+.team-color-preview {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.team-info,
+.academic-year-info {
+    flex: 1;
+}
+
+.team-info h4,
+.academic-year-info h4 {
+    margin: 0 0 5px 0;
+    color: #333;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.team-info small,
+.academic-year-info small {
+    color: #888;
+    font-size: 12px;
+}
+
+.team-actions,
+.academic-year-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.team-actions .action-btn,
+.academic-year-actions .action-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.team-actions .edit-btn,
+.academic-year-actions .edit-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.team-actions .delete-btn,
+.academic-year-actions .delete-btn {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    color: white;
+}
+
+.team-actions .action-btn:hover,
+.academic-year-actions .action-btn:hover {
+    transform: scale(1.1);
+}
+
+/* Empty State for Settings */
+.settings-empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #888;
+    font-size: 16px;
+}
+
+.settings-empty-state span {
+    font-size: 48px;
+    display: block;
+    margin-bottom: 15px;
+}
+
+/* Custom Input for Dropdown */
+.custom-input {
+    margin-top: 10px;
+}
+
+/* Team Color Row Indicator in Tables */
+.team-color-row {
+    border-right: 8px solid var(--team-color, transparent) !important;
+    border-radius: 0 8px 8px 0;
+}
+
+/* Responsive Settings */
+@media (max-width: 768px) {
+    .settings-tabs {
+        flex-direction: column;
+    }
+
+    .settings-tab {
+        width: 100%;
+        text-align: center;
+    }
+
+    .teams-grid,
+    .academic-years-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .color-picker-container {
+        flex-wrap: wrap;
+    }
+
+    .team-card,
+    .academic-year-card {
+        flex-wrap: wrap;
+    }
+
+    .team-actions,
+    .academic-year-actions {
+        width: 100%;
+        justify-content: flex-end;
+        margin-top: 10px;
+    }
+}
