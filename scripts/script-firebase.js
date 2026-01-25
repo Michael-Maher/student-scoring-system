@@ -3365,6 +3365,7 @@ function editScoreType(typeId) {
     console.log('📦 Modal element:', modal);
     if (modal) {
         modal.classList.remove('hidden');
+        modal.classList.add('active');
         console.log('✅ Modal shown');
     } else {
         console.error('❌ Modal element not found!');
@@ -3376,6 +3377,7 @@ function hideEditScoreTypeForm() {
     const modal = document.getElementById('editScoreTypeModal');
     if (modal) {
         modal.classList.add('hidden');
+        modal.classList.remove('active');
     }
 }
 
