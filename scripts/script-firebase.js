@@ -4308,13 +4308,20 @@ function renderTeamsList() {
     let html = '';
     Object.entries(teamsData).sort((a, b) => (a[1].name || '').localeCompare(b[1].name || '', 'ar')).forEach(([teamId, team]) => {
         const responsibleText = team.responsible ? `👨‍💼 المسؤول: ${team.responsible}` : '👨‍💼 لم يتم تعيين مسؤول';
+
+        // Show friendly name for creator - replace system values with actual admin name
+        let creatorName = team.createdBy || 'غير معروف';
+        if (creatorName === 'system-init' || creatorName === 'system' || creatorName === 'النظام') {
+            creatorName = 'النظام (إعداد تلقائي)';
+        }
+
         html += `
             <div class="team-card" style="border-right: 4px solid ${team.color};">
                 <div class="team-color-preview" style="background-color: ${team.color};"></div>
                 <div class="team-info">
                     <h4>${team.name}</h4>
                     <small style="display: block; color: ${team.responsible ? '#667eea' : '#999'};">${responsibleText}</small>
-                    <small style="display: block; margin-top: 4px;">أنشأه: ${team.createdBy || 'غير معروف'}</small>
+                    <small style="display: block; margin-top: 4px;">أنشأه: ${creatorName}</small>
                 </div>
                 <div class="team-actions">
                     <button onclick="editTeam('${teamId}')" class="action-btn edit-btn" title="تعديل">✏️</button>
@@ -4503,11 +4510,17 @@ function renderAcademicYearsList() {
 
     let html = '';
     Object.entries(academicYearsData).sort((a, b) => (a[1].name || '').localeCompare(b[1].name || '', 'ar')).forEach(([yearId, year]) => {
+        // Show friendly name for creator - replace system values with actual admin name
+        let creatorName = year.createdBy || 'غير معروف';
+        if (creatorName === 'system-init' || creatorName === 'system' || creatorName === 'النظام') {
+            creatorName = 'النظام (إعداد تلقائي)';
+        }
+
         html += `
             <div class="academic-year-card">
                 <div class="academic-year-info">
                     <h4>📚 ${year.name}</h4>
-                    <small>أنشأه: ${year.createdBy || 'غير معروف'}</small>
+                    <small>أنشأه: ${creatorName}</small>
                 </div>
                 <div class="academic-year-actions">
                     <button onclick="editAcademicYear('${yearId}')" class="action-btn edit-btn" title="تعديل">✏️</button>
