@@ -1720,17 +1720,13 @@ async function editStudentRow(studentId) {
 
     // Build team options
     let teamOptions = '<option value="">اختر الفريق</option>';
-    let teamMatchFound = false;
     Object.values(teamsData).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ar')).forEach(team => {
         const selected = team.name === student.team ? 'selected' : '';
-        if (selected) teamMatchFound = true;
         teamOptions += `<option value="${team.name}" ${selected}>${team.name}</option>`;
     });
-    teamOptions += '<option value="__custom__">مخصص...</option>';
 
-    // Check if current values are custom (not in configured lists)
+    // Check if current year value is custom (not in configured lists)
     const isYearCustom = student.academicYear && !yearMatchFound;
-    const isTeamCustom = student.team && !teamMatchFound;
 
     // Create edit dialog content
     let dialogHTML = `
@@ -1749,10 +1745,9 @@ async function editStudentRow(studentId) {
             </div>
             <div style="margin-bottom: 15px;">
                 <label style="display: block; margin-bottom: 5px; font-weight: 600;">الفريق:</label>
-                <select id="editStudentTeamSelect" onchange="onEditStudentTeamSelectChange()" style="width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px;">
+                <select id="editStudentTeamSelect" style="width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px;">
                     ${teamOptions}
                 </select>
-                <input type="text" id="editStudentTeamCustom" value="${isTeamCustom ? student.team : ''}" placeholder="أدخل اسم الفريق" class="${isTeamCustom ? '' : 'hidden'}" style="width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px; margin-top: 8px;">
             </div>
             <div style="margin-bottom: 15px;">
                 <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #999;">المسؤول عن الفريق: <span style="font-size: 11px;">(للتعديل استخدم زر "إدارة مسؤولي الفرق")</span></label>
@@ -1784,15 +1779,11 @@ async function editStudentRow(studentId) {
     // Show edit dialog
     showEditDialog(dialogHTML);
 
-    // If custom values, set the select to __custom__
+    // If custom year value, set the select to __custom__
     setTimeout(() => {
         if (isYearCustom) {
             const yearSelect = document.getElementById('editStudentAcademicYearSelect');
             if (yearSelect) yearSelect.value = '__custom__';
-        }
-        if (isTeamCustom) {
-            const teamSelect = document.getElementById('editStudentTeamSelect');
-            if (teamSelect) teamSelect.value = '__custom__';
         }
     }, 50);
 }
@@ -2059,21 +2050,6 @@ function onEditStudentAcademicYearSelectChange() {
     }
 }
 
-function onEditStudentTeamSelectChange() {
-    const select = document.getElementById('editStudentTeamSelect');
-    const customInput = document.getElementById('editStudentTeamCustom');
-
-    if (!select || !customInput) return;
-
-    if (select.value === '__custom__') {
-        customInput.classList.remove('hidden');
-        customInput.focus();
-    } else {
-        customInput.classList.add('hidden');
-        customInput.value = '';
-    }
-}
-
 async function saveStudentEdit(studentId) {
     const newName = document.getElementById('editStudentName').value.trim();
 
@@ -2084,12 +2060,9 @@ async function saveStudentEdit(studentId) {
         ? (yearCustom ? yearCustom.value.trim() : '')
         : (yearSelect ? yearSelect.value : '');
 
-    // Get team from dropdown or custom input
+    // Get team from dropdown
     const teamSelect = document.getElementById('editStudentTeamSelect');
-    const teamCustom = document.getElementById('editStudentTeamCustom');
-    const newTeam = teamSelect && teamSelect.value === '__custom__'
-        ? (teamCustom ? teamCustom.value.trim() : '')
-        : (teamSelect ? teamSelect.value : '');
+    const newTeam = teamSelect ? teamSelect.value : '';
 
     // Get team responsible from team data if team changed
     let newTeamResponsible = studentsData[studentId]?.teamResponsible || '';
@@ -4551,14 +4524,8 @@ function populateTeamDropdowns() {
             dropdown.appendChild(option);
         });
 
-        // Add custom option
-        const customOption = document.createElement('option');
-        customOption.value = '__custom__';
-        customOption.textContent = 'مخصص...';
-        dropdown.appendChild(customOption);
-
         // Restore value if exists
-        if (currentValue && currentValue !== '__custom__') {
+        if (currentValue) {
             dropdown.value = currentValue;
         }
     });
@@ -4593,22 +4560,6 @@ function populateAcademicYearDropdowns() {
             dropdown.value = currentValue;
         }
     });
-}
-
-// Handle team dropdown change
-function onTeamSelectChange() {
-    const select = document.getElementById('qrTeamSelect');
-    const customInput = document.getElementById('qrTeamCustom');
-
-    if (!select || !customInput) return;
-
-    if (select.value === '__custom__') {
-        customInput.classList.remove('hidden');
-        customInput.focus();
-    } else {
-        customInput.classList.add('hidden');
-        customInput.value = '';
-    }
 }
 
 // Handle academic year dropdown change
@@ -4747,12 +4698,9 @@ async function generateQRCode() {
 
     const phone = document.getElementById('qrPhone').value.trim();
 
-    // Get team from dropdown or custom input
+    // Get team from dropdown
     const teamSelect = document.getElementById('qrTeamSelect');
-    const teamCustom = document.getElementById('qrTeamCustom');
-    const team = teamSelect && teamSelect.value === '__custom__'
-        ? (teamCustom ? teamCustom.value.trim() : '')
-        : (teamSelect ? teamSelect.value : '');
+    const team = teamSelect ? teamSelect.value : '';
 
     // Validation
     if (!rawName) {
@@ -4985,14 +4933,9 @@ function resetQRForm() {
 
     document.getElementById('qrPhone').value = '';
 
-    // Reset team dropdown and custom input
+    // Reset team dropdown
     const teamSelect = document.getElementById('qrTeamSelect');
-    const teamCustom = document.getElementById('qrTeamCustom');
     if (teamSelect) teamSelect.value = '';
-    if (teamCustom) {
-        teamCustom.value = '';
-        teamCustom.classList.add('hidden');
-    }
 }
 
 // Render QR Codes Table
@@ -5094,17 +5037,13 @@ async function editQRCode(qrId) {
 
     // Build team options
     let teamOptions = '<option value="">اختر الفريق</option>';
-    let teamMatchFound = false;
     Object.values(teamsData).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ar')).forEach(team => {
         const selected = team.name === qr.team ? 'selected' : '';
-        if (selected) teamMatchFound = true;
         teamOptions += `<option value="${team.name}" ${selected}>${team.name}</option>`;
     });
-    teamOptions += '<option value="__custom__">مخصص...</option>';
 
-    // Check if current values are custom (not in configured lists)
+    // Check if current year value is custom (not in configured lists)
     const isYearCustom = qr.academicYear && !yearMatchFound;
-    const isTeamCustom = qr.team && !teamMatchFound;
 
     let dialogHTML = `
         <div style="max-width: 600px;">
@@ -5126,10 +5065,9 @@ async function editQRCode(qrId) {
             </div>
             <div style="margin-bottom: 15px;">
                 <label style="display: block; margin-bottom: 5px; font-weight: 600;">الفريق:</label>
-                <select id="editQRTeamSelect" onchange="onEditTeamSelectChange()" style="width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px;">
+                <select id="editQRTeamSelect" style="width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px;">
                     ${teamOptions}
                 </select>
-                <input type="text" id="editQRTeamCustom" value="${isTeamCustom ? qr.team : ''}" placeholder="أدخل اسم الفريق" class="${isTeamCustom ? '' : 'hidden'}" style="width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px; margin-top: 8px;">
             </div>
             <div style="margin-bottom: 15px;">
                 <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #999;">المسؤول عن الفريق: <span style="font-size: 11px;">(للتعديل استخدم زر "إدارة مسؤولي الفرق")</span></label>
@@ -5144,15 +5082,11 @@ async function editQRCode(qrId) {
 
     showEditDialog(dialogHTML);
 
-    // If custom values, set the select to __custom__
+    // If custom year value, set the select to __custom__
     setTimeout(() => {
         if (isYearCustom) {
             const yearSelect = document.getElementById('editQRAcademicYearSelect');
             if (yearSelect) yearSelect.value = '__custom__';
-        }
-        if (isTeamCustom) {
-            const teamSelect = document.getElementById('editQRTeamSelect');
-            if (teamSelect) teamSelect.value = '__custom__';
         }
     }, 50);
 }
@@ -5161,21 +5095,6 @@ async function editQRCode(qrId) {
 function onEditAcademicYearSelectChange() {
     const select = document.getElementById('editQRAcademicYearSelect');
     const customInput = document.getElementById('editQRAcademicYearCustom');
-
-    if (!select || !customInput) return;
-
-    if (select.value === '__custom__') {
-        customInput.classList.remove('hidden');
-        customInput.focus();
-    } else {
-        customInput.classList.add('hidden');
-        customInput.value = '';
-    }
-}
-
-function onEditTeamSelectChange() {
-    const select = document.getElementById('editQRTeamSelect');
-    const customInput = document.getElementById('editQRTeamCustom');
 
     if (!select || !customInput) return;
 
@@ -5201,12 +5120,9 @@ async function saveQREdit(qrId) {
 
     const newPhone = document.getElementById('editQRPhone').value.trim();
 
-    // Get team from dropdown or custom input
+    // Get team from dropdown
     const teamSelect = document.getElementById('editQRTeamSelect');
-    const teamCustom = document.getElementById('editQRTeamCustom');
-    const newTeam = teamSelect && teamSelect.value === '__custom__'
-        ? (teamCustom ? teamCustom.value.trim() : '')
-        : (teamSelect ? teamSelect.value : '');
+    const newTeam = teamSelect ? teamSelect.value : '';
 
     // Get team responsible from team data when team changes
     let newTeamResponsible = qrCodesData[qrId]?.teamResponsible || '';
@@ -6360,9 +6276,6 @@ window.addAcademicYear = addAcademicYear;
 window.editAcademicYear = editAcademicYear;
 window.saveAcademicYearEdit = saveAcademicYearEdit;
 window.deleteAcademicYear = deleteAcademicYear;
-window.onTeamSelectChange = onTeamSelectChange;
 window.onAcademicYearSelectChange = onAcademicYearSelectChange;
-window.onEditTeamSelectChange = onEditTeamSelectChange;
 window.onEditAcademicYearSelectChange = onEditAcademicYearSelectChange;
-window.onEditStudentTeamSelectChange = onEditStudentTeamSelectChange;
 window.onEditStudentAcademicYearSelectChange = onEditStudentAcademicYearSelectChange;
