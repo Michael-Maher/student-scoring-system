@@ -5902,90 +5902,6 @@ async function deleteQRCode(qrId) {
     showNotification('تم حذف رمز QR بنجاح', 'success');
 }
 
-// Clean up invalid QR records (empty names or special characters only)
-async function cleanupInvalidQRRecords() {
-    console.log('🧹 Starting QR records cleanup...');
-
-    let invalidRecords = [];
-    let fixedRecords = [];
-
-    // Find all invalid records
-    Object.entries(qrCodesData).forEach(([qrId, qr]) => {
-        const originalName = qr.name || '';
-
-        // Clean the name
-        const cleanedName = originalName
-            .replace(/\?/g, ' ')           // Replace ? with space
-            .replace(/[^\u0600-\u06FF\s\w]/g, ' ')  // Remove non-Arabic, non-alphanumeric except spaces
-            .replace(/\s+/g, ' ')          // Replace multiple spaces with single space
-            .trim();
-
-        // Check if name is empty or invalid
-        if (!cleanedName || cleanedName.length === 0) {
-            invalidRecords.push({ qrId, originalName });
-        } else if (originalName !== cleanedName) {
-            // Name needs cleaning
-            fixedRecords.push({ qrId, originalName, cleanedName });
-        }
-    });
-
-    console.log(`Found ${invalidRecords.length} invalid records (empty names)`);
-    console.log(`Found ${fixedRecords.length} records that need cleaning`);
-
-    if (invalidRecords.length === 0 && fixedRecords.length === 0) {
-        showNotification('✅ جميع السجلات صحيحة - لا حاجة للتنظيف', 'success');
-        return;
-    }
-
-    // Ask for confirmation
-    const confirmMessage = `تم العثور على:\n- ${invalidRecords.length} سجلات بأسماء فارغة (سيتم حذفها)\n- ${fixedRecords.length} سجلات تحتاج تنظيف\n\nهل تريد المتابعة؟`;
-
-    if (!confirm(confirmMessage)) {
-        return;
-    }
-
-    // Delete invalid records (empty names)
-    for (const { qrId, originalName } of invalidRecords) {
-        console.log(`Deleting invalid record: "${originalName}" (${qrId})`);
-        delete qrCodesData[qrId];
-
-        // Delete from Firebase
-        if (window.firebase && window.firebase.database) {
-            try {
-                const qrRef = window.firebase.ref(window.firebase.database, `qrcodes/${qrId}`);
-                await window.firebase.set(qrRef, null);
-            } catch (error) {
-                console.error('Error deleting invalid QR from Firebase:', error);
-            }
-        }
-    }
-
-    // Fix records with cleanable names
-    for (const { qrId, originalName, cleanedName } of fixedRecords) {
-        console.log(`Fixing record: "${originalName}" → "${cleanedName}" (${qrId})`);
-        qrCodesData[qrId].name = cleanedName;
-
-        // Update in Firebase
-        if (window.firebase && window.firebase.database) {
-            try {
-                await saveQRCodesToFirebase(qrId, qrCodesData[qrId]);
-            } catch (error) {
-                console.error('Error updating cleaned QR in Firebase:', error);
-            }
-        }
-    }
-
-    // Save to localStorage
-    localStorage.setItem('qrCodesData', JSON.stringify(qrCodesData));
-
-    // Update UI
-    renderQRCodesTable();
-    populateFilterDropdowns();
-
-    showNotification(`✅ تم التنظيف بنجاح:\n- حذف ${invalidRecords.length} سجلات فارغة\n- تنظيف ${fixedRecords.length} سجلات`, 'success');
-    console.log('✅ Cleanup complete');
-}
-
 // Apply QR Filters
 function applyQRFilters() {
     const nameFilter = document.getElementById('qrFilterName').value.trim().toLowerCase();
@@ -6240,7 +6156,6 @@ window.exportToExcel = exportToExcel;
 window.clearAllData = clearAllData;
 window.generateQRCode = generateQRCode;
 window.resetQRForm = resetQRForm;
-window.cleanupInvalidQRRecords = cleanupInvalidQRRecords;
 window.exportQRDataToExcel = exportQRDataToExcel;
 window.exportFilteredQRs = exportFilteredQRs;
 window.exportQRImages = exportQRImages;
