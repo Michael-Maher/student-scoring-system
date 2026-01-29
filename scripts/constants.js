@@ -98,7 +98,9 @@ const PERMISSIONS = {
     ADD_QR: 'canAddQR',
     EDIT_QR: 'canEditQR',
     DELETE_QR: 'canDeleteQR',
-    MANAGE_SCORE_TYPES: 'canManageScoreTypes'
+    MANAGE_SCORE_TYPES: 'canManageScoreTypes',
+    MANAGE_TEAMS: 'canManageTeams',
+    MANAGE_ACADEMIC_YEARS: 'canManageAcademicYears'
 };
 
 // Default Admin Permissions
@@ -110,7 +112,9 @@ const DEFAULT_PERMISSIONS = {
     [PERMISSIONS.ADD_QR]: true,
     [PERMISSIONS.EDIT_QR]: true,
     [PERMISSIONS.DELETE_QR]: false,
-    [PERMISSIONS.MANAGE_SCORE_TYPES]: false
+    [PERMISSIONS.MANAGE_SCORE_TYPES]: false,
+    [PERMISSIONS.MANAGE_TEAMS]: false,
+    [PERMISSIONS.MANAGE_ACADEMIC_YEARS]: false
 };
 
 // UI Configuration

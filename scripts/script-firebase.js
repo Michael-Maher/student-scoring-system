@@ -311,6 +311,14 @@ function canModifyDashboard() {
     return hasPermission('canModifyDashboard');
 }
 
+function canManageTeams() {
+    return hasPermission('canManageTeams');
+}
+
+function canManageAcademicYears() {
+    return hasPermission('canManageAcademicYears');
+}
+
 function isHeadAdmin() {
     return currentAdminData && currentAdminData.isHeadAdmin === true;
 }
@@ -347,10 +355,10 @@ function updateUIBasedOnPermissions() {
         }
     }
 
-    // Show/hide Settings section for head admins only
+    // Show/hide Settings section for admins with management permissions
     const settingsBtn = document.getElementById('settingsNavBtn');
     if (settingsBtn) {
-        if (isHeadAdmin()) {
+        if (isHeadAdmin() || canManageTeams() || canManageAcademicYears()) {
             settingsBtn.classList.remove('hidden');
         } else {
             settingsBtn.classList.add('hidden');
@@ -2861,7 +2869,9 @@ function renderAdminsList() {
             canAddQR: false,
             canEditQR: false,
             canDeleteQR: false,
-            canModifyDashboard: false
+            canModifyDashboard: false,
+            canManageTeams: false,
+            canManageAcademicYears: false
         };
 
         // Build permissions display
@@ -2873,7 +2883,11 @@ function renderAdminsList() {
             if (permissions.canEditQR) permissionsHtml += '<span class="permission-badge">✏️ تعديل QR</span>';
             if (permissions.canDeleteQR) permissionsHtml += '<span class="permission-badge">🗑️ حذف QR</span>';
             if (permissions.canModifyDashboard) permissionsHtml += '<span class="permission-badge">📊 لوحة التحكم</span>';
-            if (!permissions.canAddQR && !permissions.canEditQR && !permissions.canDeleteQR && !permissions.canModifyDashboard) {
+            if (permissions.canManageTeams) permissionsHtml += '<span class="permission-badge">⚽ إدارة الفرق</span>';
+            if (permissions.canManageAcademicYears) permissionsHtml += '<span class="permission-badge">📅 إدارة السنوات</span>';
+            const hasAnyPermission = permissions.canAddQR || permissions.canEditQR || permissions.canDeleteQR ||
+                                     permissions.canModifyDashboard || permissions.canManageTeams || permissions.canManageAcademicYears;
+            if (!hasAnyPermission) {
                 permissionsHtml += '<span class="permission-badge no-permissions">❌ لا توجد صلاحيات</span>';
             }
         }
@@ -3177,6 +3191,14 @@ function showPermissionsDialog(request, callback) {
                     <input type="checkbox" id="dialogPermModifyDashboard" class="dialog-sub-permission">
                     <label for="dialogPermModifyDashboard">📊 تعديل لوحة التحكم</label>
                 </div>
+                <div class="permission-item">
+                    <input type="checkbox" id="dialogPermManageTeams" class="dialog-sub-permission">
+                    <label for="dialogPermManageTeams">⚽ إدارة الفرق</label>
+                </div>
+                <div class="permission-item">
+                    <input type="checkbox" id="dialogPermManageAcademicYears" class="dialog-sub-permission">
+                    <label for="dialogPermManageAcademicYears">📅 إدارة السنوات الدراسية</label>
+                </div>
             </div>
             <div class="dialog-actions">
                 <button onclick="confirmPermissions()" class="vip-button">تأكيد الموافقة</button>
@@ -3211,7 +3233,9 @@ function confirmPermissions() {
         canAddQR: document.getElementById('dialogPermAddQR').checked,
         canEditQR: document.getElementById('dialogPermEditQR').checked,
         canDeleteQR: document.getElementById('dialogPermDeleteQR').checked,
-        canModifyDashboard: document.getElementById('dialogPermModifyDashboard').checked
+        canModifyDashboard: document.getElementById('dialogPermModifyDashboard').checked,
+        canManageTeams: document.getElementById('dialogPermManageTeams').checked,
+        canManageAcademicYears: document.getElementById('dialogPermManageAcademicYears').checked
     };
 
     if (window.permissionsDialogCallback) {
@@ -3302,7 +3326,9 @@ async function saveAdmin() {
         canAddQR: document.getElementById('permAddQR').checked,
         canEditQR: document.getElementById('permEditQR').checked,
         canDeleteQR: document.getElementById('permDeleteQR').checked,
-        canModifyDashboard: document.getElementById('permModifyDashboard').checked
+        canModifyDashboard: document.getElementById('permModifyDashboard').checked,
+        canManageTeams: document.getElementById('permManageTeams').checked,
+        canManageAcademicYears: document.getElementById('permManageAcademicYears').checked
     };
 
     // Check if trying to downgrade the last head admin
@@ -3375,13 +3401,17 @@ function editAdmin(phone) {
         canAddQR: false,
         canEditQR: false,
         canDeleteQR: false,
-        canModifyDashboard: false
+        canModifyDashboard: false,
+        canManageTeams: false,
+        canManageAcademicYears: false
     };
 
     document.getElementById('permAddQR').checked = permissions.canAddQR;
     document.getElementById('permEditQR').checked = permissions.canEditQR;
     document.getElementById('permDeleteQR').checked = permissions.canDeleteQR;
     document.getElementById('permModifyDashboard').checked = permissions.canModifyDashboard;
+    document.getElementById('permManageTeams').checked = permissions.canManageTeams;
+    document.getElementById('permManageAcademicYears').checked = permissions.canManageAcademicYears;
 
     // Apply head admin toggle effect
     toggleHeadAdminPermissions();
@@ -3933,6 +3963,30 @@ function showQRGenerator() {
 
 function showSettings() {
     showSection('settings');
+
+    // Update tab visibility based on permissions
+    const teamsTabBtn = document.getElementById('teamsTabBtn');
+    const academicYearsTabBtn = document.getElementById('academicYearsTabBtn');
+    const teamsSettingsTab = document.getElementById('teamsSettingsTab');
+    const academicYearsSettingsTab = document.getElementById('academicYearsSettingsTab');
+
+    const canTeams = canManageTeams();
+    const canYears = canManageAcademicYears();
+
+    // Show/hide tab buttons based on permissions
+    if (teamsTabBtn) {
+        teamsTabBtn.style.display = canTeams ? '' : 'none';
+    }
+    if (academicYearsTabBtn) {
+        academicYearsTabBtn.style.display = canYears ? '' : 'none';
+    }
+
+    // Set the active tab to the first available one
+    if (canTeams) {
+        switchSettingsTab('teams');
+    } else if (canYears) {
+        switchSettingsTab('academicYears');
+    }
 }
 
 // ============================================
@@ -3963,6 +4017,16 @@ function loadAcademicYearsData() {
 
 // Switch between settings tabs
 function switchSettingsTab(tab) {
+    // Check permissions before switching
+    if (tab === 'teams' && !canManageTeams()) {
+        showNotification('ليس لديك صلاحية إدارة الفرق', 'error');
+        return;
+    }
+    if (tab === 'academicYears' && !canManageAcademicYears()) {
+        showNotification('ليس لديك صلاحية إدارة السنوات الدراسية', 'error');
+        return;
+    }
+
     // Update tab buttons
     document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
 
@@ -4004,6 +4068,11 @@ function getTeamColor(teamName) {
 
 // Add new team
 async function addTeam() {
+    if (!canManageTeams()) {
+        showNotification('ليس لديك صلاحية إدارة الفرق', 'error');
+        return;
+    }
+
     const name = document.getElementById('newTeamName').value.trim();
     const color = document.getElementById('newTeamColor').value;
     const responsible = document.getElementById('newTeamResponsible')?.value?.trim() || '';
@@ -4066,6 +4135,11 @@ async function addTeam() {
 
 // Edit team
 function editTeam(teamId) {
+    if (!canManageTeams()) {
+        showNotification('ليس لديك صلاحية إدارة الفرق', 'error');
+        return;
+    }
+
     const team = teamsData[teamId];
     if (!team) return;
 
@@ -4111,6 +4185,11 @@ function editTeam(teamId) {
 
 // Save team edit
 async function saveTeamEdit(teamId) {
+    if (!canManageTeams()) {
+        showNotification('ليس لديك صلاحية إدارة الفرق', 'error');
+        return;
+    }
+
     const newName = document.getElementById('editTeamName').value.trim();
     const newColor = document.getElementById('editTeamColor').value;
     const newResponsible = document.getElementById('editTeamResponsible')?.value?.trim() || '';
@@ -4238,6 +4317,11 @@ async function updateTeamNameInRecords(oldName, newName) {
 
 // Delete team
 async function deleteTeam(teamId) {
+    if (!canManageTeams()) {
+        showNotification('ليس لديك صلاحية إدارة الفرق', 'error');
+        return;
+    }
+
     const team = teamsData[teamId];
     if (!team) return;
 
@@ -4309,6 +4393,11 @@ function renderTeamsList() {
 
 // Add new academic year
 async function addAcademicYear() {
+    if (!canManageAcademicYears()) {
+        showNotification('ليس لديك صلاحية إدارة السنوات الدراسية', 'error');
+        return;
+    }
+
     const name = document.getElementById('newAcademicYearName').value.trim();
 
     if (!name) {
@@ -4346,6 +4435,11 @@ async function addAcademicYear() {
 
 // Edit academic year
 function editAcademicYear(yearId) {
+    if (!canManageAcademicYears()) {
+        showNotification('ليس لديك صلاحية إدارة السنوات الدراسية', 'error');
+        return;
+    }
+
     const year = academicYearsData[yearId];
     if (!year) return;
 
@@ -4368,6 +4462,11 @@ function editAcademicYear(yearId) {
 
 // Save academic year edit
 async function saveAcademicYearEdit(yearId) {
+    if (!canManageAcademicYears()) {
+        showNotification('ليس لديك صلاحية إدارة السنوات الدراسية', 'error');
+        return;
+    }
+
     const newName = document.getElementById('editAcademicYearName').value.trim();
 
     if (!newName) {
@@ -4441,6 +4540,11 @@ async function updateAcademicYearInRecords(oldName, newName) {
 
 // Delete academic year
 async function deleteAcademicYear(yearId) {
+    if (!canManageAcademicYears()) {
+        showNotification('ليس لديك صلاحية إدارة السنوات الدراسية', 'error');
+        return;
+    }
+
     const year = academicYearsData[yearId];
     if (!year) return;
 
