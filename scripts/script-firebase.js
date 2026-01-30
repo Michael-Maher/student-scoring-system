@@ -1046,7 +1046,11 @@ async function login() {
     document.getElementById('mainApp').classList.remove('hidden');
 
     // Update UI
-    document.getElementById('adminNameDisplay').textContent = `${currentAdmin}`;
+    const adminNameDisplayEl = document.getElementById('adminNameDisplay');
+    if (adminNameDisplayEl) adminNameDisplayEl.textContent = `${currentAdmin}`;
+
+    // Update sidebar user info
+    updateSidebarUserInfo();
 
     // Show "Signup Requests", "Manage Admins" and "Manage Score Types" tabs for head admin
     if (admin.isHeadAdmin) {
@@ -1129,7 +1133,11 @@ async function checkLoginStatus() {
 
             document.getElementById('loginScreen').classList.add('hidden');
             document.getElementById('mainApp').classList.remove('hidden');
-            document.getElementById('adminNameDisplay').textContent = `${currentAdmin}`;
+            const adminNameDisplayEl = document.getElementById('adminNameDisplay');
+            if (adminNameDisplayEl) adminNameDisplayEl.textContent = `${currentAdmin}`;
+
+            // Update sidebar user info
+            updateSidebarUserInfo();
 
             // Show "Manage Admins" and "Manage Score Types" tabs for head admin
             if (admin.isHeadAdmin) {
@@ -1407,13 +1415,16 @@ function showScoringModal(displayName, additionalInfo, isNewRecord) {
         modalOverlay.id = 'scoringModalOverlay';
         modalOverlay.className = 'modal-overlay';
         modalOverlay.innerHTML = `
-            <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-container scoring-modal-container" onclick="event.stopPropagation()">
                 <div class="modal-header">
                     <h3>⭐ إضافة نقاط للمخدوم</h3>
-                    <button class="modal-close" onclick="closeScoringModal()">✖</button>
+                    <button class="modal-close-btn" onclick="closeScoringModal()">✖️</button>
                 </div>
                 <div class="modal-body" id="scoringModalBody">
-                    <!-- Form will be moved here -->
+                    <!-- Form fields will be moved here -->
+                </div>
+                <div class="modal-footer scoring-modal-footer" id="scoringModalFooter">
+                    <!-- Buttons will be moved here -->
                 </div>
             </div>
         `;
@@ -1421,14 +1432,26 @@ function showScoringModal(displayName, additionalInfo, isNewRecord) {
         document.body.appendChild(modalOverlay);
     }
 
-    // Move scoring form into modal
-    const scoringForm = document.getElementById('scoringForm');
+    // Move scoring form fields into modal body and buttons into modal footer
+    const scoringFormFields = document.getElementById('scoringFormFields');
+    const scoringFormButtons = document.getElementById('scoringFormButtons');
     const modalBody = document.getElementById('scoringModalBody');
+    const modalFooter = document.getElementById('scoringModalFooter');
 
-    if (scoringForm && modalBody) {
-        scoringForm.classList.remove('hidden');
+    if (scoringFormFields && modalBody) {
         modalBody.innerHTML = '';
-        modalBody.appendChild(scoringForm);
+        modalBody.appendChild(scoringFormFields);
+    }
+
+    if (scoringFormButtons && modalFooter) {
+        modalFooter.innerHTML = '';
+        modalFooter.appendChild(scoringFormButtons);
+    }
+
+    // Show the form container
+    const scoringForm = document.getElementById('scoringForm');
+    if (scoringForm) {
+        scoringForm.classList.remove('hidden');
     }
 
     // Show modal
@@ -1448,14 +1471,27 @@ function closeScoringModal() {
     if (modalOverlay) {
         modalOverlay.classList.remove('active');
 
-        // Move form back to original location after animation
+        // Move form elements back to original location after animation
         setTimeout(() => {
             const scoringForm = document.getElementById('scoringForm');
+            const scoringFormFields = document.getElementById('scoringFormFields');
+            const scoringFormButtons = document.getElementById('scoringFormButtons');
             const scannerSection = document.getElementById('scannerSection');
+
             if (scoringForm && scannerSection) {
+                // Move fields and buttons back into the form container
+                if (scoringFormFields) {
+                    scoringForm.appendChild(scoringFormFields);
+                }
+                if (scoringFormButtons) {
+                    scoringForm.appendChild(scoringFormButtons);
+                }
                 scoringForm.classList.add('hidden');
                 scannerSection.appendChild(scoringForm);
             }
+
+            // Remove the modal overlay completely to prevent issues
+            modalOverlay.remove();
         }, 300);
     }
 
@@ -1473,8 +1509,8 @@ function closeScoringModal() {
 }
 
 // Scoring functions
-async function submitScore() {
-    console.log('🎯 submitScore called');
+async function submitScore(addAnother = false) {
+    console.log('🎯 submitScore called, addAnother:', addAnother);
     const studentName = document.getElementById('studentName').value.trim();
     const scoreType = document.getElementById('scoreType').value;
     const score = parseFloat(document.getElementById('score').value);
@@ -1579,15 +1615,22 @@ async function submitScore() {
     // Update filter dropdowns (in case new team/year was added from QR scan)
     populateFilterDropdowns();
 
-    // Reset form and close modal
-    closeScoringModal();
-
-    // Clear form after a short delay
-    setTimeout(() => {
-        document.getElementById('studentName').value = '';
+    if (addAnother) {
+        // Keep the form open with same student data, just reset score type and points
         document.getElementById('scoreType').value = '';
         document.getElementById('score').value = '1';
-    }, 350);
+        // Keep studentName as is for adding more scores to the same student
+    } else {
+        // Reset form and close modal
+        closeScoringModal();
+
+        // Clear form after a short delay
+        setTimeout(() => {
+            document.getElementById('studentName').value = '';
+            document.getElementById('scoreType').value = '';
+            document.getElementById('score').value = '1';
+        }, 350);
+    }
 }
 
 function cancelScoring() {
@@ -1644,68 +1687,140 @@ function renderScoresTable(filteredData = null) {
     const dataToRender = filteredData || studentsData;
 
     if (Object.keys(dataToRender).length === 0) {
-        tableContainer.innerHTML = '<p style="text-align: center; color: #ffffff; font-style: italic;">لم يتم تسجيل أي نقاط بعد.</p>';
+        tableContainer.innerHTML = '<p style="text-align: center; color: #666; font-style: italic;">لم يتم تسجيل أي نقاط بعد.</p>';
         return;
     }
 
-    // Create table HTML with Arabic headers using labels
-    let tableHTML = `
-        <table>
-            <thead>
-                <tr>
-                    <th>اسم المخدوم</th>
-                    <th>السنة الدراسية</th>
-                    <th>الفريق</th>
-                    ${ALL_SCORE_TYPE_IDS.map(typeId => `<th>${SCORE_TYPES[typeId].label}</th>`).join('')}
-                    <th class="total-column">المجموع</th>
-                    <th>التاريخ والوقت</th>
-                    <th>الخادم</th>
-                    <th>الإجراءات</th>
-                </tr>
-            </thead>
-            <tbody>
-    `;
+    // Arabic day names
+    const arabicDayNames = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 
-    // Add student rows
+    // Group students by date (using lastUpdated date only, not time)
+    const groupedByDate = {};
     Object.entries(dataToRender).forEach(([studentId, student]) => {
-        let total = 0;
-        const scoresCells = ALL_SCORE_TYPE_IDS.map(typeId => {
-            const score = student.scores?.[typeId];
-            if (score !== undefined) {
-                total += score;
-                return `<td>${score}</td>`;
+        const dateStr = student.lastUpdated ? student.lastUpdated.split('T')[0] : 'unknown';
+        if (!groupedByDate[dateStr]) {
+            groupedByDate[dateStr] = [];
+        }
+        groupedByDate[dateStr].push({ studentId, student });
+    });
+
+    // Sort dates in descending order (newest first)
+    const sortedDates = Object.keys(groupedByDate).sort((a, b) => b.localeCompare(a));
+
+    let tableHTML = '<div class="table-scroll-hint">← اسحب للمشاهدة ←</div>';
+
+    // Render each date group
+    sortedDates.forEach(dateStr => {
+        const students = groupedByDate[dateStr];
+
+        // Format date header
+        let dateHeader = dateStr;
+        if (dateStr !== 'unknown') {
+            const dateObj = new Date(dateStr);
+            const dayName = arabicDayNames[dateObj.getDay()];
+            const formattedDate = dateObj.toLocaleDateString('ar-EG', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+            dateHeader = `${dayName} - ${formattedDate}`;
+
+            // Check if it's today
+            const today = new Date().toISOString().split('T')[0];
+            if (dateStr === today) {
+                dateHeader = `📅 اليوم - ${dateHeader}`;
             }
-            return '<td>-</td>';
+        } else {
+            dateHeader = '📅 تاريخ غير محدد';
+        }
+
+        // Generate score type headers safely
+        const scoreTypeHeaders = ALL_SCORE_TYPE_IDS.map(typeId => {
+            const scoreType = SCORE_TYPES[typeId];
+            return `<th>${scoreType ? scoreType.label : typeId}</th>`;
         }).join('');
 
-        const lastUpdated = formatDateTwoLines(student.lastUpdated);
+        tableHTML += `
+            <div class="date-section">
+                <div class="date-section-header">
+                    <span class="date-title">${dateHeader}</span>
+                    <span class="date-count">${students.length} سجل</span>
+                </div>
+                <div class="date-section-content">
+                    <table class="scores-data-table">
+                        <thead>
+                            <tr>
+                                <th>الاسم</th>
+                                <th>السنة</th>
+                                <th>الفريق</th>
+                                ${scoreTypeHeaders}
+                                <th class="total-column">المجموع</th>
+                                <th class="col-hide-mobile">الوقت</th>
+                                <th class="col-hide-mobile">الخادم</th>
+                                <th>تعديل</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+        `;
 
-        // Get team color for row styling
-        const teamColor = getTeamColor(student.team);
-        const rowStyle = teamColor
-            ? `border-right: 10px solid ${teamColor}; background: linear-gradient(90deg, ${teamColor}20 0%, transparent 40%);`
-            : '';
+        // Add student rows for this date
+        students.forEach(({ studentId, student }) => {
+            let total = 0;
+            const scoresCells = ALL_SCORE_TYPE_IDS.map(typeId => {
+                const score = student.scores?.[typeId];
+                if (score !== undefined) {
+                    total += score;
+                    return `<td>${score}</td>`;
+                }
+                return '<td>-</td>';
+            }).join('');
+
+            // Format time only (not full date since it's in the header)
+            const timeOnly = student.lastUpdated ? formatTimeOnly(student.lastUpdated) : '-';
+
+            // Get team color for row styling
+            const teamColor = getTeamColor(student.team);
+            const rowStyle = teamColor
+                ? `border-right: 10px solid ${teamColor}; background: linear-gradient(90deg, ${teamColor}20 0%, transparent 40%);`
+                : '';
+
+            tableHTML += `
+                <tr style="${rowStyle}">
+                    <td><strong>${student.name}</strong></td>
+                    <td>${student.academicYear || '-'}</td>
+                    <td>${student.team || '-'}</td>
+                    ${scoresCells}
+                    <td class="total-column"><strong>${total}</strong></td>
+                    <td class="col-hide-mobile">${timeOnly}</td>
+                    <td class="col-hide-mobile">${student.lastUpdatedBy || 'غير معروف'}</td>
+                    <td><button onclick="editStudentRow('${studentId}')" class="edit-row-btn action-btn edit-btn">✏️</button></td>
+                </tr>
+            `;
+        });
 
         tableHTML += `
-            <tr style="${rowStyle}">
-                <td><strong>${student.name}</strong></td>
-                <td>${student.academicYear || '-'}</td>
-                <td>${student.team || '-'}</td>
-                ${scoresCells}
-                <td class="total-column"><strong>${total}</strong></td>
-                <td>${lastUpdated}</td>
-                <td>${student.lastUpdatedBy || 'غير معروف'}</td>
-                <td><button onclick="editStudentRow('${studentId}')" class="edit-row-btn">✏️</button></td>
-            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         `;
     });
 
-    tableHTML += `
-            </tbody>
-        </table>
-    `;
-
     tableContainer.innerHTML = tableHTML;
+}
+
+// Format time only from ISO string
+function formatTimeOnly(isoString) {
+    if (!isoString) return '-';
+    try {
+        const date = new Date(isoString);
+        return date.toLocaleTimeString('ar-EG', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    } catch (e) {
+        return '-';
+    }
 }
 
 // Edit student row function
@@ -1736,50 +1851,54 @@ async function editStudentRow(studentId) {
     // Check if current year value is custom (not in configured lists)
     const isYearCustom = student.academicYear && !yearMatchFound;
 
-    // Create edit dialog content
-    let dialogHTML = `
-        <div style="max-width: 600px;">
-            <h3 style="margin-bottom: 20px;">✏️ تعديل بيانات ${student.name}</h3>
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: 600;">اسم المخدوم:</label>
-                <input type="text" id="editStudentName" value="${student.name}" style="width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px;">
-            </div>
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: 600;">السنة الدراسية:</label>
-                <select id="editStudentAcademicYearSelect" onchange="onEditStudentAcademicYearSelectChange()" style="width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px;">
-                    ${yearOptions}
-                </select>
-                <input type="text" id="editStudentAcademicYearCustom" value="${isYearCustom ? student.academicYear : ''}" placeholder="أدخل السنة الدراسية" class="${isYearCustom ? '' : 'hidden'}" style="width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px; margin-top: 8px;">
-            </div>
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: 600;">الفريق:</label>
-                <select id="editStudentTeamSelect" style="width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px;">
-                    ${teamOptions}
-                </select>
-            </div>
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #999;">المسؤول عن الفريق: <span style="font-size: 11px;">(للتعديل استخدم زر "إدارة مسؤولي الفرق")</span></label>
-                <input type="text" id="editStudentTeamResponsible" value="${student.teamResponsible || '-'}" disabled readonly style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; background-color: #f5f5f5; color: #999; cursor: not-allowed;">
-            </div>
-            <h4 style="margin: 20px 0 10px 0; color: #667eea;">النقاط:</h4>
-    `;
-
-    // Add input fields for each score type
+    // Create edit dialog content with modal structure
+    let scoreFieldsHTML = '';
     ALL_SCORE_TYPE_IDS.forEach(typeId => {
         const currentScore = student.scores?.[typeId] || 0;
-        dialogHTML += `
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: 600;">${SCORE_TYPES[typeId].label}:</label>
-                <input type="number" id="editScore_${typeId}" value="${currentScore}" min="0" max="1000" style="width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px;">
+        scoreFieldsHTML += `
+            <div class="form-group">
+                <label>${SCORE_TYPES[typeId].label}:</label>
+                <input type="number" id="editScore_${typeId}" value="${currentScore}" min="0" max="1000">
             </div>
         `;
     });
 
-    dialogHTML += `
-            <div style="display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end;">
-                <button onclick="saveStudentEdit('${studentId}')" style="padding: 12px 24px; background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-family: 'Cairo', sans-serif;">💾 حفظ</button>
-                <button onclick="deleteStudent('${studentId}')" style="padding: 12px 24px; background: #dc3545; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-family: 'Cairo', sans-serif;">🗑️ حذف</button>
-                <button onclick="closeEditDialog()" style="padding: 12px 24px; background: #6c757d; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-family: 'Cairo', sans-serif;">إلغاء</button>
+    let dialogHTML = `
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3>✏️ تعديل بيانات ${student.name}</h3>
+                <button onclick="closeEditDialog()" class="modal-close-btn">✖️</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>اسم المخدوم:</label>
+                    <input type="text" id="editStudentName" value="${student.name}">
+                </div>
+                <div class="form-group">
+                    <label>السنة الدراسية:</label>
+                    <select id="editStudentAcademicYearSelect" onchange="onEditStudentAcademicYearSelectChange()">
+                        ${yearOptions}
+                    </select>
+                    <input type="text" id="editStudentAcademicYearCustom" value="${isYearCustom ? student.academicYear : ''}" placeholder="أدخل السنة الدراسية" class="${isYearCustom ? 'custom-input' : 'hidden custom-input'}">
+                </div>
+                <div class="form-group">
+                    <label>الفريق:</label>
+                    <select id="editStudentTeamSelect">
+                        ${teamOptions}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>المسؤول عن الفريق:</label>
+                    <input type="text" id="editStudentTeamResponsible" value="${student.teamResponsible || '-'}" disabled readonly class="disabled-input">
+                    <small class="hint">💡 للتعديل استخدم زر "إدارة مسؤولي الفرق"</small>
+                </div>
+                <h4 class="scores-section-title">النقاط:</h4>
+                ${scoreFieldsHTML}
+            </div>
+            <div class="modal-footer">
+                <button onclick="saveStudentEdit('${studentId}')" class="vip-button">💾 حفظ التغييرات</button>
+                <button onclick="deleteStudent('${studentId}')" class="delete-btn">🗑️ حذف</button>
+                <button onclick="closeEditDialog()" class="cancel-btn">✖️ إلغاء</button>
             </div>
         </div>
     `;
@@ -1797,36 +1916,16 @@ async function editStudentRow(studentId) {
 }
 
 function showEditDialog(content) {
-    // Create dialog overlay
+    // Create dialog overlay using CSS classes
     const overlay = document.createElement('div');
     overlay.id = 'editDialogOverlay';
-    overlay.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0,0,0,0.5);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 10000;
-    `;
-
-    const dialog = document.createElement('div');
-    dialog.style.cssText = `
-        background: white;
-        padding: 20px;
-        border-radius: 15px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-        max-height: 90vh;
-        overflow-y: auto;
-        max-width: 95vw;
-        margin: 10px;
-    `;
-    dialog.innerHTML = content;
-
-    overlay.appendChild(dialog);
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = content;
+    overlay.onclick = function(e) {
+        if (e.target === overlay) {
+            closeEditDialog();
+        }
+    };
     document.body.appendChild(overlay);
 }
 
@@ -2757,12 +2856,75 @@ function showSection(sectionKey) {
 
 // Navigation functions
 function setActiveNav(navId) {
-    // Remove active class from all nav buttons
-    document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+    // Remove active class from all nav items
+    document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
     // Add active class to clicked nav
     if (document.getElementById(navId)) {
         document.getElementById(navId).classList.add('active');
     }
+
+    // On mobile, close sidebar after navigation
+    if (window.innerWidth <= 768) {
+        closeSidebar();
+    }
+}
+
+// Sidebar toggle functions
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    const toggleIcon = document.getElementById('sidebarToggleIcon');
+    const isMobile = window.innerWidth <= 768;
+
+    if (isMobile) {
+        // Mobile: toggle open/close with overlay
+        if (sidebar.classList.contains('open')) {
+            closeSidebar();
+        } else {
+            openSidebar();
+        }
+    } else {
+        // Desktop: toggle collapsed state
+        if (sidebar.classList.contains('collapsed')) {
+            sidebar.classList.remove('collapsed');
+            if (toggleIcon) toggleIcon.textContent = '◀';
+        } else {
+            sidebar.classList.add('collapsed');
+            if (toggleIcon) toggleIcon.textContent = '▶';
+        }
+    }
+}
+
+function openSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+
+    sidebar.classList.add('open');
+    if (overlay) overlay.classList.add('active');
+    document.body.style.overflow = 'hidden'; // Prevent scrolling when sidebar is open
+}
+
+function closeSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+
+    sidebar.classList.remove('open');
+    if (overlay) overlay.classList.remove('active');
+    document.body.style.overflow = ''; // Restore scrolling
+}
+
+// Update sidebar user info
+function updateSidebarUserInfo() {
+    if (!currentAdminData) return;
+
+    const firstLetter = currentAdminData.name.charAt(0).toUpperCase();
+    const avatarEl = document.getElementById('userAvatar');
+    const nameEl = document.getElementById('sidebarAdminName');
+    const roleEl = document.getElementById('sidebarAdminRole');
+
+    if (avatarEl) avatarEl.textContent = firstLetter;
+    if (nameEl) nameEl.textContent = currentAdminData.name;
+    if (roleEl) roleEl.textContent = currentAdminData.isHeadAdmin ? 'أمين الخدمة' : 'خادم';
 }
 
 // Refactored navigation functions using centralized section manager
@@ -4066,6 +4228,20 @@ function getTeamColor(teamName) {
     return team ? team.color : null;
 }
 
+// Show add team form
+function showAddTeamForm() {
+    document.getElementById('addTeamForm').classList.remove('hidden');
+    document.getElementById('newTeamName').value = '';
+    document.getElementById('newTeamColor').value = '#667eea';
+    document.getElementById('newTeamResponsible').value = '';
+    updateColorPreview();
+}
+
+// Hide add team form
+function hideAddTeamForm() {
+    document.getElementById('addTeamForm').classList.add('hidden');
+}
+
 // Add new team
 async function addTeam() {
     if (!canManageTeams()) {
@@ -4118,13 +4294,14 @@ async function addTeam() {
             await updateTeamResponsibleForAll(name, responsible);
         }
 
-        // Clear form
+        // Clear form and hide it
         document.getElementById('newTeamName').value = '';
         document.getElementById('newTeamColor').value = '#667eea';
         if (document.getElementById('newTeamResponsible')) {
             document.getElementById('newTeamResponsible').value = '';
         }
         updateColorPreview();
+        hideAddTeamForm();
 
         showNotification('✅ تم إضافة الفريق بنجاح', 'success');
     } catch (error) {
@@ -4144,27 +4321,32 @@ function editTeam(teamId) {
     if (!team) return;
 
     let dialogHTML = `
-        <div style="max-width: 500px;">
-            <h3 style="margin-bottom: 20px; color: #667eea;">✏️ تعديل الفريق</h3>
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: 600;">اسم الفريق:</label>
-                <input type="text" id="editTeamName" value="${team.name}" style="width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px; font-size: 14px;">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3>✏️ تعديل الفريق</h3>
+                <button onclick="closeEditDialog()" class="modal-close-btn">✖️</button>
             </div>
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: 600;">لون الفريق:</label>
-                <div style="display: flex; align-items: center; gap: 15px;">
-                    <input type="color" id="editTeamColor" value="${team.color}" style="width: 60px; height: 45px; border: 2px solid #e1e5e9; border-radius: 8px; cursor: pointer;">
-                    <span id="editTeamColorPreview" style="width: 45px; height: 45px; border-radius: 10px; background-color: ${team.color}; border: 2px solid #e1e5e9;"></span>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>اسم الفريق:</label>
+                    <input type="text" id="editTeamName" value="${team.name}">
+                </div>
+                <div class="form-group">
+                    <label>لون الفريق:</label>
+                    <div class="color-picker-container">
+                        <input type="color" id="editTeamColor" value="${team.color}">
+                        <span id="editTeamColorPreview" class="color-preview" style="background-color: ${team.color};"></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>👨‍💼 المسؤول عن الفريق:</label>
+                    <input type="text" id="editTeamResponsible" value="${team.responsible || ''}" placeholder="اسم المسؤول أو الخادم المشرف">
+                    <small class="hint">💡 سيتم تحديث المسؤول لجميع أعضاء الفريق تلقائياً</small>
                 </div>
             </div>
-            <div style="margin-bottom: 20px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: 600;">👨‍💼 المسؤول عن الفريق:</label>
-                <input type="text" id="editTeamResponsible" value="${team.responsible || ''}" placeholder="اسم المسؤول أو الخادم المشرف" style="width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px; font-size: 14px;">
-                <small style="color: #666; font-size: 11px; display: block; margin-top: 5px;">💡 سيتم تحديث المسؤول لجميع أعضاء الفريق تلقائياً</small>
-            </div>
-            <div style="display: flex; gap: 10px; margin-top: 20px;">
-                <button onclick="saveTeamEdit('${teamId}')" style="flex: 1; padding: 12px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-family: 'Cairo', sans-serif;">💾 حفظ</button>
-                <button onclick="closeEditDialog()" style="flex: 1; padding: 12px 20px; background: #6c757d; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-family: 'Cairo', sans-serif;">إلغاء</button>
+            <div class="modal-footer">
+                <button onclick="saveTeamEdit('${teamId}')" class="vip-button">💾 حفظ التغييرات</button>
+                <button onclick="closeEditDialog()" class="cancel-btn">✖️ إلغاء</button>
             </div>
         </div>
     `;
@@ -4444,15 +4626,20 @@ function editAcademicYear(yearId) {
     if (!year) return;
 
     let dialogHTML = `
-        <div style="max-width: 500px;">
-            <h3 style="margin-bottom: 20px; color: #667eea;">✏️ تعديل السنة الدراسية</h3>
-            <div style="margin-bottom: 20px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: 600;">اسم السنة الدراسية:</label>
-                <input type="text" id="editAcademicYearName" value="${year.name}" style="width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px; font-size: 14px;">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3>✏️ تعديل السنة الدراسية</h3>
+                <button onclick="closeEditDialog()" class="modal-close-btn">✖️</button>
             </div>
-            <div style="display: flex; gap: 10px; margin-top: 20px;">
-                <button onclick="saveAcademicYearEdit('${yearId}')" style="flex: 1; padding: 12px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-family: 'Cairo', sans-serif;">💾 حفظ</button>
-                <button onclick="closeEditDialog()" style="flex: 1; padding: 12px 20px; background: #6c757d; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-family: 'Cairo', sans-serif;">إلغاء</button>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>اسم السنة الدراسية:</label>
+                    <input type="text" id="editAcademicYearName" value="${year.name}">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="saveAcademicYearEdit('${yearId}')" class="vip-button">💾 حفظ التغييرات</button>
+                <button onclick="closeEditDialog()" class="cancel-btn">✖️ إلغاء</button>
             </div>
         </div>
     `;
@@ -5053,16 +5240,17 @@ function renderQRCodesTable(filteredData = null) {
     }
 
     let tableHTML = `
-        <table class="modern-table">
+        <div class="table-scroll-hint">← اسحب للمشاهدة ←</div>
+        <table class="modern-table qr-table">
             <thead>
                 <tr>
                     <th>الاسم</th>
-                    <th>السنة الدراسية</th>
-                    <th>رقم الهاتف</th>
+                    <th>السنة</th>
+                    <th>الهاتف</th>
                     <th>الفريق</th>
-                    <th>المسؤول</th>
-                    <th>تاريخ الإنشاء</th>
-                    <th>تم التحديث بواسطة</th>
+                    <th class="col-hide-mobile">المسؤول</th>
+                    <th class="col-hide-mobile">تاريخ الإنشاء</th>
+                    <th class="col-hide-mobile">أنشأه</th>
                     <th>الإجراءات</th>
                 </tr>
             </thead>
@@ -5093,11 +5281,11 @@ function renderQRCodesTable(filteredData = null) {
             <tr style="${rowStyle}">
                 <td><strong>${qr.name}</strong></td>
                 <td>${qr.academicYear || '-'}</td>
-                <td>${qr.phone || '-'}</td>
+                <td class="phone-cell">${qr.phone || '-'}</td>
                 <td>${qr.team || '-'}</td>
-                <td>${qr.teamResponsible || '-'}</td>
-                <td>${createdDate}</td>
-                <td>${qr.createdBy || 'غير معروف'}</td>
+                <td class="col-hide-mobile">${qr.teamResponsible || '-'}</td>
+                <td class="col-hide-mobile">${createdDate}</td>
+                <td class="col-hide-mobile">${qr.createdBy || 'غير معروف'}</td>
                 <td>
                     <div class="action-buttons">
                         ${actionButtons}
@@ -5150,36 +5338,42 @@ async function editQRCode(qrId) {
     const isYearCustom = qr.academicYear && !yearMatchFound;
 
     let dialogHTML = `
-        <div style="max-width: 600px;">
-            <h3 style="margin-bottom: 20px;">✏️ تعديل رمز QR</h3>
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: 600;">اسم المخدوم: <span style="color: red;">*</span></label>
-                <input type="text" id="editQRName" value="${qr.name}" style="width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px;">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3>✏️ تعديل رمز QR</h3>
+                <button onclick="closeEditDialog()" class="modal-close-btn">✖️</button>
             </div>
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: 600;">السنة الدراسية:</label>
-                <select id="editQRAcademicYearSelect" onchange="onEditAcademicYearSelectChange()" style="width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px;">
-                    ${yearOptions}
-                </select>
-                <input type="text" id="editQRAcademicYearCustom" value="${isYearCustom ? qr.academicYear : ''}" placeholder="أدخل السنة الدراسية" class="${isYearCustom ? '' : 'hidden'}" style="width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px; margin-top: 8px;">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>اسم المخدوم: <span class="required">*</span></label>
+                    <input type="text" id="editQRName" value="${qr.name}">
+                </div>
+                <div class="form-group">
+                    <label>السنة الدراسية:</label>
+                    <select id="editQRAcademicYearSelect" onchange="onEditAcademicYearSelectChange()">
+                        ${yearOptions}
+                    </select>
+                    <input type="text" id="editQRAcademicYearCustom" value="${isYearCustom ? qr.academicYear : ''}" placeholder="أدخل السنة الدراسية" class="${isYearCustom ? 'custom-input' : 'hidden custom-input'}">
+                </div>
+                <div class="form-group">
+                    <label>رقم الهاتف:</label>
+                    <input type="tel" id="editQRPhone" value="${qr.phone || ''}" maxlength="11" pattern="[0-9]{11}">
+                </div>
+                <div class="form-group">
+                    <label>الفريق:</label>
+                    <select id="editQRTeamSelect">
+                        ${teamOptions}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>المسؤول عن الفريق:</label>
+                    <input type="text" id="editQRTeamResponsible" value="${qr.teamResponsible || '-'}" disabled readonly class="disabled-input">
+                    <small class="hint">💡 للتعديل استخدم زر "إدارة مسؤولي الفرق"</small>
+                </div>
             </div>
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: 600;">رقم الهاتف:</label>
-                <input type="tel" id="editQRPhone" value="${qr.phone || ''}" maxlength="11" pattern="[0-9]{11}" style="width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px;">
-            </div>
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: 600;">الفريق:</label>
-                <select id="editQRTeamSelect" style="width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px;">
-                    ${teamOptions}
-                </select>
-            </div>
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #999;">المسؤول عن الفريق: <span style="font-size: 11px;">(للتعديل استخدم زر "إدارة مسؤولي الفرق")</span></label>
-                <input type="text" id="editQRTeamResponsible" value="${qr.teamResponsible || '-'}" disabled readonly style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; background-color: #f5f5f5; color: #999; cursor: not-allowed;">
-            </div>
-            <div style="display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end;">
-                <button onclick="saveQREdit('${qrId}')" style="padding: 12px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-family: 'Cairo', sans-serif;">💾 حفظ</button>
-                <button onclick="closeEditDialog()" style="padding: 12px 24px; background: #6c757d; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-family: 'Cairo', sans-serif;">إلغاء</button>
+            <div class="modal-footer">
+                <button onclick="saveQREdit('${qrId}')" class="vip-button">💾 حفظ التغييرات</button>
+                <button onclick="closeEditDialog()" class="cancel-btn">✖️ إلغاء</button>
             </div>
         </div>
     `;
@@ -6245,6 +6439,9 @@ window.login = login;
 window.logout = logout;
 window.switchAuthTab = switchAuthTab;
 window.submitSignupRequest = submitSignupRequest;
+window.toggleSidebar = toggleSidebar;
+window.openSidebar = openSidebar;
+window.closeSidebar = closeSidebar;
 window.showScanner = showScanner;
 window.showDashboard = showDashboard;
 window.showQRGenerator = showQRGenerator;
@@ -6287,6 +6484,8 @@ window.updateMultipleIndicator = updateMultipleIndicator;
 window.showSettings = showSettings;
 window.switchSettingsTab = switchSettingsTab;
 window.updateColorPreview = updateColorPreview;
+window.showAddTeamForm = showAddTeamForm;
+window.hideAddTeamForm = hideAddTeamForm;
 window.addTeam = addTeam;
 window.editTeam = editTeam;
 window.saveTeamEdit = saveTeamEdit;
