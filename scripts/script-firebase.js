@@ -1,5 +1,9 @@
 // Global variables
-let html5QrcodeScanner;
+let html5QrcodeScanner; // Keep for backward compatibility
+let html5Qrcode; // New lower-level API for camera control
+let currentCameraId = null;
+let availableCameras = [];
+let isScannerRunning = false;
 let currentAdmin = '';
 let currentAdminData = null;
 let studentsData = {};
@@ -1166,19 +1170,19 @@ async function checkLoginStatus() {
     }
 }
 
-// QR Scanner functions
-function initializeQRScanner() {
+// QR Scanner functions - Custom Arabic UI with camera switching support
+async function initializeQRScanner() {
     console.log('🔧 initializeQRScanner called');
 
     // Clear any existing scanner
-    if (html5QrcodeScanner) {
-        console.log('🧹 Clearing existing scanner instance...');
+    if (html5Qrcode && isScannerRunning) {
+        console.log('🧹 Stopping existing scanner...');
         try {
-            html5QrcodeScanner.clear().catch(err => console.log('⚠️ Scanner clear error:', err));
+            await html5Qrcode.stop();
+            isScannerRunning = false;
         } catch (error) {
-            console.log('ℹ️ Scanner already cleared:', error);
+            console.log('ℹ️ Scanner already stopped:', error);
         }
-        html5QrcodeScanner = null;
     }
 
     // Check if container exists
@@ -1188,40 +1192,363 @@ function initializeQRScanner() {
         return;
     }
 
-    console.log('✅ Container found, clearing innerHTML...');
-    // Clear container first
-    container.innerHTML = '';
+    console.log('✅ Container found, creating Arabic UI...');
 
-    // Longer delay to ensure DOM is fully ready and previous scanner is cleared
-    setTimeout(() => {
-        console.log('⏱️ Delay complete, creating scanner instance...');
-        try {
-            html5QrcodeScanner = new Html5QrcodeScanner(
-                "qr-reader",
-                {
-                    fps: 10,
-                    qrbox: { width: 250, height: 250 },
-                    aspectRatio: 1.0,
-                    rememberLastUsedCamera: true,
-                    showTorchButtonIfSupported: true
-                },
-                false
-            );
+    // Create custom Arabic UI
+    container.innerHTML = `
+        <div class="scanner-controls">
+            <div class="scanner-control-row">
+                <select id="cameraSelect" class="camera-dropdown" onchange="onCameraSelectChange()">
+                    <option value="">جاري تحميل الكاميرات...</option>
+                </select>
+            </div>
+            <div class="scanner-control-row">
+                <button id="startScanBtn" onclick="startQRScanning()" class="scanner-btn start-btn">
+                    <span>📷</span> بدء المسح
+                </button>
+                <button id="stopScanBtn" onclick="stopQRScanning()" class="scanner-btn stop-btn hidden">
+                    <span>⏹️</span> إيقاف المسح
+                </button>
+                <button id="torchBtn" onclick="toggleTorch()" class="scanner-btn torch-btn hidden">
+                    <span>🔦</span> الفلاش
+                </button>
+            </div>
+        </div>
+        <div id="scanner-view" class="scanner-view-container"></div>
+        <div id="scanner-status" class="scanner-status">اضغط "بدء المسح" لتشغيل الكاميرا</div>
 
-            console.log('📷 Rendering scanner...');
-            html5QrcodeScanner.render(onScanSuccess, onScanFailure);
-            console.log('✅ QR Scanner initialized and rendered successfully');
+        <div class="file-scan-section">
+            <div class="file-scan-divider">
+                <span>أو</span>
+            </div>
+            <div id="file-drop-zone" class="file-drop-zone" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleFileDrop(event)">
+                <div class="file-drop-content">
+                    <span class="file-drop-icon">📁</span>
+                    <p class="file-drop-text">اسحب صورة QR هنا</p>
+                    <p class="file-drop-hint">أو</p>
+                    <label for="qrFileInput" class="file-select-btn">
+                        <span>🖼️</span> اختر صورة
+                    </label>
+                    <input type="file" id="qrFileInput" accept="image/*" onchange="handleFileSelect(event)" hidden>
+                </div>
+            </div>
+        </div>
+    `;
 
-            // Verify scanner DOM was created
-            setTimeout(() => {
-                const scannerElements = container.children.length;
-                console.log('🔍 Scanner DOM verification: container has', scannerElements, 'child elements');
-            }, 100);
-        } catch (error) {
-            console.error('❌ Error initializing scanner:', error);
-            console.error('❌ Error stack:', error.stack);
+    // Create Html5Qrcode instance
+    html5Qrcode = new Html5Qrcode("scanner-view");
+
+    // Get available cameras
+    try {
+        console.log('📷 Getting available cameras...');
+        availableCameras = await Html5Qrcode.getCameras();
+        console.log('✅ Found cameras:', availableCameras);
+        populateCameraDropdown();
+
+        // Auto-start scanning with back camera
+        await startQRScanning();
+    } catch (err) {
+        console.error('❌ Error getting cameras:', err);
+        updateScannerStatus('لا يمكن الوصول للكاميرا - يرجى السماح بالوصول', 'error');
+        showNotification('لا يمكن الوصول للكاميرا', 'error');
+    }
+}
+
+// Populate camera dropdown with available cameras
+function populateCameraDropdown() {
+    const select = document.getElementById('cameraSelect');
+    if (!select || availableCameras.length === 0) return;
+
+    select.innerHTML = '';
+
+    availableCameras.forEach((camera, index) => {
+        const option = document.createElement('option');
+        option.value = camera.id;
+
+        // Translate camera labels to Arabic
+        let label = camera.label || `كاميرا ${index + 1}`;
+        if (label.toLowerCase().includes('back') || label.toLowerCase().includes('rear') || label.toLowerCase().includes('environment')) {
+            label = `📱 الكاميرا الخلفية`;
+        } else if (label.toLowerCase().includes('front') || label.toLowerCase().includes('user') || label.toLowerCase().includes('face')) {
+            label = `🤳 الكاميرا الأمامية`;
+        } else {
+            label = `📷 ${label}`;
         }
-    }, 250);
+
+        option.textContent = label;
+        select.appendChild(option);
+    });
+
+    // Try to select back camera by default
+    const backCamera = availableCameras.find(cam =>
+        cam.label && (cam.label.toLowerCase().includes('back') ||
+                      cam.label.toLowerCase().includes('rear') ||
+                      cam.label.toLowerCase().includes('environment'))
+    );
+
+    if (backCamera) {
+        select.value = backCamera.id;
+        currentCameraId = backCamera.id;
+    } else if (availableCameras.length > 0) {
+        // Default to first camera if no back camera found
+        select.value = availableCameras[0].id;
+        currentCameraId = availableCameras[0].id;
+    }
+}
+
+// Handle camera selection change
+async function onCameraSelectChange() {
+    const select = document.getElementById('cameraSelect');
+    if (!select) return;
+
+    const newCameraId = select.value;
+    if (newCameraId && newCameraId !== currentCameraId) {
+        currentCameraId = newCameraId;
+
+        // If scanner is running, switch camera seamlessly
+        if (isScannerRunning) {
+            updateScannerStatus('جاري تبديل الكاميرا...', 'loading');
+            try {
+                await html5Qrcode.stop();
+                isScannerRunning = false;
+                await startQRScanning();
+            } catch (error) {
+                console.error('Error switching camera:', error);
+                updateScannerStatus('خطأ في تبديل الكاميرا', 'error');
+            }
+        }
+    }
+}
+
+// Start QR scanning
+async function startQRScanning() {
+    if (!html5Qrcode) {
+        console.error('Scanner not initialized');
+        return;
+    }
+
+    const startBtn = document.getElementById('startScanBtn');
+    const stopBtn = document.getElementById('stopScanBtn');
+    const torchBtn = document.getElementById('torchBtn');
+
+    try {
+        updateScannerStatus('جاري تشغيل الكاميرا...', 'loading');
+
+        // Use selected camera or default to back camera
+        const cameraConfig = currentCameraId || { facingMode: "environment" };
+
+        await html5Qrcode.start(
+            cameraConfig,
+            {
+                fps: 10,
+                qrbox: { width: 250, height: 250 },
+                aspectRatio: 1.0
+            },
+            onScanSuccess,
+            onScanFailure
+        );
+
+        isScannerRunning = true;
+
+        // Update UI
+        if (startBtn) startBtn.classList.add('hidden');
+        if (stopBtn) stopBtn.classList.remove('hidden');
+
+        // Show torch button if supported
+        try {
+            const torchSupported = await html5Qrcode.getRunningTrackCameraCapabilities().torchFeature?.isSupported();
+            if (torchSupported && torchBtn) {
+                torchBtn.classList.remove('hidden');
+            }
+        } catch (e) {
+            // Torch not supported, keep button hidden
+        }
+
+        updateScannerStatus('جاري المسح... وجّه الكاميرا نحو رمز QR', 'scanning');
+        console.log('✅ Scanner started successfully');
+
+    } catch (error) {
+        console.error('❌ Error starting scanner:', error);
+        isScannerRunning = false;
+
+        if (error.toString().includes('Permission')) {
+            updateScannerStatus('تم رفض إذن الكاميرا - يرجى السماح بالوصول', 'error');
+            showNotification('يرجى السماح بالوصول للكاميرا', 'error');
+        } else {
+            updateScannerStatus('خطأ في تشغيل الكاميرا', 'error');
+            showNotification('خطأ في تشغيل الكاميرا', 'error');
+        }
+    }
+}
+
+// Stop QR scanning
+async function stopQRScanning() {
+    if (!html5Qrcode || !isScannerRunning) return;
+
+    const startBtn = document.getElementById('startScanBtn');
+    const stopBtn = document.getElementById('stopScanBtn');
+    const torchBtn = document.getElementById('torchBtn');
+
+    try {
+        await html5Qrcode.stop();
+        isScannerRunning = false;
+
+        // Update UI
+        if (startBtn) startBtn.classList.remove('hidden');
+        if (stopBtn) stopBtn.classList.add('hidden');
+        if (torchBtn) torchBtn.classList.add('hidden');
+
+        updateScannerStatus('تم إيقاف المسح - اضغط "بدء المسح" للاستئناف', 'stopped');
+        console.log('✅ Scanner stopped');
+
+    } catch (error) {
+        console.error('Error stopping scanner:', error);
+    }
+}
+
+// Toggle torch/flashlight
+async function toggleTorch() {
+    if (!html5Qrcode || !isScannerRunning) return;
+
+    try {
+        const capabilities = html5Qrcode.getRunningTrackCameraCapabilities();
+        if (capabilities && capabilities.torchFeature) {
+            const currentState = capabilities.torchFeature.value();
+            await capabilities.torchFeature.apply(!currentState);
+
+            const torchBtn = document.getElementById('torchBtn');
+            if (torchBtn) {
+                torchBtn.classList.toggle('torch-active', !currentState);
+            }
+        }
+    } catch (error) {
+        console.error('Error toggling torch:', error);
+    }
+}
+
+// Update scanner status message
+function updateScannerStatus(message, type) {
+    const statusEl = document.getElementById('scanner-status');
+    if (!statusEl) return;
+
+    statusEl.textContent = message;
+    statusEl.className = 'scanner-status';
+
+    if (type) {
+        statusEl.classList.add(`status-${type}`);
+    }
+}
+
+// Resume scanner after action (helper function)
+async function resumeScanner() {
+    if (html5Qrcode && !isScannerRunning) {
+        try {
+            await startQRScanning();
+        } catch (error) {
+            console.log('Error resuming scanner:', error);
+        }
+    } else if (html5QrcodeScanner) {
+        // Fallback for old implementation
+        try {
+            html5QrcodeScanner.resume();
+        } catch (error) {
+            console.log('Error resuming old scanner:', error);
+        }
+    }
+}
+
+// File scanning functions
+function handleDragOver(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    const dropZone = document.getElementById('file-drop-zone');
+    if (dropZone) {
+        dropZone.classList.add('drag-over');
+    }
+}
+
+function handleDragLeave(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    const dropZone = document.getElementById('file-drop-zone');
+    if (dropZone) {
+        dropZone.classList.remove('drag-over');
+    }
+}
+
+async function handleFileDrop(event) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const dropZone = document.getElementById('file-drop-zone');
+    if (dropZone) {
+        dropZone.classList.remove('drag-over');
+    }
+
+    const files = event.dataTransfer?.files;
+    if (files && files.length > 0) {
+        await scanFileForQR(files[0]);
+    }
+}
+
+async function handleFileSelect(event) {
+    const files = event.target?.files;
+    if (files && files.length > 0) {
+        await scanFileForQR(files[0]);
+    }
+    // Reset input so same file can be selected again
+    event.target.value = '';
+}
+
+async function scanFileForQR(file) {
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+        showNotification('يرجى اختيار ملف صورة', 'error');
+        return;
+    }
+
+    updateScannerStatus('جاري مسح الصورة...', 'loading');
+
+    try {
+        // Stop camera scanner if running to avoid conflicts
+        if (html5Qrcode && isScannerRunning) {
+            await html5Qrcode.stop();
+            isScannerRunning = false;
+
+            // Update UI buttons
+            const startBtn = document.getElementById('startScanBtn');
+            const stopBtn = document.getElementById('stopScanBtn');
+            const torchBtn = document.getElementById('torchBtn');
+            if (startBtn) startBtn.classList.remove('hidden');
+            if (stopBtn) stopBtn.classList.add('hidden');
+            if (torchBtn) torchBtn.classList.add('hidden');
+        }
+
+        // Create a temporary Html5Qrcode instance for file scanning if needed
+        if (!html5Qrcode) {
+            html5Qrcode = new Html5Qrcode("scanner-view");
+        }
+
+        // Scan the file
+        const result = await html5Qrcode.scanFile(file, true);
+
+        console.log('📄 File scan result:', result);
+        updateScannerStatus('تم مسح الصورة بنجاح!', 'success');
+
+        // Process the result using the same handler as camera scan
+        await onScanSuccess(result, { result: { format: 'FILE' } });
+
+    } catch (error) {
+        console.error('❌ File scan error:', error);
+
+        if (error.toString().includes('No QR code found')) {
+            updateScannerStatus('لم يتم العثور على رمز QR في الصورة', 'error');
+            showNotification('لم يتم العثور على رمز QR في الصورة', 'error');
+        } else {
+            updateScannerStatus('خطأ في مسح الصورة', 'error');
+            showNotification('خطأ في مسح الصورة', 'error');
+        }
+    }
 }
 
 // Store scanned QR data temporarily
@@ -1249,19 +1576,21 @@ async function onScanSuccess(decodedText, decodedResult) {
         console.error('DecodedResult:', decodedResult);
         showNotification('⚠️ رمز QR فارغ - لا يحتوي على أي بيانات. يرجى التأكد من جودة الصورة أو طباعة QR جديد.', 'error');
 
-        // Resume scanner
-        if (html5QrcodeScanner) {
-            try {
-                html5QrcodeScanner.resume();
-            } catch (error) {
-                console.log('Note: Scanner resume skipped:', error.message);
-            }
-        }
+        // Resume scanner - don't auto-resume on empty QR, let user manually restart
         return;
     }
 
-    // Stop scanning temporarily (don't clear DOM)
-    if (html5QrcodeScanner) {
+    // Stop scanning temporarily
+    if (html5Qrcode && isScannerRunning) {
+        try {
+            await html5Qrcode.stop();
+            isScannerRunning = false;
+            updateScannerStatus('تم مسح رمز QR بنجاح', 'success');
+        } catch (error) {
+            console.log('Note: Scanner stop skipped:', error.message);
+        }
+    } else if (html5QrcodeScanner) {
+        // Fallback for old implementation
         try {
             html5QrcodeScanner.pause(false);
         } catch (error) {
@@ -1294,13 +1623,7 @@ async function onScanSuccess(decodedText, decodedResult) {
         console.error('Empty or invalid name after cleaning');
         showNotification('⚠️ رمز QR غير صالح - الاسم فارغ أو يحتوي على أحرف خاصة فقط', 'error');
         // Resume scanner
-        if (html5QrcodeScanner) {
-            try {
-                html5QrcodeScanner.resume();
-            } catch (error) {
-                console.log('Error resuming scanner:', error);
-            }
-        }
+        await resumeScanner();
         return;
     }
 
@@ -1321,13 +1644,7 @@ async function onScanSuccess(decodedText, decodedResult) {
             console.warn(`⚠️ QR scanned name "${cleanedScannedName}" doesn't exactly match database name "${qrRecord.name}"`);
             showNotification(`⚠️ تحذير: الاسم الممسوح "${cleanedScannedName}" لا يطابق تماماً الاسم المسجل "${qrRecord.name}". يرجى استخدام QR صحيح.`, 'warning');
             // Resume scanner
-            if (html5QrcodeScanner) {
-                try {
-                    html5QrcodeScanner.resume();
-                } catch (error) {
-                    console.log('Error resuming scanner:', error);
-                }
-            }
+            await resumeScanner();
             return;
         }
     }
@@ -1394,14 +1711,7 @@ function onScanFailure(error) {
 function showScoringModal(displayName, additionalInfo, isNewRecord) {
     console.log('📋 Showing scoring modal for:', displayName);
 
-    // Pause scanner to prevent additional scans
-    if (html5QrcodeScanner) {
-        try {
-            html5QrcodeScanner.pause(false);
-        } catch (error) {
-            console.log('Note: Scanner pause skipped:', error.message);
-        }
-    }
+    // Scanner is already stopped in onScanSuccess, no need to pause again
 
     // Populate form fields
     document.getElementById('studentName').value = displayName;
@@ -1496,13 +1806,7 @@ function closeScoringModal() {
     }
 
     // Resume scanner
-    if (html5QrcodeScanner) {
-        try {
-            html5QrcodeScanner.resume();
-        } catch (error) {
-            console.log('Note: Scanner resume skipped:', error.message);
-        }
-    }
+    resumeScanner();
 
     // Clear scanned QR data
     scannedQRData = null;
@@ -2789,12 +3093,23 @@ const SECTION_REGISTRY = {
 };
 
 // Helper functions for section lifecycle
-function pauseScanner() {
+async function pauseScanner() {
+    // New Html5Qrcode implementation
+    if (html5Qrcode && isScannerRunning) {
+        try {
+            await html5Qrcode.stop();
+            isScannerRunning = false;
+            console.log('✅ Scanner paused');
+        } catch (error) {
+            console.log('Error pausing scanner:', error);
+        }
+    }
+    // Fallback for old implementation
     if (html5QrcodeScanner) {
         try {
             html5QrcodeScanner.pause(false);
         } catch (error) {
-            console.log('Error pausing scanner:', error);
+            console.log('Error pausing old scanner:', error);
         }
     }
 }
@@ -2804,7 +3119,7 @@ function hideScoringForm() {
     if (form) form.classList.add('hidden');
 }
 
-function initializeScannerIfNeeded() {
+async function initializeScannerIfNeeded() {
     console.log('📱 initializeScannerIfNeeded called');
 
     const scannerContainer = document.getElementById('qr-reader');
@@ -2818,23 +3133,28 @@ function initializeScannerIfNeeded() {
     console.log('📊 Scanner state:');
     console.log('  - Container found: ✅');
     console.log('  - Has content:', hasContent ? '✅' : '❌');
-    console.log('  - Scanner instance exists:', html5QrcodeScanner ? '✅' : '❌');
+    console.log('  - New scanner instance exists:', html5Qrcode ? '✅' : '❌');
+    console.log('  - Scanner running:', isScannerRunning ? '✅' : '❌');
 
-    // Only initialize if scanner doesn't exist yet
-    if (!html5QrcodeScanner || !hasContent) {
+    // Check if we need to initialize or resume
+    if (!html5Qrcode || !hasContent) {
         console.log('🔧 Initializing scanner for the first time');
         setTimeout(() => {
             initializeQRScanner();
         }, 200);
-    } else {
-        // Scanner already exists, just resume it
-        console.log('▶️ Resuming existing scanner');
+    } else if (!isScannerRunning) {
+        // Scanner exists but not running, restart it
+        console.log('▶️ Restarting scanner');
         try {
-            html5QrcodeScanner.resume();
-            console.log('✅ Scanner resumed successfully');
+            await startQRScanning();
+            console.log('✅ Scanner restarted successfully');
         } catch (error) {
-            console.log('⚠️ Error resuming scanner:', error);
+            console.log('⚠️ Error restarting scanner:', error);
+            // Re-initialize if restart fails
+            initializeQRScanner();
         }
+    } else {
+        console.log('✅ Scanner already running');
     }
 }
 
@@ -5273,22 +5593,29 @@ function renderQRCodesTable(filteredData = null) {
         return;
     }
 
+    const recordCount = Object.keys(dataToRender).length;
     let tableHTML = `
-        <div class="table-scroll-hint">← اسحب للمشاهدة ←</div>
-        <table class="modern-table qr-table">
-            <thead>
-                <tr>
-                    <th>الاسم</th>
-                    <th>السنة</th>
-                    <th>الهاتف</th>
-                    <th>الفريق</th>
-                    <th class="col-hide-mobile">المسؤول</th>
-                    <th class="col-hide-mobile">تاريخ الإنشاء</th>
-                    <th class="col-hide-mobile">أنشأه</th>
-                    <th>الإجراءات</th>
-                </tr>
-            </thead>
-            <tbody>
+        <div class="qr-section">
+            <div class="qr-section-header">
+                <span class="date-title">📋 رموز QR</span>
+                <span class="date-count">${recordCount} رمز</span>
+            </div>
+            <div class="qr-section-content">
+                <div class="table-scroll-hint">← اسحب للمشاهدة ←</div>
+                <table class="modern-table qr-table">
+                    <thead>
+                        <tr>
+                            <th>الاسم</th>
+                            <th>السنة</th>
+                            <th>الهاتف</th>
+                            <th>الفريق</th>
+                            <th class="col-hide-mobile">المسؤول</th>
+                            <th class="col-hide-mobile">تاريخ الإنشاء</th>
+                            <th class="col-hide-mobile">أنشأه</th>
+                            <th>الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
     `;
 
     Object.entries(dataToRender).forEach(([qrId, qr]) => {
@@ -5330,8 +5657,10 @@ function renderQRCodesTable(filteredData = null) {
     });
 
     tableHTML += `
-            </tbody>
-        </table>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     `;
 
     tableContainer.innerHTML = tableHTML;
@@ -6435,30 +6764,30 @@ function showNotification(message, type = 'info') {
 // Handle page visibility changes
 document.addEventListener('visibilitychange', function() {
     if (document.hidden) {
-        // Page is hidden, pause scanner (don't clear DOM)
-        if (html5QrcodeScanner) {
-            try {
-                html5QrcodeScanner.pause(false);
-            } catch (error) {
-                console.log('Error pausing scanner on visibility change:', error);
-            }
-        }
+        // Page is hidden, pause scanner
+        pauseScanner();
     } else {
         // Page is visible, resume scanner if on scanner section
-        if (html5QrcodeScanner && !document.getElementById('scannerSection').classList.contains('hidden')) {
-            try {
-                html5QrcodeScanner.resume();
-            } catch (error) {
-                console.log('Error resuming scanner on visibility change:', error);
-            }
+        const scannerSection = document.getElementById('scannerSection');
+        if (scannerSection && !scannerSection.classList.contains('hidden')) {
+            resumeScanner();
         }
     }
 });
 
 // Handle browser back/forward
-window.addEventListener('beforeunload', function() {
+window.addEventListener('beforeunload', async function() {
+    // Stop new scanner
+    if (html5Qrcode && isScannerRunning) {
+        try {
+            await html5Qrcode.stop();
+        } catch (e) {}
+    }
+    // Clear old scanner (fallback)
     if (html5QrcodeScanner) {
-        html5QrcodeScanner.clear();
+        try {
+            html5QrcodeScanner.clear();
+        } catch (e) {}
     }
 
     // Clean up Firebase listeners

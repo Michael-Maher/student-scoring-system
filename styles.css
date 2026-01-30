@@ -1127,11 +1127,51 @@ button:disabled {
 /* QR Codes Table Container */
 #qrCodesTable {
     width: 100%;
+}
+
+/* QR Section Container - same as date-section */
+.qr-section {
+    margin-bottom: 24px;
+    background: var(--bg-card);
+    border-radius: 16px;
+    border: 1px solid var(--border-light);
+    box-shadow: var(--shadow-md);
+    overflow: hidden;
+    animation: fadeInUp 0.4s ease-out;
+}
+
+.qr-section-header {
+    background: linear-gradient(135deg, var(--sidebar-bg) 0%, var(--sidebar-bg-light) 100%);
+    padding: 16px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid var(--primary-gold);
+}
+
+.qr-section-header .date-title {
+    color: var(--primary-gold);
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.qr-section-header .date-count {
+    background: rgba(212, 175, 55, 0.2);
+    color: var(--primary-gold);
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.qr-section-content {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
 }
 
-#qrCodesTable .modern-table {
+.qr-section .modern-table {
+    margin: 0;
+    border-radius: 0;
     min-width: 900px;
 }
 
@@ -1489,6 +1529,292 @@ button:disabled {
 }
 
 /* ============================================
+   CUSTOM ARABIC SCANNER CONTROLS
+   ============================================ */
+.scanner-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 20px;
+    direction: rtl;
+}
+
+.scanner-control-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    align-items: center;
+}
+
+.camera-dropdown {
+    padding: 12px 20px;
+    border-radius: 10px;
+    border: 2px solid var(--border-light);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    font-family: 'Cairo', sans-serif;
+    font-size: 14px;
+    min-width: 200px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    direction: rtl;
+}
+
+.camera-dropdown:hover {
+    border-color: var(--primary-gold);
+}
+
+.camera-dropdown:focus {
+    outline: none;
+    border-color: var(--primary-gold);
+    box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.2);
+}
+
+.scanner-btn {
+    padding: 12px 24px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    font-family: 'Cairo', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.scanner-btn span {
+    font-size: 16px;
+}
+
+.scanner-btn.start-btn {
+    background: linear-gradient(135deg, var(--success) 0%, #38a169 100%);
+    color: white;
+}
+
+.scanner-btn.start-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(72, 187, 120, 0.4);
+}
+
+.scanner-btn.stop-btn {
+    background: linear-gradient(135deg, var(--error) 0%, #c53030 100%);
+    color: white;
+}
+
+.scanner-btn.stop-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(245, 101, 101, 0.4);
+}
+
+.scanner-btn.torch-btn {
+    background: linear-gradient(135deg, var(--primary-gold) 0%, var(--primary-gold-dark) 100%);
+    color: white;
+}
+
+.scanner-btn.torch-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(212, 175, 55, 0.4);
+}
+
+.scanner-btn.torch-btn.torch-active {
+    background: linear-gradient(135deg, #ffd700 0%, #ffb300 100%);
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+}
+
+.scanner-view-container {
+    border-radius: 12px;
+    overflow: hidden;
+    margin: 0 auto;
+    max-width: 100%;
+}
+
+.scanner-view-container video {
+    width: 100%;
+    border-radius: 12px;
+}
+
+.scanner-status {
+    text-align: center;
+    padding: 12px 20px;
+    margin-top: 15px;
+    border-radius: 10px;
+    font-family: 'Cairo', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    background: var(--bg-main);
+    color: var(--text-secondary);
+    direction: rtl;
+}
+
+.scanner-status.status-scanning {
+    background: rgba(72, 187, 120, 0.1);
+    color: var(--success);
+    border: 1px solid rgba(72, 187, 120, 0.3);
+}
+
+.scanner-status.status-success {
+    background: rgba(72, 187, 120, 0.15);
+    color: var(--success);
+    border: 1px solid rgba(72, 187, 120, 0.4);
+}
+
+.scanner-status.status-error {
+    background: rgba(245, 101, 101, 0.1);
+    color: var(--error);
+    border: 1px solid rgba(245, 101, 101, 0.3);
+}
+
+.scanner-status.status-loading {
+    background: rgba(212, 175, 55, 0.1);
+    color: var(--primary-gold);
+    border: 1px solid rgba(212, 175, 55, 0.3);
+}
+
+.scanner-status.status-stopped {
+    background: rgba(160, 174, 192, 0.1);
+    color: var(--text-muted);
+    border: 1px solid rgba(160, 174, 192, 0.3);
+}
+
+/* File Scan Section */
+.file-scan-section {
+    margin-top: 20px;
+    direction: rtl;
+}
+
+.file-scan-divider {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.file-scan-divider::before,
+.file-scan-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border-light);
+}
+
+.file-scan-divider span {
+    color: var(--text-muted);
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.file-drop-zone {
+    border: 2px dashed var(--border-light);
+    border-radius: 16px;
+    padding: 30px 20px;
+    text-align: center;
+    transition: all 0.3s ease;
+    background: var(--bg-main);
+    cursor: pointer;
+}
+
+.file-drop-zone:hover {
+    border-color: var(--primary-gold);
+    background: rgba(212, 175, 55, 0.05);
+}
+
+.file-drop-zone.drag-over {
+    border-color: var(--primary-gold);
+    background: rgba(212, 175, 55, 0.1);
+    border-style: solid;
+    transform: scale(1.02);
+}
+
+.file-drop-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.file-drop-icon {
+    font-size: 48px;
+    opacity: 0.7;
+}
+
+.file-drop-text {
+    color: var(--text-primary);
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.file-drop-hint {
+    color: var(--text-muted);
+    font-size: 13px;
+    margin: 5px 0;
+}
+
+.file-select-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--primary-gold) 0%, var(--primary-gold-dark) 100%);
+    color: white;
+    font-family: 'Cairo', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3);
+}
+
+.file-select-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(212, 175, 55, 0.4);
+}
+
+.file-select-btn span {
+    font-size: 16px;
+}
+
+/* Mobile responsive for scanner controls */
+@media (max-width: 500px) {
+    .scanner-controls {
+        gap: 10px;
+    }
+
+    .scanner-control-row {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .camera-dropdown {
+        width: 100%;
+        min-width: unset;
+    }
+
+    .scanner-btn {
+        width: 100%;
+        justify-content: center;
+        padding: 14px 20px;
+    }
+
+    .file-drop-zone {
+        padding: 25px 15px;
+    }
+
+    .file-drop-icon {
+        font-size: 40px;
+    }
+
+    .file-drop-text {
+        font-size: 14px;
+    }
+}
+
+/* ============================================
    SCORING FORM
    ============================================ */
 .scoring-form {
@@ -1777,14 +2103,18 @@ button:disabled {
     text-overflow: ellipsis;
 }
 
-/* On smaller screens, stack buttons vertically */
+/* On smaller screens, keep buttons horizontal */
 @media (max-width: 500px) {
     .scoring-actions {
-        flex-direction: column;
+        flex-direction: row;
+        justify-content: center;
     }
 
     .scoring-actions button {
-        width: 100%;
+        flex: 1;
+        min-width: auto;
+        font-size: 0.8rem;
+        padding: 10px 8px;
         white-space: normal;
         text-align: center;
     }
