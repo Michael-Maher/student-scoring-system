@@ -1254,45 +1254,118 @@ async function initializeQRScanner() {
     }
 }
 
-// Populate camera dropdown with available cameras
+// Populate camera dropdown with available cameras - with descriptive Arabic names
 function populateCameraDropdown() {
     const select = document.getElementById('cameraSelect');
     if (!select || availableCameras.length === 0) return;
 
     select.innerHTML = '';
 
+    // Count cameras for sequential numbering
+    let backCameraCount = 0;
+    let frontCameraCount = 0;
+
+    // Log raw camera labels for debugging
+    console.log('📷 Available cameras:', availableCameras.map(c => ({ id: c.id, label: c.label })));
+
     availableCameras.forEach((camera, index) => {
         const option = document.createElement('option');
         option.value = camera.id;
 
-        // Translate camera labels to Arabic
-        let label = camera.label || `كاميرا ${index + 1}`;
-        if (label.toLowerCase().includes('back') || label.toLowerCase().includes('rear') || label.toLowerCase().includes('environment')) {
-            label = `📱 الكاميرا الخلفية`;
-        } else if (label.toLowerCase().includes('front') || label.toLowerCase().includes('user') || label.toLowerCase().includes('face')) {
-            label = `🤳 الكاميرا الأمامية`;
-        } else {
-            label = `📷 ${label}`;
+        const rawLabel = (camera.label || '').toLowerCase();
+        let label = '';
+
+        // Check if it's a front camera
+        if (rawLabel.includes('front') || rawLabel.includes('user') || rawLabel.includes('face') || rawLabel.includes('selfie')) {
+            frontCameraCount++;
+            if (frontCameraCount > 1) {
+                label = `🤳 الكاميرا الأمامية ${frontCameraCount}`;
+            } else {
+                label = `🤳 الكاميرا الأمامية`;
+            }
+        }
+        // Check for ultra-wide camera
+        else if (rawLabel.includes('ultrawide') || rawLabel.includes('ultra wide') || rawLabel.includes('ultra-wide') ||
+                 rawLabel.includes('0.5x') || rawLabel.includes('0.6x') || rawLabel.includes('0.67x')) {
+            label = `📷 فائقة العرض (Ultra-wide)`;
+        }
+        // Check for telephoto camera
+        else if (rawLabel.includes('telephoto') || rawLabel.includes('tele') ||
+                 rawLabel.includes('2x') || rawLabel.includes('3x') || rawLabel.includes('5x') || rawLabel.includes('10x')) {
+            label = `🔭 التقريب (Telephoto)`;
+        }
+        // Check for macro camera
+        else if (rawLabel.includes('macro')) {
+            label = `🔬 ماكرو (Macro)`;
+        }
+        // Check for main/wide camera
+        else if (rawLabel.includes('main') || (rawLabel.includes('wide') && !rawLabel.includes('ultra')) || rawLabel.includes('1x')) {
+            label = `📱 الرئيسية (Main)`;
+        }
+        // Back camera without specific type - use sequential numbering
+        else if (rawLabel.includes('back') || rawLabel.includes('rear') || rawLabel.includes('environment') ||
+                 rawLabel.match(/camera\s*[0-3]/)) {
+            backCameraCount++;
+            const arabicNum = ['١', '٢', '٣', '٤', '٥'][backCameraCount - 1] || backCameraCount;
+            label = `📱 الكاميرا الخلفية ${arabicNum}`;
+        }
+        // Unknown camera with label - show original label
+        else if (camera.label) {
+            backCameraCount++;
+            const arabicNum = ['١', '٢', '٣', '٤', '٥'][backCameraCount - 1] || backCameraCount;
+            label = `📷 كاميرا ${arabicNum} (${camera.label})`;
+        }
+        // Unknown camera without label
+        else {
+            label = `📷 كاميرا ${index + 1}`;
         }
 
         option.textContent = label;
         select.appendChild(option);
     });
 
-    // Try to select back camera by default
-    const backCamera = availableCameras.find(cam =>
-        cam.label && (cam.label.toLowerCase().includes('back') ||
-                      cam.label.toLowerCase().includes('rear') ||
-                      cam.label.toLowerCase().includes('environment'))
-    );
+    // Select the best default camera
+    selectDefaultCamera();
+}
 
-    if (backCamera) {
-        select.value = backCamera.id;
-        currentCameraId = backCamera.id;
-    } else if (availableCameras.length > 0) {
-        // Default to first camera if no back camera found
-        select.value = availableCameras[0].id;
-        currentCameraId = availableCameras[0].id;
+// Select the best camera for QR scanning (main back camera preferred)
+function selectDefaultCamera() {
+    const select = document.getElementById('cameraSelect');
+    if (!select || availableCameras.length === 0) return;
+
+    // Priority 1: Main/wide back camera (best for QR scanning)
+    let selectedCamera = availableCameras.find(cam => {
+        const label = (cam.label || '').toLowerCase();
+        return (label.includes('main') || (label.includes('wide') && !label.includes('ultra')) || label.includes('1x')) &&
+               !label.includes('front') && !label.includes('user');
+    });
+
+    // Priority 2: First back camera that's not ultra-wide
+    if (!selectedCamera) {
+        selectedCamera = availableCameras.find(cam => {
+            const label = (cam.label || '').toLowerCase();
+            return (label.includes('back') || label.includes('rear') || label.includes('environment')) &&
+                   !label.includes('ultrawide') && !label.includes('ultra wide') && !label.includes('0.5') && !label.includes('0.6');
+        });
+    }
+
+    // Priority 3: Any back camera
+    if (!selectedCamera) {
+        selectedCamera = availableCameras.find(cam => {
+            const label = (cam.label || '').toLowerCase();
+            return label.includes('back') || label.includes('rear') || label.includes('environment');
+        });
+    }
+
+    // Priority 4: First available camera
+    if (!selectedCamera && availableCameras.length > 0) {
+        selectedCamera = availableCameras[0];
+    }
+
+    if (selectedCamera) {
+        select.value = selectedCamera.id;
+        currentCameraId = selectedCamera.id;
+        console.log('📷 Default camera selected:', selectedCamera.label || selectedCamera.id);
     }
 }
 
