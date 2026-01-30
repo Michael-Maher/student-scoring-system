@@ -1419,6 +1419,50 @@ button:disabled {
     margin: 0 auto;
 }
 
+/* Style html5-qrcode library generated buttons */
+#qr-reader button,
+#qr-reader__dashboard_section button,
+#qr-reader__dashboard_section_csr button,
+#qr-reader__dashboard_section_swaplink,
+#qr-reader__camera_permission_button {
+    padding: 12px 24px !important;
+    border-radius: 10px !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    font-family: 'Cairo', sans-serif !important;
+    cursor: pointer !important;
+    transition: all 0.3s ease !important;
+    border: none !important;
+    background: linear-gradient(135deg, var(--primary-gold) 0%, var(--primary-gold-dark) 100%) !important;
+    color: white !important;
+    margin: 8px 4px !important;
+    box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3) !important;
+}
+
+#qr-reader button:hover,
+#qr-reader__dashboard_section button:hover,
+#qr-reader__dashboard_section_csr button:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 20px rgba(212, 175, 55, 0.4) !important;
+}
+
+/* Style the file input section */
+#qr-reader__dashboard_section {
+    padding: 15px !important;
+}
+
+/* Style select dropdown in QR scanner */
+#qr-reader select,
+#qr-reader__dashboard_section select {
+    padding: 10px 16px !important;
+    border-radius: 8px !important;
+    border: 2px solid var(--border-light) !important;
+    font-family: 'Cairo', sans-serif !important;
+    font-size: 14px !important;
+    background: var(--bg-card) !important;
+    margin: 8px 4px !important;
+}
+
 .scan-result {
     margin-top: 20px;
     padding: 20px;
@@ -1672,16 +1716,31 @@ button:disabled {
     flex-direction: column;
     line-height: 1.3;
     padding: 10px 16px;
-    gap: 4px;
+    gap: 2px;
 }
 
 .submit-add-btn.two-lines span {
     display: block;
 }
 
-.submit-add-btn .btn-icon {
+.submit-add-btn .btn-icon,
+.submit-add-btn .btn-icon-inline {
     color: white;
     stroke: white;
+}
+
+.btn-line-with-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.btn-icon-inline {
+    width: 14px;
+    height: 14px;
+    stroke: white;
+    flex-shrink: 0;
 }
 
 /* Scoring Actions - 3 buttons layout */

@@ -6,7 +6,7 @@
     <title>نظام تسجيل نقاط المخدومين</title>
     <link rel="icon" type="image/png" href="assets/logo.png">
     <link rel="apple-touch-icon" href="assets/logo.png">
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=25.0">
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -199,11 +199,14 @@
                 <div id="scoringFormButtons" class="scoring-actions">
                     <button onclick="submitScore(false)" class="submit-btn">✅ حفظ</button>
                     <button onclick="submitScore(true)" class="submit-add-btn two-lines">
-                        <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                            <line x1="12" y1="5" x2="12" y2="19"></line>
-                            <line x1="5" y1="12" x2="19" y2="12"></line>
-                        </svg>
-                        <span>حفظ وإضافة أخرى</span>
+                        <span class="btn-line-with-icon">
+                            <svg class="btn-icon-inline" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                            حفظ
+                        </span>
+                        <span>وإضافة أخرى</span>
                     </button>
                     <button onclick="cancelScoring()" class="cancel-btn">❌ إلغاء</button>
                 </div>
@@ -652,8 +655,8 @@
 
     <div id="notification" class="notification hidden"></div>
 
-    <script src="scripts/constants.js"></script>
-    <script src="scripts/firebase-config.js"></script>
-    <script src="scripts/script-firebase.js?v=24.0"></script>
+    <script src="scripts/constants.js?v=25.0"></script>
+    <script src="scripts/firebase-config.js?v=25.0"></script>
+    <script src="scripts/script-firebase.js?v=25.0"></script>
 </body>
 </html>
