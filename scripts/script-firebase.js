@@ -1578,7 +1578,7 @@ async function submitScore(addAnother = false) {
     if (scoreTypeConfig && !scoreTypeConfig.allowMultiplePerDay) {
         if (studentsData[studentId].scans[scoreType] === today) {
             showNotification(`⚠️ تم تسجيل "${scoreTypeConfig.label}" لهذا المخدوم اليوم بالفعل. لا يمكن التسجيل أكثر من مرة في اليوم الواحد.`, 'error');
-            cancelScoring();
+            // Don't close popup - let user choose a different score type
             return;
         }
     }
@@ -1684,7 +1684,18 @@ function formatDateTwoLines(dateString) {
 // Dashboard functions
 function renderScoresTable(filteredData = null) {
     const tableContainer = document.getElementById('scoresTable');
+    if (!tableContainer) {
+        console.error('❌ scoresTable container not found');
+        return;
+    }
+
     const dataToRender = filteredData || studentsData;
+
+    // Safety check - if no score types configured yet
+    if (!ALL_SCORE_TYPE_IDS || ALL_SCORE_TYPE_IDS.length === 0) {
+        tableContainer.innerHTML = '<p style="text-align: center; color: #666; font-style: italic;">جاري تحميل أنواع النقاط...</p>';
+        return;
+    }
 
     if (Object.keys(dataToRender).length === 0) {
         tableContainer.innerHTML = '<p style="text-align: center; color: #666; font-style: italic;">لم يتم تسجيل أي نقاط بعد.</p>';
@@ -1697,7 +1708,21 @@ function renderScoresTable(filteredData = null) {
     // Group students by date (using lastUpdated date only, not time)
     const groupedByDate = {};
     Object.entries(dataToRender).forEach(([studentId, student]) => {
-        const dateStr = student.lastUpdated ? student.lastUpdated.split('T')[0] : 'unknown';
+        let dateStr = 'unknown';
+        if (student.lastUpdated) {
+            // Handle both ISO string and timestamp number formats
+            if (typeof student.lastUpdated === 'string') {
+                dateStr = student.lastUpdated.split('T')[0];
+            } else if (typeof student.lastUpdated === 'number') {
+                dateStr = new Date(student.lastUpdated).toISOString().split('T')[0];
+            } else {
+                try {
+                    dateStr = new Date(student.lastUpdated).toISOString().split('T')[0];
+                } catch (e) {
+                    dateStr = 'unknown';
+                }
+            }
+        }
         if (!groupedByDate[dateStr]) {
             groupedByDate[dateStr] = [];
         }
@@ -3768,17 +3793,26 @@ function renderScoreTypesList() {
 
         html += `
             <div class="score-type-card">
-                <div class="score-type-header">
-                    <h4>${scoreType.label}</h4>
-                    <code class="score-type-id">${typeId}</code>
+                <div class="score-type-card-header">
+                    <div class="score-type-avatar">⭐</div>
+                    <div class="score-type-card-info">
+                        <h4>${scoreType.label}</h4>
+                        <code class="score-type-id">${typeId}</code>
+                    </div>
                 </div>
-                <div class="score-type-info">
-                    <p><strong>النقاط الافتراضية:</strong> <span class="points-badge">${points}</span></p>
-                    <p><strong>تسجيل متعدد:</strong> <span class="selection-indicator ${multipleClass}">${multipleIcon} ${multipleText}</span></p>
+                <div class="score-type-details">
+                    <div class="score-type-detail-row">
+                        <span class="detail-label">النقاط الافتراضية:</span>
+                        <span class="points-badge">${points}</span>
+                    </div>
+                    <div class="score-type-detail-row">
+                        <span class="detail-label">تسجيل متعدد:</span>
+                        <span class="selection-indicator ${multipleClass}">${multipleIcon} ${multipleText}</span>
+                    </div>
                 </div>
                 <div class="score-type-actions">
-                    <button onclick="editScoreType('${typeId}')" class="edit-btn">✏️ تعديل</button>
-                    <button onclick="deleteScoreType('${typeId}')" class="delete-btn">🗑️ حذف</button>
+                    <button onclick="editScoreType('${typeId}')" class="action-btn edit-btn">✏️ تعديل</button>
+                    <button onclick="deleteScoreType('${typeId}')" class="action-btn delete-btn">🗑️ حذف</button>
                 </div>
             </div>
         `;
@@ -4563,8 +4597,8 @@ function renderTeamsList() {
                     <small style="display: block; margin-top: 4px;">أنشأه: ${creatorName}</small>
                 </div>
                 <div class="team-actions">
-                    <button onclick="editTeam('${teamId}')" class="action-btn edit-btn" title="تعديل">✏️</button>
-                    <button onclick="deleteTeam('${teamId}')" class="action-btn delete-btn" title="حذف">🗑️</button>
+                    <button onclick="editTeam('${teamId}')" class="action-btn edit-btn" title="تعديل">✏️ تعديل</button>
+                    <button onclick="deleteTeam('${teamId}')" class="action-btn delete-btn" title="حذف">🗑️ حذف</button>
                 </div>
             </div>
         `;
@@ -4787,8 +4821,8 @@ function renderAcademicYearsList() {
                     <small>أنشأه: ${creatorName}</small>
                 </div>
                 <div class="academic-year-actions">
-                    <button onclick="editAcademicYear('${yearId}')" class="action-btn edit-btn" title="تعديل">✏️</button>
-                    <button onclick="deleteAcademicYear('${yearId}')" class="action-btn delete-btn" title="حذف">🗑️</button>
+                    <button onclick="editAcademicYear('${yearId}')" class="action-btn edit-btn" title="تعديل">✏️ تعديل</button>
+                    <button onclick="deleteAcademicYear('${yearId}')" class="action-btn delete-btn" title="حذف">🗑️ حذف</button>
                 </div>
             </div>
         `;
