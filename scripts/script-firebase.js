@@ -688,6 +688,41 @@ async function notifyHeadAdmins(name, phone) {
 }
 
 // Firebase synchronization functions
+// Migrate old scans data to dailyScores format
+// Old format: scans: { mass: "2024-02-07" } or scans: { mass: ["2024-02-07"] }
+// New format: dailyScores: { "2024-02-07__mass": 1 }
+function migrateScansToDaily(student) {
+    if (!student.dailyScores) {
+        student.dailyScores = {};
+    }
+
+    // Only migrate if student has old scans data and dailyScores is empty
+    const scans = student.scans;
+    if (!scans || Object.keys(student.dailyScores).length > 0) return;
+
+    const scores = student.scores || {};
+    Object.keys(scans).forEach(scoreType => {
+        const val = scans[scoreType];
+        // Handle string, array, or Firebase object format
+        let dates = [];
+        if (typeof val === 'string') {
+            dates = [val];
+        } else if (Array.isArray(val)) {
+            dates = val;
+        } else if (val && typeof val === 'object') {
+            dates = Object.values(val);
+        }
+
+        dates.forEach(dateStr => {
+            const dailyKey = `${dateStr}__${scoreType}`;
+            if (student.dailyScores[dailyKey] === undefined) {
+                // Use the total score for this type (best we can do for legacy data)
+                student.dailyScores[dailyKey] = scores[scoreType] || 0;
+            }
+        });
+    });
+}
+
 function initializeFirebaseSync() {
     console.log('🔄 initializeFirebaseSync called');
     if (!window.firebase) {
@@ -719,19 +754,9 @@ function initializeFirebaseSync() {
                     if (!studentsData[studentId]) {
                         // New student, just copy
                         studentsData[studentId] = newData[studentId];
-                        // Ensure scans object exists
-                        if (!studentsData[studentId].scans) {
-                            studentsData[studentId].scans = {};
-                        }
-                        // Ensure scanHistory object exists
-                        if (!studentsData[studentId].scanHistory) {
-                            studentsData[studentId].scanHistory = {};
-                        }
                     } else {
                         // Existing student, merge carefully
-                        // Save local scans and scanHistory before updating (to preserve any pending writes)
-                        const localScans = studentsData[studentId].scans || {};
-                        const localScanHistory = studentsData[studentId].scanHistory || {};
+                        const localDailyScores = studentsData[studentId].dailyScores || {};
 
                         // Always update scores and basic info from Firebase (source of truth)
                         studentsData[studentId].scores = newData[studentId].scores || {};
@@ -739,42 +764,15 @@ function initializeFirebaseSync() {
                         studentsData[studentId].lastUpdated = newData[studentId].lastUpdated;
                         studentsData[studentId].lastUpdatedBy = newData[studentId].lastUpdatedBy;
 
-                        // Merge scans data: combine arrays from both sources (no duplicates)
-                        const firebaseScans = newData[studentId].scans || {};
-                        const mergedScans = {};
-                        const allScanKeys = new Set([...Object.keys(firebaseScans), ...Object.keys(localScans)]);
-                        allScanKeys.forEach(key => {
-                            const fbVal = firebaseScans[key];
-                            const localVal = localScans[key];
-                            // Handle old format (string), new format (array), and Firebase object format ({0: "date", 1: "date"})
-                            const toDateArray = (val) => {
-                                if (Array.isArray(val)) return val;
-                                if (typeof val === 'string') return [val];
-                                if (val && typeof val === 'object') return Object.values(val);
-                                return [];
-                            };
-                            mergedScans[key] = [...new Set([...toDateArray(fbVal), ...toDateArray(localVal)])].sort();
-                        });
-                        studentsData[studentId].scans = mergedScans;
-
-                        // Merge scanHistory: combine per-day records from both sources
-                        const firebaseScanHistory = newData[studentId].scanHistory || {};
-                        const mergedHistory = { ...firebaseScanHistory };
-                        Object.keys(localScanHistory).forEach(date => {
-                            if (!mergedHistory[date]) {
-                                mergedHistory[date] = localScanHistory[date];
-                            } else {
-                                // Merge scores for same day - local takes precedence
-                                mergedHistory[date] = {
-                                    ...mergedHistory[date],
-                                    scores: { ...mergedHistory[date].scores, ...localScanHistory[date].scores },
-                                    lastUpdated: localScanHistory[date].lastUpdated || mergedHistory[date].lastUpdated,
-                                    lastUpdatedBy: localScanHistory[date].lastUpdatedBy || mergedHistory[date].lastUpdatedBy
-                                };
-                            }
-                        });
-                        studentsData[studentId].scanHistory = mergedHistory;
+                        // Merge dailyScores: local takes precedence (preserves pending writes)
+                        studentsData[studentId].dailyScores = {
+                            ...(newData[studentId].dailyScores || {}),
+                            ...localDailyScores
+                        };
                     }
+
+                    // Migrate old scans format to dailyScores if needed
+                    migrateScansToDaily(studentsData[studentId]);
                 });
 
                 // Remove students that no longer exist in Firebase
@@ -2032,7 +2030,7 @@ async function submitScore(addAnother = false) {
             team: scannedQRData?.team || '',
             teamResponsible: scannedQRData?.teamResponsible || '',
             scores: {},
-            scans: {}, // Track scans by type and date
+            dailyScores: {},
             lastUpdated: new Date().toISOString(),
             lastUpdatedBy: currentAdmin
         };
@@ -2053,62 +2051,29 @@ async function submitScore(addAnother = false) {
         }
     }
 
-    // Initialize scans tracking if not exists
-    if (!studentsData[studentId].scans) {
-        studentsData[studentId].scans = {};
+    // Initialize dailyScores if not exists
+    // dailyScores is a flat object: { "2024-02-07__mass": 1, "2024-02-08__lesson": 2 }
+    // This format is Firebase-safe (no arrays, no nesting issues)
+    if (!studentsData[studentId].dailyScores) {
+        studentsData[studentId].dailyScores = {};
     }
 
-    // Initialize scanHistory if not exists (tracks per-day scores)
-    if (!studentsData[studentId].scanHistory) {
-        studentsData[studentId].scanHistory = {};
-    }
-
-    // Migrate old scans format to array if needed
-    Object.keys(studentsData[studentId].scans).forEach(key => {
-        const val = studentsData[studentId].scans[key];
-        if (typeof val === 'string') {
-            // Old format: scans[type] = "2024-01-15" → convert to array
-            studentsData[studentId].scans[key] = [val];
-        } else if (val && typeof val === 'object' && !Array.isArray(val)) {
-            // Firebase object format: {0: "2024-01-15", 1: "2024-01-16"} → convert to array
-            studentsData[studentId].scans[key] = Object.values(val);
-        }
-    });
-
-    // Check if this score type was already scanned today (except for types that allow multiple per day)
+    // Check if this score type was already scanned today
     const scoreTypeConfig = SCORE_TYPES[scoreType];
+    const dailyKey = `${today}__${scoreType}`;
     if (scoreTypeConfig && !scoreTypeConfig.allowMultiplePerDay) {
-        const scanDates = studentsData[studentId].scans[scoreType] || [];
-        if (scanDates.includes(today)) {
+        if (studentsData[studentId].dailyScores[dailyKey] !== undefined) {
             showNotification(`⚠️ تم تسجيل "${scoreTypeConfig.label}" لهذا المخدوم اليوم بالفعل. لا يمكن التسجيل أكثر من مرة في اليوم الواحد.`, 'error');
-            // Don't close popup - let user choose a different score type
             return;
         }
     }
 
-    // Record the scan date for this score type (append, don't overwrite)
-    if (!studentsData[studentId].scans[scoreType]) {
-        studentsData[studentId].scans[scoreType] = [];
-    }
-    if (!studentsData[studentId].scans[scoreType].includes(today)) {
-        studentsData[studentId].scans[scoreType].push(today);
-    }
-
-    // Record per-day score in scanHistory for dashboard grouping
-    if (!studentsData[studentId].scanHistory[today]) {
-        studentsData[studentId].scanHistory[today] = {
-            scores: {},
-            lastUpdated: new Date().toISOString(),
-            lastUpdatedBy: currentAdmin
-        };
-    }
-    if (studentsData[studentId].scanHistory[today].scores[scoreType]) {
-        studentsData[studentId].scanHistory[today].scores[scoreType] += score;
+    // Record this day's score in dailyScores (for per-day dashboard grouping)
+    if (studentsData[studentId].dailyScores[dailyKey]) {
+        studentsData[studentId].dailyScores[dailyKey] += score;
     } else {
-        studentsData[studentId].scanHistory[today].scores[scoreType] = score;
+        studentsData[studentId].dailyScores[dailyKey] = score;
     }
-    studentsData[studentId].scanHistory[today].lastUpdated = new Date().toISOString();
-    studentsData[studentId].scanHistory[today].lastUpdatedBy = currentAdmin;
 
     // Add the new score (accumulate total if already exists)
     if (studentsData[studentId].scores[scoreType]) {
@@ -2229,62 +2194,44 @@ function renderScoresTable(filteredData = null) {
     // Arabic day names
     const arabicDayNames = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 
-    // Helper: convert scans value (string, array, or Firebase object) to date array
-    const toDateArray = (v) => Array.isArray(v) ? v : (typeof v === 'string' ? [v] : (v && typeof v === 'object' ? Object.values(v) : []));
-
-    // Group students by date - each day the student was scanned gets its own row
+    // Group students by date using dailyScores
+    // dailyScores format: { "2024-02-07__mass": 1, "2024-02-08__lesson": 2 }
     const groupedByDate = {};
     Object.entries(dataToRender).forEach(([studentId, student]) => {
-        const scanHistory = student.scanHistory || {};
-        const scans = student.scans || {};
-        const historyDates = new Set(Object.keys(scanHistory));
+        const dailyScores = student.dailyScores || {};
+        const dailyKeys = Object.keys(dailyScores);
 
-        // Collect ALL dates this student was ever scanned (from both scanHistory and scans)
-        const allDates = new Set(historyDates);
-        Object.keys(scans).forEach(scoreType => {
-            toDateArray(scans[scoreType]).forEach(d => allDates.add(d));
-        });
+        if (dailyKeys.length > 0) {
+            // Build per-date score maps from dailyScores keys
+            const dateScoreMap = {}; // { "2024-02-07": { mass: 1 }, "2024-02-08": { lesson: 2 } }
+            dailyKeys.forEach(key => {
+                const separatorIndex = key.indexOf('__');
+                if (separatorIndex === -1) return;
+                const dateStr = key.substring(0, separatorIndex);
+                const scoreType = key.substring(separatorIndex + 2);
+                if (!dateScoreMap[dateStr]) {
+                    dateScoreMap[dateStr] = {};
+                }
+                dateScoreMap[dateStr][scoreType] = dailyScores[key];
+            });
 
-        if (allDates.size > 0) {
-            allDates.forEach(dateStr => {
+            // Create a row per date
+            Object.keys(dateScoreMap).forEach(dateStr => {
                 if (!groupedByDate[dateStr]) {
                     groupedByDate[dateStr] = [];
                 }
-
-                if (scanHistory[dateStr]) {
-                    // We have detailed per-day scores from scanHistory
-                    const dayData = scanHistory[dateStr];
-                    groupedByDate[dateStr].push({
-                        studentId,
-                        student: {
-                            ...student,
-                            scores: dayData.scores || {},
-                            lastUpdated: dayData.lastUpdated || student.lastUpdated,
-                            lastUpdatedBy: dayData.lastUpdatedBy || student.lastUpdatedBy
-                        }
-                    });
-                } else {
-                    // Legacy date from scans (no per-day breakdown) — show which score types were scanned that day
-                    const dayScores = {};
-                    Object.keys(scans).forEach(scoreType => {
-                        const dates = toDateArray(scans[scoreType]);
-                        if (dates.includes(dateStr)) {
-                            dayScores[scoreType] = student.scores?.[scoreType] || 0;
-                        }
-                    });
-                    groupedByDate[dateStr].push({
-                        studentId,
-                        student: {
-                            ...student,
-                            scores: dayScores,
-                            lastUpdated: student.lastUpdated,
-                            lastUpdatedBy: student.lastUpdatedBy
-                        }
-                    });
-                }
+                groupedByDate[dateStr].push({
+                    studentId,
+                    student: {
+                        ...student,
+                        scores: dateScoreMap[dateStr],
+                        lastUpdated: student.lastUpdated,
+                        lastUpdatedBy: student.lastUpdatedBy
+                    }
+                });
             });
         } else {
-            // No scan data at all - fall back to lastUpdated
+            // No dailyScores yet (legacy data) - fall back to lastUpdated
             let dateStr = 'unknown';
             if (student.lastUpdated) {
                 if (typeof student.lastUpdated === 'string') {
@@ -2809,15 +2756,14 @@ async function saveStudentEdit(studentId) {
         // Delete old entry from local data
         delete studentsData[studentId];
 
-        // Create new entry with new name, preserving scans and scanHistory data
+        // Create new entry with new name, preserving dailyScores data
         studentsData[newStudentKey] = {
             name: newName,
             academicYear: newAcademicYear,
             team: newTeam,
             teamResponsible: newTeamResponsible,
             scores: newScores,
-            scans: oldStudentData.scans || {},
-            scanHistory: oldStudentData.scanHistory || {},
+            dailyScores: oldStudentData.dailyScores || {},
             lastUpdated: new Date().toISOString(),
             lastUpdatedBy: currentAdmin
         };
@@ -3160,21 +3106,14 @@ function applyFilters() {
         );
     }
 
-    // Filter by date - check scanHistory, scans, and lastUpdated
+    // Filter by date - check dailyScores keys then fallback to lastUpdated
     if (dateFilter) {
         filteredData = Object.fromEntries(
             Object.entries(filteredData).filter(([id, student]) => {
-                // Check scanHistory first
-                if (student.scanHistory && student.scanHistory[dateFilter]) {
-                    return true;
-                }
-                // Check scans dates
-                if (student.scans) {
-                    for (const scoreType of Object.keys(student.scans)) {
-                        const val = student.scans[scoreType];
-                        const dates = Array.isArray(val) ? val : (typeof val === 'string' ? [val] : (val && typeof val === 'object' ? Object.values(val) : []));
-                        if (dates.includes(dateFilter)) return true;
-                    }
+                // Check dailyScores for any key starting with the date
+                if (student.dailyScores) {
+                    const hasDate = Object.keys(student.dailyScores).some(key => key.startsWith(dateFilter + '__'));
+                    if (hasDate) return true;
                 }
                 // Fallback to lastUpdated
                 if (!student.lastUpdated) return false;
@@ -4723,6 +4662,14 @@ async function deleteScoreType(typeId) {
         }
         if (studentsData[studentId].scans && studentsData[studentId].scans[typeId]) {
             delete studentsData[studentId].scans[typeId];
+        }
+        // Also remove from dailyScores
+        if (studentsData[studentId].dailyScores) {
+            Object.keys(studentsData[studentId].dailyScores).forEach(key => {
+                if (key.endsWith('__' + typeId)) {
+                    delete studentsData[studentId].dailyScores[key];
+                }
+            });
         }
     });
     console.log(`🔄 Removed score type from ${studentsAffected} students`);
