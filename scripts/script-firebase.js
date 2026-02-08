@@ -723,10 +723,15 @@ function initializeFirebaseSync() {
                         if (!studentsData[studentId].scans) {
                             studentsData[studentId].scans = {};
                         }
+                        // Ensure scanHistory object exists
+                        if (!studentsData[studentId].scanHistory) {
+                            studentsData[studentId].scanHistory = {};
+                        }
                     } else {
                         // Existing student, merge carefully
-                        // Save local scans before updating (to preserve any pending writes)
+                        // Save local scans and scanHistory before updating (to preserve any pending writes)
                         const localScans = studentsData[studentId].scans || {};
+                        const localScanHistory = studentsData[studentId].scanHistory || {};
 
                         // Always update scores and basic info from Firebase (source of truth)
                         studentsData[studentId].scores = newData[studentId].scores || {};
@@ -734,12 +739,37 @@ function initializeFirebaseSync() {
                         studentsData[studentId].lastUpdated = newData[studentId].lastUpdated;
                         studentsData[studentId].lastUpdatedBy = newData[studentId].lastUpdatedBy;
 
-                        // Merge scans data: local changes take precedence over Firebase
-                        // This prevents race conditions during save operations
-                        studentsData[studentId].scans = {
-                            ...(newData[studentId].scans || {}),
-                            ...localScans
-                        };
+                        // Merge scans data: combine arrays from both sources (no duplicates)
+                        const firebaseScans = newData[studentId].scans || {};
+                        const mergedScans = {};
+                        const allScanKeys = new Set([...Object.keys(firebaseScans), ...Object.keys(localScans)]);
+                        allScanKeys.forEach(key => {
+                            const fbVal = firebaseScans[key];
+                            const localVal = localScans[key];
+                            // Handle both old format (string) and new format (array)
+                            const fbDates = Array.isArray(fbVal) ? fbVal : (typeof fbVal === 'string' ? [fbVal] : []);
+                            const localDates = Array.isArray(localVal) ? localVal : (typeof localVal === 'string' ? [localVal] : []);
+                            mergedScans[key] = [...new Set([...fbDates, ...localDates])].sort();
+                        });
+                        studentsData[studentId].scans = mergedScans;
+
+                        // Merge scanHistory: combine per-day records from both sources
+                        const firebaseScanHistory = newData[studentId].scanHistory || {};
+                        const mergedHistory = { ...firebaseScanHistory };
+                        Object.keys(localScanHistory).forEach(date => {
+                            if (!mergedHistory[date]) {
+                                mergedHistory[date] = localScanHistory[date];
+                            } else {
+                                // Merge scores for same day - local takes precedence
+                                mergedHistory[date] = {
+                                    ...mergedHistory[date],
+                                    scores: { ...mergedHistory[date].scores, ...localScanHistory[date].scores },
+                                    lastUpdated: localScanHistory[date].lastUpdated || mergedHistory[date].lastUpdated,
+                                    lastUpdatedBy: localScanHistory[date].lastUpdatedBy || mergedHistory[date].lastUpdatedBy
+                                };
+                            }
+                        });
+                        studentsData[studentId].scanHistory = mergedHistory;
                     }
                 });
 
@@ -1213,6 +1243,11 @@ async function initializeQRScanner() {
                     <span>🔦</span> الفلاش
                 </button>
             </div>
+            <div id="zoomControlRow" class="scanner-control-row hidden">
+                <label for="zoomRange" class="zoom-label">🔍 التقريب</label>
+                <input type="range" id="zoomRange" class="zoom-slider" min="1" max="5" step="0.1" value="1" oninput="onZoomChange(this.value)">
+                <span id="zoomValue" class="zoom-value">1x</span>
+            </div>
         </div>
         <div id="scanner-view" class="scanner-view-container"></div>
         <div id="scanner-status" class="scanner-status">اضغط "بدء المسح" لتشغيل الكاميرا</div>
@@ -1437,6 +1472,48 @@ async function startQRScanning() {
             // Torch not supported, keep button hidden
         }
 
+        // Apply continuous autofocus and show zoom controls if supported
+        try {
+            const videoTrack = html5Qrcode.getRunningTrackCameraCapabilities();
+
+            // Try to get the underlying MediaStreamTrack for advanced constraints
+            const scannerState = html5Qrcode.getState();
+            if (scannerState === 2) { // SCANNING state
+                const videoElement = document.querySelector('#scanner-view video');
+                if (videoElement && videoElement.srcObject) {
+                    const track = videoElement.srcObject.getVideoTracks()[0];
+                    if (track) {
+                        const capabilities = track.getCapabilities();
+
+                        // Apply continuous autofocus if supported
+                        if (capabilities.focusMode && capabilities.focusMode.includes('continuous')) {
+                            await track.applyConstraints({
+                                advanced: [{ focusMode: 'continuous' }]
+                            });
+                            console.log('✅ Continuous autofocus enabled');
+                        }
+
+                        // Show zoom slider if supported
+                        if (capabilities.zoom) {
+                            const zoomControlRow = document.getElementById('zoomControlRow');
+                            const zoomRange = document.getElementById('zoomRange');
+                            if (zoomControlRow && zoomRange) {
+                                zoomRange.min = capabilities.zoom.min;
+                                zoomRange.max = capabilities.zoom.max;
+                                zoomRange.step = capabilities.zoom.step || 0.1;
+                                zoomRange.value = capabilities.zoom.min;
+                                zoomControlRow.classList.remove('hidden');
+                                document.getElementById('zoomValue').textContent = `${capabilities.zoom.min}x`;
+                            }
+                            console.log('✅ Zoom control enabled:', capabilities.zoom);
+                        }
+                    }
+                }
+            }
+        } catch (e) {
+            console.log('ℹ️ Advanced camera features not available:', e.message);
+        }
+
         updateScannerStatus('جاري المسح... وجّه الكاميرا نحو رمز QR', 'scanning');
         console.log('✅ Scanner started successfully');
 
@@ -1470,6 +1547,8 @@ async function stopQRScanning() {
         if (startBtn) startBtn.classList.remove('hidden');
         if (stopBtn) stopBtn.classList.add('hidden');
         if (torchBtn) torchBtn.classList.add('hidden');
+        const zoomControlRow = document.getElementById('zoomControlRow');
+        if (zoomControlRow) zoomControlRow.classList.add('hidden');
 
         updateScannerStatus('تم إيقاف المسح - اضغط "بدء المسح" للاستئناف', 'stopped');
         console.log('✅ Scanner stopped');
@@ -1496,6 +1575,29 @@ async function toggleTorch() {
         }
     } catch (error) {
         console.error('Error toggling torch:', error);
+    }
+}
+
+// Handle zoom slider change
+async function onZoomChange(value) {
+    if (!html5Qrcode || !isScannerRunning) return;
+
+    try {
+        const videoElement = document.querySelector('#scanner-view video');
+        if (videoElement && videoElement.srcObject) {
+            const track = videoElement.srcObject.getVideoTracks()[0];
+            if (track) {
+                await track.applyConstraints({
+                    advanced: [{ zoom: parseFloat(value) }]
+                });
+                const zoomValueEl = document.getElementById('zoomValue');
+                if (zoomValueEl) {
+                    zoomValueEl.textContent = `${parseFloat(value).toFixed(1)}x`;
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error applying zoom:', error);
     }
 }
 
@@ -1595,6 +1697,8 @@ async function scanFileForQR(file) {
             if (startBtn) startBtn.classList.remove('hidden');
             if (stopBtn) stopBtn.classList.add('hidden');
             if (torchBtn) torchBtn.classList.add('hidden');
+            const zoomCtrl = document.getElementById('zoomControlRow');
+            if (zoomCtrl) zoomCtrl.classList.add('hidden');
         }
 
         // Create a temporary Html5Qrcode instance for file scanning if needed
@@ -1950,20 +2054,56 @@ async function submitScore(addAnother = false) {
         studentsData[studentId].scans = {};
     }
 
+    // Initialize scanHistory if not exists (tracks per-day scores)
+    if (!studentsData[studentId].scanHistory) {
+        studentsData[studentId].scanHistory = {};
+    }
+
+    // Migrate old scans format (single date string) to new format if needed
+    Object.keys(studentsData[studentId].scans).forEach(key => {
+        const val = studentsData[studentId].scans[key];
+        if (typeof val === 'string') {
+            // Old format: scans[type] = "2024-01-15" → convert to array
+            studentsData[studentId].scans[key] = [val];
+        }
+    });
+
     // Check if this score type was already scanned today (except for types that allow multiple per day)
     const scoreTypeConfig = SCORE_TYPES[scoreType];
     if (scoreTypeConfig && !scoreTypeConfig.allowMultiplePerDay) {
-        if (studentsData[studentId].scans[scoreType] === today) {
+        const scanDates = studentsData[studentId].scans[scoreType] || [];
+        if (scanDates.includes(today)) {
             showNotification(`⚠️ تم تسجيل "${scoreTypeConfig.label}" لهذا المخدوم اليوم بالفعل. لا يمكن التسجيل أكثر من مرة في اليوم الواحد.`, 'error');
             // Don't close popup - let user choose a different score type
             return;
         }
     }
 
-    // Record the scan date for this score type
-    studentsData[studentId].scans[scoreType] = today;
+    // Record the scan date for this score type (append, don't overwrite)
+    if (!studentsData[studentId].scans[scoreType]) {
+        studentsData[studentId].scans[scoreType] = [];
+    }
+    if (!studentsData[studentId].scans[scoreType].includes(today)) {
+        studentsData[studentId].scans[scoreType].push(today);
+    }
 
-    // Add the new score (accumulate if already exists)
+    // Record per-day score in scanHistory for dashboard grouping
+    if (!studentsData[studentId].scanHistory[today]) {
+        studentsData[studentId].scanHistory[today] = {
+            scores: {},
+            lastUpdated: new Date().toISOString(),
+            lastUpdatedBy: currentAdmin
+        };
+    }
+    if (studentsData[studentId].scanHistory[today].scores[scoreType]) {
+        studentsData[studentId].scanHistory[today].scores[scoreType] += score;
+    } else {
+        studentsData[studentId].scanHistory[today].scores[scoreType] = score;
+    }
+    studentsData[studentId].scanHistory[today].lastUpdated = new Date().toISOString();
+    studentsData[studentId].scanHistory[today].lastUpdatedBy = currentAdmin;
+
+    // Add the new score (accumulate total if already exists)
     if (studentsData[studentId].scores[scoreType]) {
         studentsData[studentId].scores[scoreType] += score;
     } else {
@@ -2082,28 +2222,49 @@ function renderScoresTable(filteredData = null) {
     // Arabic day names
     const arabicDayNames = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 
-    // Group students by date (using lastUpdated date only, not time)
+    // Group students by date using scanHistory (each day the student was scanned gets its own entry)
     const groupedByDate = {};
     Object.entries(dataToRender).forEach(([studentId, student]) => {
-        let dateStr = 'unknown';
-        if (student.lastUpdated) {
-            // Handle both ISO string and timestamp number formats
-            if (typeof student.lastUpdated === 'string') {
-                dateStr = student.lastUpdated.split('T')[0];
-            } else if (typeof student.lastUpdated === 'number') {
-                dateStr = new Date(student.lastUpdated).toISOString().split('T')[0];
-            } else {
-                try {
+        const scanHistory = student.scanHistory;
+        if (scanHistory && Object.keys(scanHistory).length > 0) {
+            // Use scanHistory to create per-day entries
+            Object.keys(scanHistory).forEach(dateStr => {
+                if (!groupedByDate[dateStr]) {
+                    groupedByDate[dateStr] = [];
+                }
+                // Create a view of the student with only that day's scores
+                const dayData = scanHistory[dateStr];
+                groupedByDate[dateStr].push({
+                    studentId,
+                    student: {
+                        ...student,
+                        scores: dayData.scores || {},
+                        lastUpdated: dayData.lastUpdated || student.lastUpdated,
+                        lastUpdatedBy: dayData.lastUpdatedBy || student.lastUpdatedBy
+                    }
+                });
+            });
+        } else {
+            // Fallback for students without scanHistory (legacy data) - use lastUpdated
+            let dateStr = 'unknown';
+            if (student.lastUpdated) {
+                if (typeof student.lastUpdated === 'string') {
+                    dateStr = student.lastUpdated.split('T')[0];
+                } else if (typeof student.lastUpdated === 'number') {
                     dateStr = new Date(student.lastUpdated).toISOString().split('T')[0];
-                } catch (e) {
-                    dateStr = 'unknown';
+                } else {
+                    try {
+                        dateStr = new Date(student.lastUpdated).toISOString().split('T')[0];
+                    } catch (e) {
+                        dateStr = 'unknown';
+                    }
                 }
             }
+            if (!groupedByDate[dateStr]) {
+                groupedByDate[dateStr] = [];
+            }
+            groupedByDate[dateStr].push({ studentId, student });
         }
-        if (!groupedByDate[dateStr]) {
-            groupedByDate[dateStr] = [];
-        }
-        groupedByDate[dateStr].push({ studentId, student });
     });
 
     // Sort dates in descending order (newest first)

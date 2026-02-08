@@ -1625,6 +1625,45 @@ button:disabled {
     box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
 }
 
+.zoom-label {
+    font-family: 'Cairo', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.zoom-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    flex: 1;
+    height: 6px;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--primary-gold) 0%, var(--border-light) 100%);
+    outline: none;
+    min-width: 120px;
+    max-width: 200px;
+}
+
+.zoom-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary-gold) 0%, var(--primary-gold-dark) 100%);
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(212, 175, 55, 0.4);
+}
+
+.zoom-value {
+    font-family: 'Cairo', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--primary-gold);
+    min-width: 40px;
+    text-align: center;
+}
+
 .scanner-view-container {
     border-radius: 12px;
     overflow: hidden;
