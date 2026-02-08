@@ -746,10 +746,14 @@ function initializeFirebaseSync() {
                         allScanKeys.forEach(key => {
                             const fbVal = firebaseScans[key];
                             const localVal = localScans[key];
-                            // Handle both old format (string) and new format (array)
-                            const fbDates = Array.isArray(fbVal) ? fbVal : (typeof fbVal === 'string' ? [fbVal] : []);
-                            const localDates = Array.isArray(localVal) ? localVal : (typeof localVal === 'string' ? [localVal] : []);
-                            mergedScans[key] = [...new Set([...fbDates, ...localDates])].sort();
+                            // Handle old format (string), new format (array), and Firebase object format ({0: "date", 1: "date"})
+                            const toDateArray = (val) => {
+                                if (Array.isArray(val)) return val;
+                                if (typeof val === 'string') return [val];
+                                if (val && typeof val === 'object') return Object.values(val);
+                                return [];
+                            };
+                            mergedScans[key] = [...new Set([...toDateArray(fbVal), ...toDateArray(localVal)])].sort();
                         });
                         studentsData[studentId].scans = mergedScans;
 
@@ -2059,12 +2063,15 @@ async function submitScore(addAnother = false) {
         studentsData[studentId].scanHistory = {};
     }
 
-    // Migrate old scans format (single date string) to new format if needed
+    // Migrate old scans format to array if needed
     Object.keys(studentsData[studentId].scans).forEach(key => {
         const val = studentsData[studentId].scans[key];
         if (typeof val === 'string') {
             // Old format: scans[type] = "2024-01-15" → convert to array
             studentsData[studentId].scans[key] = [val];
+        } else if (val && typeof val === 'object' && !Array.isArray(val)) {
+            // Firebase object format: {0: "2024-01-15", 1: "2024-01-16"} → convert to array
+            studentsData[studentId].scans[key] = Object.values(val);
         }
     });
 
@@ -2222,30 +2229,62 @@ function renderScoresTable(filteredData = null) {
     // Arabic day names
     const arabicDayNames = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 
-    // Group students by date using scanHistory (each day the student was scanned gets its own entry)
+    // Helper: convert scans value (string, array, or Firebase object) to date array
+    const toDateArray = (v) => Array.isArray(v) ? v : (typeof v === 'string' ? [v] : (v && typeof v === 'object' ? Object.values(v) : []));
+
+    // Group students by date - each day the student was scanned gets its own row
     const groupedByDate = {};
     Object.entries(dataToRender).forEach(([studentId, student]) => {
-        const scanHistory = student.scanHistory;
-        if (scanHistory && Object.keys(scanHistory).length > 0) {
-            // Use scanHistory to create per-day entries
-            Object.keys(scanHistory).forEach(dateStr => {
+        const scanHistory = student.scanHistory || {};
+        const scans = student.scans || {};
+        const historyDates = new Set(Object.keys(scanHistory));
+
+        // Collect ALL dates this student was ever scanned (from both scanHistory and scans)
+        const allDates = new Set(historyDates);
+        Object.keys(scans).forEach(scoreType => {
+            toDateArray(scans[scoreType]).forEach(d => allDates.add(d));
+        });
+
+        if (allDates.size > 0) {
+            allDates.forEach(dateStr => {
                 if (!groupedByDate[dateStr]) {
                     groupedByDate[dateStr] = [];
                 }
-                // Create a view of the student with only that day's scores
-                const dayData = scanHistory[dateStr];
-                groupedByDate[dateStr].push({
-                    studentId,
-                    student: {
-                        ...student,
-                        scores: dayData.scores || {},
-                        lastUpdated: dayData.lastUpdated || student.lastUpdated,
-                        lastUpdatedBy: dayData.lastUpdatedBy || student.lastUpdatedBy
-                    }
-                });
+
+                if (scanHistory[dateStr]) {
+                    // We have detailed per-day scores from scanHistory
+                    const dayData = scanHistory[dateStr];
+                    groupedByDate[dateStr].push({
+                        studentId,
+                        student: {
+                            ...student,
+                            scores: dayData.scores || {},
+                            lastUpdated: dayData.lastUpdated || student.lastUpdated,
+                            lastUpdatedBy: dayData.lastUpdatedBy || student.lastUpdatedBy
+                        }
+                    });
+                } else {
+                    // Legacy date from scans (no per-day breakdown) — show which score types were scanned that day
+                    const dayScores = {};
+                    Object.keys(scans).forEach(scoreType => {
+                        const dates = toDateArray(scans[scoreType]);
+                        if (dates.includes(dateStr)) {
+                            dayScores[scoreType] = student.scores?.[scoreType] || 0;
+                        }
+                    });
+                    groupedByDate[dateStr].push({
+                        studentId,
+                        student: {
+                            ...student,
+                            scores: dayScores,
+                            lastUpdated: student.lastUpdated,
+                            lastUpdatedBy: student.lastUpdatedBy
+                        }
+                    });
+                }
             });
         } else {
-            // Fallback for students without scanHistory (legacy data) - use lastUpdated
+            // No scan data at all - fall back to lastUpdated
             let dateStr = 'unknown';
             if (student.lastUpdated) {
                 if (typeof student.lastUpdated === 'string') {
@@ -2770,7 +2809,7 @@ async function saveStudentEdit(studentId) {
         // Delete old entry from local data
         delete studentsData[studentId];
 
-        // Create new entry with new name, preserving scans data
+        // Create new entry with new name, preserving scans and scanHistory data
         studentsData[newStudentKey] = {
             name: newName,
             academicYear: newAcademicYear,
@@ -2778,6 +2817,7 @@ async function saveStudentEdit(studentId) {
             teamResponsible: newTeamResponsible,
             scores: newScores,
             scans: oldStudentData.scans || {},
+            scanHistory: oldStudentData.scanHistory || {},
             lastUpdated: new Date().toISOString(),
             lastUpdatedBy: currentAdmin
         };
@@ -3120,13 +3160,30 @@ function applyFilters() {
         );
     }
 
-    // Filter by date
+    // Filter by date - check scanHistory, scans, and lastUpdated
     if (dateFilter) {
         filteredData = Object.fromEntries(
             Object.entries(filteredData).filter(([id, student]) => {
+                // Check scanHistory first
+                if (student.scanHistory && student.scanHistory[dateFilter]) {
+                    return true;
+                }
+                // Check scans dates
+                if (student.scans) {
+                    for (const scoreType of Object.keys(student.scans)) {
+                        const val = student.scans[scoreType];
+                        const dates = Array.isArray(val) ? val : (typeof val === 'string' ? [val] : (val && typeof val === 'object' ? Object.values(val) : []));
+                        if (dates.includes(dateFilter)) return true;
+                    }
+                }
+                // Fallback to lastUpdated
                 if (!student.lastUpdated) return false;
-                const studentDate = new Date(student.lastUpdated).toISOString().split('T')[0];
-                return studentDate === dateFilter;
+                try {
+                    const studentDate = new Date(student.lastUpdated).toISOString().split('T')[0];
+                    return studentDate === dateFilter;
+                } catch (e) {
+                    return false;
+                }
             })
         );
     }
