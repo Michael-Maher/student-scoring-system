@@ -2445,7 +2445,7 @@ async function editStudentRow(studentId, dateStr) {
 
     // Delete button: if multiple days, only delete this day. If single day, delete entire student.
     const deleteButtonHTML = hasMultipleDays
-        ? `<button onclick="deleteDayRecord('${studentId}', '${dateStr}')" class="delete-btn">🗑️ حذف سجل هذا اليوم</button>`
+        ? `<button onclick="deleteDayRecord('${studentId}', '${dateStr}')" class="delete-btn">🗑️ حذف</button>`
         : `<button onclick="deleteStudent('${studentId}')" class="delete-btn">🗑️ حذف</button>`;
 
     let dialogHTML = `
