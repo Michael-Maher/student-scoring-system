@@ -723,6 +723,7 @@ function migrateScansToDaily(student) {
     });
 }
 
+
 function initializeFirebaseSync() {
     console.log('🔄 initializeFirebaseSync called');
     if (!window.firebase) {
@@ -2342,7 +2343,7 @@ function renderScoresTable(filteredData = null) {
                     <td class="total-column"><strong>${total}</strong></td>
                     <td class="col-hide-mobile">${timeOnly}</td>
                     <td class="col-hide-mobile">${student.lastUpdatedBy || 'غير معروف'}</td>
-                    <td><button onclick="editStudentRow('${studentId}')" class="edit-row-btn action-btn edit-btn">✏️</button></td>
+                    <td><button onclick="editStudentRow('${studentId}', '${dateStr}')" class="edit-row-btn action-btn edit-btn">✏️</button></td>
                 </tr>
             `;
         });
@@ -2372,8 +2373,8 @@ function formatTimeOnly(isoString) {
     }
 }
 
-// Edit student row function
-async function editStudentRow(studentId) {
+// Edit student row function - dateStr indicates which day's row was clicked
+async function editStudentRow(studentId, dateStr) {
     const student = studentsData[studentId];
     if (!student) {
         showNotification('المخدوم غير موجود', 'error');
@@ -2400,10 +2401,29 @@ async function editStudentRow(studentId) {
     // Check if current year value is custom (not in configured lists)
     const isYearCustom = student.academicYear && !yearMatchFound;
 
+    // Get this day's scores from dailyScores
+    const dailyScores = student.dailyScores || {};
+    const dayScores = {};
+    Object.keys(dailyScores).forEach(key => {
+        if (key.startsWith(dateStr + '__')) {
+            const scoreType = key.substring(dateStr.length + 2);
+            dayScores[scoreType] = dailyScores[key];
+        }
+    });
+
+    // Count how many days this student has records
+    const allDates = new Set();
+    Object.keys(dailyScores).forEach(key => {
+        const sep = key.indexOf('__');
+        if (sep !== -1) allDates.add(key.substring(0, sep));
+    });
+    const hasMultipleDays = allDates.size > 1;
+
     // Create edit dialog content with modal structure
     let scoreFieldsHTML = '';
     ALL_SCORE_TYPE_IDS.forEach(typeId => {
-        const currentScore = student.scores?.[typeId] || 0;
+        // Show this day's score (not the total)
+        const currentScore = dayScores[typeId] || 0;
         scoreFieldsHTML += `
             <div class="form-group">
                 <label>${SCORE_TYPES[typeId].label}:</label>
@@ -2412,10 +2432,27 @@ async function editStudentRow(studentId) {
         `;
     });
 
+    // Format date for display
+    let dateDisplay = dateStr;
+    if (dateStr && dateStr !== 'unknown') {
+        try {
+            const arabicDayNames = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+            const dateObj = new Date(dateStr);
+            const dayName = arabicDayNames[dateObj.getDay()];
+            dateDisplay = `${dayName} - ${dateObj.toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' })}`;
+        } catch (e) { /* keep raw dateStr */ }
+    }
+
+    // Delete button: if multiple days, only delete this day. If single day, delete entire student.
+    const deleteButtonHTML = hasMultipleDays
+        ? `<button onclick="deleteDayRecord('${studentId}', '${dateStr}')" class="delete-btn">🗑️ حذف سجل هذا اليوم</button>`
+        : `<button onclick="deleteStudent('${studentId}')" class="delete-btn">🗑️ حذف</button>`;
+
     let dialogHTML = `
         <div class="modal-container">
             <div class="modal-header">
                 <h3>✏️ تعديل بيانات ${student.name}</h3>
+                <small style="color: var(--text-secondary); display: block; margin-top: 4px;">📅 ${dateDisplay}</small>
                 <button onclick="closeEditDialog()" class="modal-close-btn">✖️</button>
             </div>
             <div class="modal-body">
@@ -2445,8 +2482,8 @@ async function editStudentRow(studentId) {
                 ${scoreFieldsHTML}
             </div>
             <div class="modal-footer">
-                <button onclick="saveStudentEdit('${studentId}')" class="vip-button">💾 حفظ التغييرات</button>
-                <button onclick="deleteStudent('${studentId}')" class="delete-btn">🗑️ حذف</button>
+                <button onclick="saveStudentEdit('${studentId}', '${dateStr}')" class="vip-button">💾 حفظ التغييرات</button>
+                ${deleteButtonHTML}
                 <button onclick="closeEditDialog()" class="cancel-btn">✖️ إلغاء</button>
             </div>
         </div>
@@ -2706,7 +2743,7 @@ function onEditStudentAcademicYearSelectChange() {
     }
 }
 
-async function saveStudentEdit(studentId) {
+async function saveStudentEdit(studentId, dateStr) {
     const newName = document.getElementById('editStudentName').value.trim();
 
     // Get academic year from dropdown or custom input
@@ -2734,14 +2771,14 @@ async function saveStudentEdit(studentId) {
         return;
     }
 
-    // Collect all scores
-    const newScores = {};
+    // Collect the edited day scores from the form
+    const editedDayScores = {};
     ALL_SCORE_TYPE_IDS.forEach(typeId => {
         const input = document.getElementById(`editScore_${typeId}`);
         if (input) {
             const value = parseFloat(input.value) || 0;
             if (value > 0) {
-                newScores[typeId] = value;
+                editedDayScores[typeId] = value;
             }
         }
     });
@@ -2751,45 +2788,66 @@ async function saveStudentEdit(studentId) {
     const oldStudentData = { ...studentsData[studentId] };
     const oldName = oldStudentData.name;
 
-    // If student name changed, we need to delete old entry and create new one
+    // Update dailyScores for this specific date, then recalculate totals
+    const targetData = (newStudentKey !== studentId) ? oldStudentData : studentsData[studentId];
+    if (!targetData.dailyScores) targetData.dailyScores = {};
+
+    // Remove old dailyScores entries for this date
+    Object.keys(targetData.dailyScores).forEach(key => {
+        if (key.startsWith(dateStr + '__')) {
+            delete targetData.dailyScores[key];
+        }
+    });
+
+    // Add the edited day scores for this date
+    Object.keys(editedDayScores).forEach(scoreType => {
+        targetData.dailyScores[`${dateStr}__${scoreType}`] = editedDayScores[scoreType];
+    });
+
+    // Recalculate total scores from ALL dailyScores entries
+    const recalculatedScores = {};
+    Object.keys(targetData.dailyScores).forEach(key => {
+        const sep = key.indexOf('__');
+        if (sep === -1) return;
+        const scoreType = key.substring(sep + 2);
+        if (!recalculatedScores[scoreType]) {
+            recalculatedScores[scoreType] = 0;
+        }
+        recalculatedScores[scoreType] += targetData.dailyScores[key];
+    });
+
     if (newStudentKey !== studentId) {
-        // Delete old entry from local data
+        // Name changed - delete old entry and create new one
         delete studentsData[studentId];
 
-        // Create new entry with new name, preserving dailyScores data
         studentsData[newStudentKey] = {
             name: newName,
             academicYear: newAcademicYear,
             team: newTeam,
             teamResponsible: newTeamResponsible,
-            scores: newScores,
-            dailyScores: oldStudentData.dailyScores || {},
+            scores: recalculatedScores,
+            dailyScores: targetData.dailyScores,
             lastUpdated: new Date().toISOString(),
             lastUpdatedBy: currentAdmin
         };
 
         // Update Firebase
         if (window.firebase && window.firebase.database) {
-            // Delete old entry
             const oldRef = window.firebase.ref(window.firebase.database, `students/${studentId}`);
             await window.firebase.set(oldRef, null);
-
-            // Save new entry
             await saveToFirebase(newStudentKey, studentsData[newStudentKey]);
         }
 
-        // Save to localStorage
         saveData();
     } else {
-        // Just update data - name unchanged
+        // Name unchanged - update in place
         studentsData[studentId].academicYear = newAcademicYear;
         studentsData[studentId].team = newTeam;
         studentsData[studentId].teamResponsible = newTeamResponsible;
-        studentsData[studentId].scores = newScores;
+        studentsData[studentId].scores = recalculatedScores;
         studentsData[studentId].lastUpdated = new Date().toISOString();
         studentsData[studentId].lastUpdatedBy = currentAdmin;
 
-        // Save to Firebase
         await saveToFirebase(studentId, studentsData[studentId]);
     }
 
@@ -2823,6 +2881,62 @@ async function deleteStudent(studentId) {
     closeEditDialog();
     renderScoresTable();
     showNotification('تم حذف المخدوم', 'info');
+}
+
+// Delete only a specific day's record for a student (not the entire student)
+async function deleteDayRecord(studentId, dateStr) {
+    const student = studentsData[studentId];
+    if (!student) return;
+
+    if (!confirm(`هل أنت متأكد من حذف سجل "${student.name}" ليوم ${dateStr}؟`)) {
+        return;
+    }
+
+    if (!student.dailyScores) {
+        showNotification('لا يوجد سجلات يومية لهذا المخدوم', 'error');
+        return;
+    }
+
+    // Remove all dailyScores entries for this specific date
+    Object.keys(student.dailyScores).forEach(key => {
+        if (key.startsWith(dateStr + '__')) {
+            delete student.dailyScores[key];
+        }
+    });
+
+    // Recalculate total scores from remaining dailyScores
+    const recalculatedScores = {};
+    Object.keys(student.dailyScores).forEach(key => {
+        const sep = key.indexOf('__');
+        if (sep === -1) return;
+        const scoreType = key.substring(sep + 2);
+        if (!recalculatedScores[scoreType]) {
+            recalculatedScores[scoreType] = 0;
+        }
+        recalculatedScores[scoreType] += student.dailyScores[key];
+    });
+
+    student.scores = recalculatedScores;
+    student.lastUpdated = new Date().toISOString();
+    student.lastUpdatedBy = currentAdmin;
+
+    // If no dailyScores left at all, delete the entire student
+    if (Object.keys(student.dailyScores).length === 0) {
+        delete studentsData[studentId];
+        if (window.firebase && window.firebase.database) {
+            const studentRef = window.firebase.ref(window.firebase.database, `students/${studentId}`);
+            await window.firebase.set(studentRef, null);
+        }
+    } else {
+        // Save updated student
+        saveData();
+        await saveToFirebase(studentId, student);
+    }
+
+    closeEditDialog();
+    populateFilterDropdowns();
+    applyFilters();
+    showNotification('تم حذف سجل اليوم بنجاح', 'success');
 }
 
 // Sync student data to corresponding QR code
