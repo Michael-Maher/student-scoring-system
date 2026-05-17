@@ -2259,6 +2259,71 @@ function renderScoresTable(filteredData = null) {
 
     let tableHTML = '<div class="table-scroll-hint">← اسحب للمشاهدة ←</div>';
 
+    // When a filter/search is active, show each student's accumulated total grade
+    const isFiltered = filteredData !== null;
+    if (isFiltered) {
+        const uniqueStudents = Object.entries(dataToRender);
+        if (uniqueStudents.length > 0) {
+            const scoreTypeHeaders = ALL_SCORE_TYPE_IDS.map(typeId => {
+                const scoreType = SCORE_TYPES[typeId];
+                return `<th>${scoreType ? scoreType.label : typeId}</th>`;
+            }).join('');
+
+            let summaryRows = '';
+            // Sort by total descending
+            const withTotals = uniqueStudents.map(([id, student]) => {
+                const fullStudent = studentsData[id] || student;
+                let total = 0;
+                ALL_SCORE_TYPE_IDS.forEach(typeId => { total += fullStudent.scores?.[typeId] || 0; });
+                return { id, student: fullStudent, total };
+            }).sort((a, b) => b.total - a.total);
+
+            withTotals.forEach(({ id, student, total }, index) => {
+                const teamColor = getTeamColor(student.team);
+                const rowStyle = teamColor
+                    ? `border-right: 6px solid ${teamColor}; background: linear-gradient(90deg, ${teamColor}20 0%, transparent 40%);`
+                    : '';
+                const scoreCells = ALL_SCORE_TYPE_IDS.map(typeId => {
+                    const score = student.scores?.[typeId];
+                    return score !== undefined ? `<td>${score}</td>` : '<td>-</td>';
+                }).join('');
+                const rank = index + 1;
+                const rankBadge = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
+                summaryRows += `
+                    <tr style="${rowStyle}">
+                        <td><strong>${rankBadge}</strong></td>
+                        <td><strong>${student.name}</strong></td>
+                        <td>${student.team || '-'}</td>
+                        ${scoreCells}
+                        <td class="total-column"><strong>${total}</strong></td>
+                    </tr>
+                `;
+            });
+
+            tableHTML += `
+                <div class="search-summary-section">
+                    <div class="date-section-header" style="margin-bottom:0;border-radius:8px 8px 0 0;">
+                        <span class="date-title">📊 إجمالي نقاط المخدومين (${uniqueStudents.length} مخدوم)</span>
+                    </div>
+                    <div class="date-section-content">
+                        <table class="scores-data-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>الاسم</th>
+                                    <th>الفريق</th>
+                                    ${scoreTypeHeaders}
+                                    <th class="total-column">الإجمالي الكلي</th>
+                                </tr>
+                            </thead>
+                            <tbody>${summaryRows}</tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+    }
+
     // Render each date group
     sortedDates.forEach(dateStr => {
         const students = groupedByDate[dateStr];
@@ -3273,6 +3338,12 @@ function toggleLeaderboard() {
     const btn = document.getElementById('leaderboardBtn');
 
     if (isLeaderboardMode) {
+        // Turn off teams leaderboard if active
+        if (isTeamsLeaderboardMode) {
+            isTeamsLeaderboardMode = false;
+            const tlBtn = document.getElementById('teamsLeaderboardBtn');
+            if (tlBtn) { tlBtn.textContent = '🥇 ترتيب الفرق'; tlBtn.classList.remove('active'); }
+        }
         btn.textContent = '📊 عرض عادي';
         btn.classList.add('active');
         renderLeaderboard();
@@ -3357,6 +3428,107 @@ function renderLeaderboard() {
         </table>
     `;
 
+    tableContainer.innerHTML = tableHTML;
+}
+
+// Teams leaderboard functionality
+let isTeamsLeaderboardMode = false;
+
+function toggleTeamsLeaderboard() {
+    isTeamsLeaderboardMode = !isTeamsLeaderboardMode;
+    const btn = document.getElementById('teamsLeaderboardBtn');
+
+    if (isTeamsLeaderboardMode) {
+        // Turn off individual leaderboard if active
+        if (isLeaderboardMode) {
+            isLeaderboardMode = false;
+            const lbBtn = document.getElementById('leaderboardBtn');
+            lbBtn.textContent = '🏆 عرض الترتيب';
+            lbBtn.classList.remove('active');
+        }
+        btn.textContent = '📊 عرض عادي';
+        btn.classList.add('active');
+        renderTeamsLeaderboard();
+    } else {
+        btn.textContent = '🥇 ترتيب الفرق';
+        btn.classList.remove('active');
+        renderScoresTable();
+    }
+}
+
+function renderTeamsLeaderboard() {
+    const tableContainer = document.getElementById('scoresTable');
+
+    if (Object.keys(studentsData).length === 0) {
+        tableContainer.innerHTML = '<p style="text-align: center; color: #ffffff; font-style: italic;">لم يتم تسجيل أي نقاط بعد.</p>';
+        return;
+    }
+
+    // Aggregate scores per team
+    const teamTotals = {};
+    Object.values(studentsData).forEach(student => {
+        const teamName = student.team || 'بدون فريق';
+        if (!teamTotals[teamName]) {
+            teamTotals[teamName] = { total: 0, memberCount: 0, scores: {} };
+            ALL_SCORE_TYPE_IDS.forEach(typeId => { teamTotals[teamName].scores[typeId] = 0; });
+        }
+        teamTotals[teamName].memberCount += 1;
+        ALL_SCORE_TYPE_IDS.forEach(typeId => {
+            const s = student.scores?.[typeId] || 0;
+            teamTotals[teamName].scores[typeId] += s;
+            teamTotals[teamName].total += s;
+        });
+    });
+
+    // Sort teams by total descending
+    const sortedTeams = Object.entries(teamTotals).sort((a, b) => b[1].total - a[1].total);
+
+    const scoreTypeHeaders = ALL_SCORE_TYPE_IDS.map(typeId =>
+        `<th>${SCORE_TYPES[typeId]?.label || typeId}</th>`
+    ).join('');
+
+    let tableHTML = `
+        <div class="leaderboard-header">
+            <h3>🥇 ترتيب الفرق حسب إجمالي النقاط</h3>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>الترتيب</th>
+                    <th>الفريق</th>
+                    <th>عدد الأعضاء</th>
+                    ${scoreTypeHeaders}
+                    <th class="total-column">المجموع</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    sortedTeams.forEach(([teamName, data], index) => {
+        const rank = index + 1;
+        let rankBadge = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
+        const teamColor = getTeamColor(teamName);
+        const colorDot = teamColor ? `<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${teamColor};margin-left:6px;vertical-align:middle;"></span>` : '';
+        const rowStyle = teamColor
+            ? `border-right: 6px solid ${teamColor}; background: linear-gradient(90deg, ${teamColor}20 0%, transparent 40%);`
+            : '';
+
+        const scoreCells = ALL_SCORE_TYPE_IDS.map(typeId =>
+            `<td>${data.scores[typeId] || 0}</td>`
+        ).join('');
+
+        tableHTML += `
+            <tr class="rank-${rank}" style="${rowStyle}">
+                <td><strong>${rankBadge}</strong></td>
+                <td><strong>${colorDot}${teamName}</strong></td>
+                <td>${data.memberCount}</td>
+                ${scoreCells}
+                <td class="total-column"><strong>${data.total}</strong></td>
+            </tr>
+        `;
+    });
+
+    tableHTML += `</tbody></table>`;
     tableContainer.innerHTML = tableHTML;
 }
 
@@ -7168,6 +7340,7 @@ window.submitScore = submitScore;
 window.cancelScoring = cancelScoring;
 window.clearFilters = clearFilters;
 window.toggleLeaderboard = toggleLeaderboard;
+window.toggleTeamsLeaderboard = toggleTeamsLeaderboard;
 window.exportToExcel = exportToExcel;
 window.clearAllData = clearAllData;
 window.generateQRCode = generateQRCode;

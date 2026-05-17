@@ -2228,6 +2228,16 @@ button:disabled {
     border-radius: 0;
 }
 
+/* Search/filter student summary section */
+.search-summary-section {
+    margin-bottom: 24px;
+    background: var(--bg-card);
+    border-radius: 16px;
+    box-shadow: var(--shadow-md);
+    border: 2px solid var(--primary-gold);
+    overflow: hidden;
+}
+
 /* Filter Controls */
 .filter-controls {
     display: flex;
